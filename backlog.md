@@ -57,7 +57,7 @@ research hypothesis was confirmed or refuted. None has closed yet.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-01](docs/backlog/B-01-repository-skeleton.md) `[ ]` | Repository skeleton and the multiplatform build | P0 | M | - |
+| [B-01](docs/backlog/B-01-repository-skeleton.md) `[~]` | Repository skeleton and the multiplatform build | P0 | M | - |
 | [B-03](docs/backlog/B-03-negative-control.md) `[ ]` | The negative control: run the oracle against the unfixed shape | P0 | M | B-05, B-06 |
 | [B-04](docs/backlog/B-04-stage-machine.md) `[ ]` | The stage machine and its recorded transitions | P0 | M | - |
 | [B-05](docs/backlog/B-05-sample-service.md) `[ ]` | The sample service: one source, two binaries | P0 | M | B-01 |

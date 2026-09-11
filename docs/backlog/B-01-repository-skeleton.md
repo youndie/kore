@@ -1,7 +1,7 @@
 ---
 id: B-01
 title: "Repository skeleton and the multiplatform build"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m0-shape
