@@ -168,9 +168,9 @@ silently absorbed.
 
 ## 5. Scenarios (BDD)
 
-**Five of nine are automated as of B-39.** Four go through the oracle against a real container taking
-a real `SIGTERM`; one is the stage machine's own. The four that remain need a participant that hangs
-or throws, a booblik producer, or the startup refusal of B-12 — none of which the sample has yet. A
+**Six of nine are automated as of B-12.** Four go through the oracle against a real container taking
+a real `SIGTERM`; one is the stage machine's own. The three that remain need a participant that hangs or
+throws, or a booblik producer — none of which the sample has yet. A
 scenario gains its line when a test covers **all** of it; the absence is the honest signal and
 `bdd_report` counts it as manual.
 
@@ -240,6 +240,7 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **Given:** stage deadlines summing to more than the grace period kore was told about
 * **When:** the process starts
 * **Then:** it refuses to start and names the two numbers
+* **Automated:** `ShutdownPlanTest`
 
 ## 6. Out of scope
 

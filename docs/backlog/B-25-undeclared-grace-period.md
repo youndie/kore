@@ -27,3 +27,18 @@ tells it what the grace period is.
 - AC: a decision recorded here and implemented in [B-12](B-12-deadlines-must-fit.md); `--print-config`
   shows the assumed value and its origin.
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/`
+
+## The hypothesis is implemented and the question is still open — 2026-09-12
+
+[B-12](B-12-deadlines-must-fit.md) had to do *something* when it is not told the grace period, so it
+does what this item's leading hypothesis says: assumes the Kubernetes default of 30 s, and **prints
+that it assumed**, both in `ShutdownDeadlines.describe()` and in the refusal message
+(`"(assumed; kore was not told)"`).
+
+**That is not this item being decided.** It is the hypothesis running so the rest of the library
+could be built, and the alternatives it names are still on the table — refusing to start without one,
+or skipping the fit check when the period is unknown. What the implementation does settle is the
+half that was never in doubt: the assumption is visible rather than silent.
+
+Changing the answer is now a small change in one constructor, which is the right size for a decision
+that belongs to somebody else.
