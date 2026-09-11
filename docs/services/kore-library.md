@@ -81,6 +81,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` | **built (B-17)** — the three probes and the `/health` alias |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeBlock.kt` | **built (B-23)** — the chart block `--print-config` prints |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the version route — B-27 |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
 | `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |
