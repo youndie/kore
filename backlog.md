@@ -99,8 +99,8 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
-| [B-20](docs/backlog/B-20-pre-drain-default.md) `[ ]` | Measure and settle the pre-drain default | P1 | S | B-09 |
-| [B-24](docs/backlog/B-24-unknown-variable-refusal.md) `[ ]` | Prefix scoping and the unknown-variable refusal | P1 | S | B-22 |
+| [B-20](docs/backlog/B-20-pre-drain-default.md) `[ ]` | Measure and settle the pre-drain default | P1 | S | B-09, B-33 |
+| [B-24](docs/backlog/B-24-unknown-variable-refusal.md) `[~]` | Prefix scoping and the unknown-variable refusal | P1 | S | B-22 |
 | [B-26](docs/backlog/B-26-build-identity-plugin.md) `[ ]` | The Gradle plugin that generates the build identity | P1 | M | B-01 |
 | [B-28](docs/backlog/B-28-observability-wiring.md) `[ ]` | The three agents in one call, with three shutdown contracts | P1 | M | B-11, B-21, B-37 |
 | [B-33](docs/backlog/B-33-publish-and-adopt.md) `[ ]` | Publish kore and adopt it in the first consumer | P1 | M | B-13, B-17, B-23, B-28 |

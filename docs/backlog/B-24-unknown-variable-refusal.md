@@ -1,7 +1,7 @@
 ---
 id: B-24
 title: "Prefix scoping and the unknown-variable refusal"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m4-config
