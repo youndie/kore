@@ -124,6 +124,11 @@ time a gate looks like it covers more than it does.
 - **A clean `SIGTERM` shutdown exits `0` on Kotlin/Native and `143` on the JVM.** Both are right.
   Never assert a specific exit code across the two; assert that the process ended itself and was not
   `SIGKILL`ed (`137`).
+- **Commit before you mutate, and rebuild after you revert.** `git checkout -- <dir>` restores the
+  whole directory to HEAD, so a mutation revert silently deletes every *uncommitted* edit beside the
+  mutated line. It happened in B-11: three production edits vanished, the tests that needed them were
+  committed without them, and the local build was never re-run. CI caught it; nothing local would
+  have.
 - **Rebuild the image, not just the binary.** An experiment against a container measures whatever is
   in the image. Rebuilding the Kotlin and re-running produced four cells of results about the
   previous build, consistently and convincingly.

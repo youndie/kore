@@ -59,3 +59,22 @@ reason on the parameter.
 
 **Not done:** the grace-period fit check, which is [B-12](B-12-deadlines-must-fit.md) and now has a
 `total` to compare against; and the end-to-end proof, [B-39](B-39-kore-wired-sample.md).
+
+## Iteration 2 — 2026-09-12, and it is about the process rather than the code
+
+**The first pull request went red in CI and green on the build box**, which is the one thing the
+gate of [B-07](B-07-native-link-cost.md) was added to make impossible to ignore. It earned its keep
+on its first real test.
+
+What happened: the mutation for the dwell was run **before** the production edits were committed, and
+the revert afterwards was `git checkout -- kore-core/src/commonMain/` — the whole directory, back to
+HEAD. That deleted all three production edits, not the one mutated line. The tests, which live in
+`commonTest`, survived; they were then committed against production code that no longer had
+`StageDuration` in it, and the local build was never re-run after the revert.
+
+Every local signal was green. `make check` reads documents. The build had last been run before the
+revert. Nothing on this machine would have caught it.
+
+Now a rule in `CLAUDE.md`: **commit before you mutate, and rebuild after you revert.** The earlier
+iterations did commit first — B-04 and B-08 both say so — and this one did not, which is the whole
+lesson: the discipline was known and skipped, and only the gate noticed.
