@@ -1,7 +1,7 @@
 ---
 id: B-06
 title: "The oracle harness: load, signal, assertions"
-status: open
+status: wip
 priority: P0
 size: L
 stage: m1-oracle
