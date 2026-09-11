@@ -47,7 +47,48 @@ Three things about this backlog that are not obvious from the items:
 | `m6-release` | Release | published, adopted by the first consumer, measured, and the upstream findings filed |
 
 A milestone closes as a whole and gets a line here saying what came out beyond the plan and which
-research hypothesis was confirmed or refuted. None has closed yet.
+research hypothesis was confirmed or refuted.
+
+### M1 closed — 2026-09-11
+
+**The premise of the library is confirmed by experiment, and it is narrower than it was written.**
+Same source, same configuration, same load: with a stop subscriber that closes a resource an
+in-flight request uses, the JVM is fine and Kotlin/Native returns **48 responses in 5xx on every
+run** ([the matrix](docs/research/measurements-2026-09-11/negative-control.md), 18 runs). Research
+§1.1 is no longer a reading of two source files.
+
+**One hypothesis refuted, and it was §1.1's own.** It asked whether an in-flight call is cancelled by
+`disposeAndJoin()` on Native and said the consequence was the same either way. It is not: every
+in-flight request completes there. The danger is the *subscriber* closing a pool, not Ktor killing
+the request — a smaller claim, and a true one. [B-14](docs/backlog/B-14-inflight-hypothesis.md)
+closed a milestone early and by a different item than planned.
+
+**Three things came out that were not in the plan:**
+
+* **CIO refuses nothing while it drains — it keeps serving, for the whole grace period.** 48 requests
+  after the signal on already-open connections, no `503`, no `Connection: close`. So kore's refusal
+  is a plugin kore installs, and the drain deadline is the shutdown duration under load rather than a
+  ceiling. New research §1.13; it reshaped two feature documents.
+* **Ktor's default grace period is 1000 ms**, so an unconfigured service drops in-flight work on both
+  platforms for a reason unrelated to ordering — a simpler justification for the library than the one
+  it was founded on, and one that hides the founding one underneath it.
+* **CI compiled nothing.** [B-07](docs/backlog/B-07-native-link-cost.md) was raised to P0 out of
+  numeric order once the loop was allowed to merge its own green pull requests: "green" meant the
+  documentation gate. Two pull requests had already merged on that signal.
+
+**Two facts about other people's code, both found by resolving rather than reading**, which cost a
+decision and produced two questions: `booblik-native` exists and D5's premise did not
+([B-36](docs/backlog/B-36-booblik-adapter-targets.md)), and none of the three observability agents is
+on Maven Central ([B-37](docs/backlog/B-37-agents-not-on-central.md)).
+
+**What the stage cost, measured:** CI build 1m48s cold and 1m39s with `~/.konan` warm, 2m33s once the
+sample's release link joined it; `linkReleaseExecutableLinuxX64` 35.3 s against 1.4 s for debug;
+images 47.7 MB native and 493 MB JVM.
+
+**The uncomfortable one.** Three separate times an experiment silently measured nothing — a control
+whose subscriber closed nothing, a stale image, and a separator that fed an argument to the wrong
+parser. Each looked consistent and convincing. All three were caught by reading output rather than
+exit codes, and two are now rules in `CLAUDE.md`.
 
 ## Index
 
