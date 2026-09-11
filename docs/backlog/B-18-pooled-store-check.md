@@ -1,7 +1,7 @@
 ---
 id: B-18
 title: "The pooled-store check runs a statement, not an acquire"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m3-probes

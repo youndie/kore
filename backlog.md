@@ -99,7 +99,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
-| [B-18](docs/backlog/B-18-pooled-store-check.md) `[ ]` | The pooled-store check runs a statement, not an acquire | P1 | S | B-16 |
+| [B-18](docs/backlog/B-18-pooled-store-check.md) `[~]` | The pooled-store check runs a statement, not an acquire | P1 | S | B-16 |
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[ ]` | Measure and settle the pre-drain default | P1 | S | B-09 |
 | [B-24](docs/backlog/B-24-unknown-variable-refusal.md) `[ ]` | Prefix scoping and the unknown-variable refusal | P1 | S | B-22 |
 | [B-26](docs/backlog/B-26-build-identity-plugin.md) `[ ]` | The Gradle plugin that generates the build identity | P1 | M | B-01 |
