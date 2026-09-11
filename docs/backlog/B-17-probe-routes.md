@@ -1,7 +1,7 @@
 ---
 id: B-17
 title: "The three routes and the /health alias"
-status: open
+status: wip
 priority: P0
 size: S
 stage: m3-probes
