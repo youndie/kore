@@ -139,7 +139,14 @@ no server, no socket — with generated inputs:
 4. **A participant that throws does not stop the sequence.** The failure is recorded and the
    remaining stages still run — a shutdown that aborts halfway leaves exactly the resources open that
    the sequence exists to close.
-5. **The total time is bounded by the sum of the stage deadlines**, for every generated input.
+5. **The total time is bounded by the sum of the stage deadlines**, for every generated input —
+   *including* a participant that ignores cancellation. **Sharpened while implementing (B-04):** this
+   property is the one that decides an implementation detail rather than merely describing one. Under
+   structured concurrency a stage joins its participants on the way out, so a participant that blocks
+   in a way `withTimeout` cannot interrupt makes the bound a lie. The machine therefore *detaches*
+   the stage's scope and cancels it without joining — the bound is a promise about **waiting**, not
+   about stopping, and the generated inputs must include the uncooperative case or the property is
+   satisfied by an implementation that does not hold it.
 6. **The sequence runs exactly once** under concurrent triggers — two signals, or a signal and a
    programmatic stop.
 
@@ -155,12 +162,19 @@ red. A mutation that survives is a gap in the property, and the item is not done
 | Drop the pre-drain wait to zero | this one is invisible here by design — it is A5 in §2. Named so that the gap is recorded rather than discovered. |
 | Run the release stage's participants concurrently with the drain | 2 |
 | Let a participant's overrun extend its stage | 3, 5 |
+| Join the stage's scope instead of detaching it | 5, and only against an uncooperative participant — killed by hand in B-04 |
 | Let a throwing participant abort the sequence | 4 |
 | Remove the once-only guard | 6 |
 
 The second row is the honest one: a property test over the machine cannot see a *duration* that has
 been set to zero, because zero is a legal duration. That is why §2 and §3 are both gates and neither
 replaces the other.
+
+**Three of these were run by hand in B-04**, against the machine and its eleven example-based tests,
+before the generative version existed: reversing the specified order (2 of 13 red), joining the
+stage's scope instead of detaching it (1 red), and removing the once-only guard (1 red). B-13 repeats
+them against the generated inputs, where a surviving mutant means something different — that the
+*generator* never produced the case.
 
 ---
 

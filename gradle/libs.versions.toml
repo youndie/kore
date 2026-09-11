@@ -40,6 +40,12 @@ jvmToolchain = "25"
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+# Test-only, and it is load-bearing rather than a convenience: the stage machine is about DURATIONS,
+# and a test that waits real seconds for a five-second stage measures the runner and takes five
+# seconds doing it. `runTest` gives a virtual clock, and its scheduler's own `timeSource` is what the
+# transcript's marks are taken from, so an assertion about "the stage ended at its deadline" is exact
+# rather than approximately true.
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

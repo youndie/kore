@@ -9,6 +9,10 @@ kotlin {
     explicitApi()
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
         commonMain.dependencies {
             // `api` rather than `implementation`: a participant's contract is a suspending function
             // and the stage machine hands back coroutine types, so coroutines are part of kore's
