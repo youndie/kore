@@ -73,9 +73,9 @@ Where each concern will live. One module per reason to depend on something.
 |---|---|
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04, B-11)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript`, and `shutdownSequence { }` with `ShutdownDeadlines` (the assembly a consumer touches) |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | **built (B-16, B-09)** — `HealthCheck`, `HealthRegistry`, `HealthStatus.UNKNOWN` as a first-class answer, `ReadinessGate` — the two inputs a probe must not collapse — and `StartupGate` / `LivenessGate` (B-17) |
-| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` | **built (B-21)** — `ConfigKey`, `ConfigSchema`, `ConfigPair`, `Environment` (lookup only; enumeration is B-22) |
-| `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | enumeration through `__environ` — the target where the unknown-variable check is possible |
-| `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | the honest degradation of research §1.5: lookup works, enumeration does not |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` | **built (B-21, B-22)** — `ConfigKey`, `ConfigSchema`, `ConfigPair`, `Environment` and `EnvironmentNames` |
+| `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | **built (B-22)** — the `__environ` walk, checked against `/proc/self/environ` |
+| `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | **built (B-22)** — the declared gap of research §1.5. Compiles on a Linux host; its tests do not run there, so this branch is unexercised in CI |
 | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` | `System.getenv()`, which is the whole of it on this target |
 | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |

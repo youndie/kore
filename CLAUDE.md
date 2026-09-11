@@ -124,11 +124,21 @@ time a gate looks like it covers more than it does.
 - **A clean `SIGTERM` shutdown exits `0` on Kotlin/Native and `143` on the JVM.** Both are right.
   Never assert a specific exit code across the two; assert that the process ended itself and was not
   `SIGKILL`ed (`137`).
-- **Commit before you mutate, and rebuild after you revert.** `git checkout -- <dir>` restores the
-  whole directory to HEAD, so a mutation revert silently deletes every *uncommitted* edit beside the
-  mutated line. It happened in B-11: three production edits vanished, the tests that needed them were
-  committed without them, and the local build was never re-run. CI caught it; nothing local would
-  have.
+- **Commit EVERYTHING before you mutate, and rebuild after you revert.** `git checkout -- <dir>`
+  restores the whole directory to HEAD, so a mutation revert silently deletes every *uncommitted*
+  edit beside the mutated line. It has happened twice. In B-11 three production edits vanished and CI
+  caught it. In B-22 the production code **was** committed first — and a test written afterwards was
+  not, so the revert deleted the assertion the next mutation was being judged by, and that mutation
+  "survived". Committing the change is not enough; commit whatever you wrote since.
+- **After a mutation, check the test you are relying on actually ran.** Read the result file for its
+  name. A test that was deleted, never compiled in, or served from the build cache is indistinguishable
+  from a surviving mutant — all three look like a green build. In B-22 a 621 ms "BUILD SUCCESSFUL"
+  with `linuxX64Test UP-TO-DATE` was the Gradle cache answering, not the suite.
+- **An assertion whose power depends on the ambient environment works until the day it matters.**
+  Two tests of the environment walk passed against a deliberately broken one: "PATH is among the
+  names" catches a dropped first entry only if PATH is first, and "every listed name resolves" catches
+  a wrong split only if some value contains an `=`. The fix was a *second implementation* —
+  `/proc/self/environ` — not a better guess.
 - **Rebuild the image, not just the binary.** An experiment against a container measures whatever is
   in the image. Rebuilding the Kotlin and re-running produced four cells of results about the
   previous build, consistently and convincingly.
