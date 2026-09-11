@@ -108,3 +108,40 @@ it now asserts that the process ended itself inside the budget and was not `SIGK
 the code rather than judging it.
 
 These numbers say nothing about a shutdown *under load*, which is the one the oracle takes.
+
+---
+
+# The oracle's first runs — [B-06](../../backlog/B-06-oracle-harness.md)
+
+Closed loop, 8 keep-alive connections on `/work?ms=3000`, `SIGTERM` to PID 1, every observation from
+the client's own record. Run on the Linux build box.
+
+| Image | `shutdownGracePeriod` | A1 in-flight finished | Exit | After the signal |
+|---|---|---|---|---|
+| `kore-sample:jvm` | default (**1000 ms**) | **FAIL** — 8 of 8 cut off | 143 | 1435 ms |
+| `kore-sample:native` | default (**1000 ms**) | **FAIL** — 8 of 8 cut off | 0 | 1599 ms |
+| `kore-probe:jvm` | 20 000 ms | PASS — 8 of 8 completed | 143 | 20 452 ms |
+| `kore-probe:native` | 20 000 ms | PASS — 8 of 8 completed | 0 | 20 568 ms |
+
+The `kore-probe:*` images are the same source with `shutdownGracePeriod = 20_000` and
+`shutdownTimeout = 25_000`; the change was **not** kept, because the sample is the control and the
+control includes Ktor's defaults.
+
+Three things come out of this table and none of them was the question it was built to ask.
+
+1. **Ktor's default grace period is one second**, so an unconfigured service drops every request
+   slower than that, on both platforms, for a reason unrelated to ordering.
+2. **A run at the default cannot see the ordering question at all.** The first two rows look exactly
+   like §1.1's prediction and are not it. Written up as confirmation, they would have been a
+   confident wrong conclusion.
+3. **The drain serves rather than refuses.** In the 20-second runs the server handled **48 further
+   requests** on already-open connections after the signal, with **no `503` and no
+   `Connection: close`** — `exchanges: 64, spanning the signal: 8, after it: 48`. And it spent the
+   entire grace period doing it: ~20.5 s to exit for ~3 s of outstanding work.
+
+The harness's own first run was also wrong, and that is recorded rather than quietly fixed: A4
+reported **PASS** against a subject with no `/health/ready` at all, because "no readiness endpoint"
+was written as *every* poll returning 404 and the polls after shutdown return `null`. An assertion
+that passes where it has no subject is the exact failure this repository is written against, so the
+harness now reports `NOT_APPLICABLE` as a first-class verdict and an `INCONCLUSIVE` run exits
+non-zero.

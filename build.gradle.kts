@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
+    // The oracle is the one module that is not multiplatform; it drives the others from outside.
+    alias(libs.plugins.kotlin.jvm) apply false
 }
 
 // The target set of research D1, in one place rather than repeated in every module.

@@ -82,11 +82,12 @@ that changing it is an argument rather than a taste.
 | readiness refresh interval | 2 s | half the readiness probe period below, so a probe rarely reads a result older than one period |
 | dependency check timeout | 1 s | shorter than the refresh interval, so a slow check produces a stale result rather than a backlog of overlapping checks |
 | pre-drain wait | 5 s | the floor of research §1.10: readiness `periodSeconds` × `failureThreshold` — 2 × 3 = 6 s of probing in the worst case is already covered by the control plane marking the endpoint `ready: false`, so what remains to cover is rule propagation to every node. Five seconds is the portfolio's first estimate and is **explicitly a hypothesis** until the oracle measures it (research-oracle §4) |
-| drain deadline | 15 s | what is left of a 30 s grace period after the pre-drain wait and the release groups, with margin |
+| drain deadline | 15 s | what is left of a 30 s grace period after the pre-drain wait and the release groups, with margin. **Read it as "how long shutdown takes under load", not as a ceiling** — research §1.13 measured CIO spending the whole grace period whenever a keep-alive client is still connected |
 | release deadline, per group | 3 s | three groups, so 9 s worst case |
 
-Sum: 5 + 15 + 9 = 29 s against the Kubernetes default `terminationGracePeriodSeconds` of 30. That is
-deliberately tight, and it is the reason rule 9 of
+Sum: 5 + 15 + 9 = 29 s against the Kubernetes default `terminationGracePeriodSeconds` of 30. Since
+the drain is spent in full under load, that is also the **ordinary** shutdown duration of a busy pod,
+not a worst case. That is deliberately tight, and it is the reason rule 9 of
 [feature-ordered-shutdown](feature-ordered-shutdown.md) §2 makes kore refuse a configuration that
 does not fit: the defaults fit the default, and any service that raises one number must raise the
 grace period too.
