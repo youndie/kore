@@ -21,7 +21,7 @@ the code will live* unless it is in that list.
    - **`ApplicationStopPreparing` fires after the socket has stopped accepting** on CIO (§1.2), so it
      is useless for flipping readiness — which is the one thing its name suggests;
    - **the Native shutdown hook is one global slot and runs on the signal stack** (§1.3), so kore
-     never uses `addShutdownHook` and installs `sigaction` itself;
+     never uses `addShutdownHook` and installs its own handler, which writes a flag and nothing else;
    - **`Connection: close` in a response does not close a CIO connection** (§1.4) — the engine reads
      the *request's* header. kore promises the header, not the socket, and the oracle asserts
      accordingly;
@@ -130,6 +130,9 @@ time a gate looks like it covers more than it does.
 - **A control has to be able to fail for the reason it is testing.** Twelve consistent runs of the
   negative control demonstrated nothing about research §1.1, because its stop subscriber closed
   nothing. Before believing a green control, ask what would have to be true for it to go red.
+- **`runTest`'s clock is virtual, so never wait on a real thread inside it.** `withTimeout` there
+  expires without a microsecond of wall time passing, and the test fails against a mechanism that
+  works. Use `runBlocking` when the thing being awaited is a thread, a socket or a signal.
 - **Measure a task with `--no-build-cache --rerun-tasks`.** `org.gradle.caching=true` is on here, so
   `clean` plus a timed run measures the cache: the native release link came out at 0.76 s that way
   and at 35.3 s when actually run.
