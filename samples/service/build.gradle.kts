@@ -26,6 +26,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":kore-core"))
+            implementation(project(":kore-ktor"))
             implementation(libs.ktor.server.cio)
         }
     }

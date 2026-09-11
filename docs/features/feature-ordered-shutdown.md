@@ -168,10 +168,11 @@ silently absorbed.
 
 ## 5. Scenarios (BDD)
 
-**Mostly *target* behaviour.** The stage machine exists (B-04); nothing above it does, so a scenario
-that ends in a request, a status code or a process exit has nothing to run against. A scenario gains
-an `**Automated:**` line when a test covers **all** of it — the absence of the line is the honest
-signal, and `bdd_report` counts it as manual.
+**Five of nine are automated as of B-39.** Four go through the oracle against a real container taking
+a real `SIGTERM`; one is the stage machine's own. The four that remain need a participant that hangs
+or throws, a booblik producer, or the startup refusal of B-12 — none of which the sample has yet. A
+scenario gains its line when a test covers **all** of it; the absence is the honest signal and
+`bdd_report` counts it as manual.
 
 ### Scenario: a request in flight when the signal arrives is finished
 * **Given:** the service is serving and `N` requests are in flight on the slow route
@@ -179,6 +180,7 @@ signal, and `bdd_report` counts it as manual.
 * **Then:** every one of those `N` requests receives a complete response
 * **And:** none of them receives `500`
 * **And:** the assertion is made from the client's record, not from the server's log
+* **Automated:** `negative-control.sh`
 
 ### Scenario: readiness falls before the drain begins
 * **Given:** the service is serving and a poller is calling `GET /health/ready` every 100 ms
@@ -186,6 +188,7 @@ signal, and `bdd_report` counts it as manual.
 * **Then:** `/health/ready` answers `503` strictly before the first request is refused
 * **And:** the interval between that `503` and the first refusal is at least the configured
   pre-drain wait
+* **Automated:** `negative-control.sh`
 
 ### Scenario: a request arriving during the drain is refused, and says so
 * **Given:** the process has entered the drain stage
@@ -193,6 +196,7 @@ signal, and `bdd_report` counts it as manual.
 * **Then:** the response is `503`
 * **And:** it carries `Connection: close`
 * **And:** it is **not** asserted that the server closed the socket — research D6
+* **Automated:** `negative-control.sh`
 
 ### Scenario: a participant that hangs does not consume the drain
 * **Given:** a registered consumer whose flush never returns
@@ -230,6 +234,7 @@ signal, and `bdd_report` counts it as manual.
 * **When:** each is put through the run above
 * **Then:** every assertion has the same outcome on both
 * **And:** a divergence fails the run rather than being reported as a platform difference
+* **Automated:** `negative-control.sh`
 
 ### Scenario: a sequence that cannot fit is refused at startup
 * **Given:** stage deadlines summing to more than the grace period kore was told about
