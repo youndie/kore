@@ -129,8 +129,9 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 
 ## 7. Scenarios (BDD)
 
-**Five of six are automated as of B-17.** The sixth needs a real pooled store and is
-[B-18](../backlog/B-18-pooled-store-check.md). A scenario gains its line when a test covers **all** of
+**All six are automated as of B-18.** The last one runs against a double that reproduces the
+documented failure rather than a real driver — that distinction is on the scenario itself, and a real
+store in the sample is [B-40](../backlog/B-40-sample-pooled-store.md). A scenario gains its line when a test covers **all** of
 it; where a clause is a consequence rather than a second observable, the scenario says so instead of
 quietly counting it.
 
@@ -175,6 +176,10 @@ quietly counting it.
   gone
 * **When:** the readiness check runs
 * **Then:** it fails, because it ran a statement rather than taking a handle
+* **And:** the same pool, in the same state, passes an `acquire`-shaped check — which is the whole
+  difference, and is asserted in the same test
+* **Automated:** `PooledStoreCheckTest` — against a double that reproduces the documented failure, not
+  a real driver; a real store is [B-40](../backlog/B-40-sample-pooled-store.md)
 
 ## 8. Out of scope
 
