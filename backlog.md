@@ -98,7 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-21](docs/backlog/B-21-config-schema.md) `[ ]` | The schema DSL and the reader | P0 | M | - |
+| [B-21](docs/backlog/B-21-config-schema.md) `[~]` | The schema DSL and the reader | P0 | M | - |
 | [B-22](docs/backlog/B-22-environment-enumeration.md) `[ ]` | Environment enumeration per target, and the honest macOS gap | P0 | M | B-21 |
 | [B-23](docs/backlog/B-23-print-config.md) `[ ]` | --print-config: values, origins, masks, and the probe block | P0 | S | B-21 |
 | [B-12](docs/backlog/B-12-deadlines-must-fit.md) `[ ]` | Refuse at startup a sequence that cannot fit the grace period | P1 | S | B-11 |

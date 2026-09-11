@@ -1,7 +1,7 @@
 ---
 id: B-21
 title: "The schema DSL and the reader"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m4-config
