@@ -5,8 +5,10 @@ shutdown, three probes, a typed configuration from the environment, one-call obs
 and `/version`. **Native-first** — `linuxX64` and `linuxArm64` decide the design; `jvm` and
 `macosArm64` follow.
 
-**There is no code yet.** This repository is research, a backlog and the layer documents. Treat every
-path under `kore-*/` or `samples/` mentioned in a document as *where the code will live*.
+**Almost no code yet.** Three module skeletons exist (`kore-core`, `kore-ktor`,
+`kore-observability`) and only the first carries any source. Everything else is research, a backlog
+and the layer documents: treat a path under `kore-*/src/` or `samples/` named in a document as *where
+the code will live* unless it is in that list.
 
 ## How to start a session
 
@@ -35,6 +37,39 @@ path under `kore-*/` or `samples/` mentioned in a document as *where the code wi
 4. The layer document the task belongs to — [`docs/features/`](docs/features/),
    [`docs/api/`](docs/api/), [`docs/services/`](docs/services/). The map is
    [docs/README.md](docs/README.md).
+
+## Where things build
+
+This repository is a mutagen session (one-way replica, alpha here, beta `kore` on the Linux box).
+**Gradle runs there**, through the wrapper:
+
+```bash
+~/.claude/bin/wsl-run ./gradlew build
+```
+
+**Edits, `git` and the documentation checks stay on the Mac**, and need `LOCAL=1` to get past the
+hook:
+
+```bash
+LOCAL=1 make check
+```
+
+The replica is one-way: work done there is reverted, and a diff taken there proves nothing.
+
+**What a green `build` covers, measured on 2026-09-11 rather than assumed:**
+
+| On the Linux box | |
+|---|---|
+| `compileKotlinJvm` / `LinuxX64` / `LinuxArm64` / `MacosArm64` | **run** — all four produce artefacts, the Apple klib cross-compiles |
+| `jvmTest`, `linuxX64Test` | **run** |
+| `linuxArm64Test`, `macosArm64Test` | **SKIPPED**, inside `BUILD SUCCESSFUL` |
+
+So green means the `linuxArm64` and `macosArm64` code *compiles*, and says nothing about a test
+there. Anything that must hold on those targets needs a test that runs where they run — or it is not
+covered, and the document says so.
+
+**Read a result file, not a log line.** `BUILD SUCCESSFUL` through a pipe has been wrong in this
+portfolio before; the test-result XML and the artefact's timestamp have not.
 
 ## The two rules
 
@@ -65,9 +100,15 @@ path under `kore-*/` or `samples/` mentioned in a document as *where the code wi
   readiness reports it as `503`.
 - **A stale result is not a healthy result.** Past its refresh budget, a cached check answers `503`
   with the age of the last answer, not the last answer.
-- **Flush before close, always.** booblik's `Producer.close()` completes queued records
-  *exceptionally* rather than sending them (research §1.8). "Close the consumers" is two verbs and
-  everyone omits the first.
+- **Flush before close, always.** The JVM booblik `Producer.close()` completes queued records
+  *exceptionally* rather than sending them; the native one of the same broker sends them
+  (research §1.8). "Close the consumers" is two verbs, everyone omits the first, and two published
+  implementations of it disagree — so kore flushes explicitly rather than relying on either.
+- **A recorded decision is a fact about the past; the registry is the fact about now.** Research §1.7
+  concluded booblik had no native client from a decision in booblik's own research that a later
+  milestone had superseded without amending. Reading a build file tells you what a project publishes;
+  only `repo1.maven.org` tells you where it landed. This cost a wrong decision (D5) and it is the
+  reason §1.12 exists.
 - **A pool check runs a statement, not an `acquire()`.** A pool hands out an idle connection whose far
   end is gone, and sqlx4k's pool has no `ping` to ask instead (research §1.9).
 - **Every stage has its own deadline.** One shared budget is a budget the first stage can spend.
@@ -100,10 +141,11 @@ English.
 
 ```bash
 pip install pyyaml
-make check
+LOCAL=1 make check
 ```
 
-`make check` is the gate and CI runs exactly it. `make report` is the two non-blocking reports — and
-`code_anchors` reporting most paths as rotten is **correct** here: they are where the code will live,
-and the count going down is one way to watch the library arrive. It becomes a gate when it reaches
-zero, not before.
+`make check` is the gate and CI runs exactly it — on a GitHub runner, where no hook and no `LOCAL=1`
+are involved; the prefix above is only for running it here, beside a mutagen session. `make report`
+is the two non-blocking reports, and `code_anchors` reporting most paths as rotten is **correct**
+here: they are where the code will live, and the count going down is one way to watch the library
+arrive. It becomes a gate when it reaches zero, not before.

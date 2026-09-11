@@ -57,9 +57,12 @@ Each rule is checkable, and each has a reason that is not "it seems tidier".
 6. **A participant that fails does not stop the sequence.** A shutdown that aborts halfway leaves
    open exactly the resources it exists to close. The failure is recorded; the remaining stages run.
 7. **Consumers are flushed before they are closed, and closed before the pools are.** Research §1.8:
-   a booblik producer's `close()` completes every accumulated record *exceptionally* — closing
+   the JVM booblik producer's `close()` completes every accumulated record *exceptionally* — closing
    without flushing drops up to a linger window of published events on every deployment, invisibly,
-   because the records that vanish are the ones nothing was waiting on.
+   because the records that vanish are the ones nothing was waiting on. The **native** producer of
+   the same broker sends them instead. kore flushes explicitly on both rather than relying on either:
+   relying on the implementation that happens to be right is how a difference between two of them
+   goes unnoticed.
 8. **The sequence runs exactly once**, whatever arrives: two signals, a signal and a programmatic
    stop, a signal during the sequence.
 9. **The sum of the stage deadlines must fit inside the grace period**, and kore refuses at startup
@@ -118,7 +121,7 @@ silently absorbed.
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/Participant.kt` — the contract a consumer implements |
 | kore-library | `kore-core/src/posixMain/kotlin/io/github/youndie/kore/signal/` — `sigaction`, and a handler that only sets a flag |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
-| kore-library | `kore-booblik/src/main/kotlin/io/github/youndie/kore/booblik/` — flush-then-close, JVM only (research D5) |
+| kore-library | `kore-booblik/` — flush-then-close; **not built yet**, its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md) |
 | sample-service | `samples/oracle/` — the load driver and the assertions |
 
 ## 5. Scenarios (BDD)
@@ -161,8 +164,9 @@ line is the honest signal, and the count in `bdd_report` reflects it.
 * **Then:** the failure is recorded
 * **And:** the telemetry group still runs and the process still exits `0`
 
-### Scenario: a producer's accumulated records are flushed before it is closed
-* **Given:** a booblik producer holding records inside its linger window
+### Scenario: a JVM producer's accumulated records are flushed before it is closed
+* **Given:** a JVM booblik producer holding records inside its linger window — the client whose
+  `close()` fails them rather than sending them
 * **When:** the sequence reaches the release stage
 * **Then:** those records are sent before `close()` is called
 * **And:** no record is completed with `ConnectionClosedException` as a result of the shutdown

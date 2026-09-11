@@ -223,10 +223,12 @@ noticing: the same misordering costs correctness in one place and observability 
 
 **Consequence 4.** All three agents publish `jvm`, `linuxX64`, `linuxArm64` and `macosArm64`
 (read in `agent/build.gradle.kts` of tracy and metrik, `client/build.gradle.kts` of katcher), so
-kore's own target set can match them and the wiring can live in common code. This is not a given —
-see §1.7 for the one that does not.
+kore's own target set can match them and the wiring can live in common code.
 
-### 1.7 booblik's client is Kotlin/JVM, by a recorded decision
+**Which is necessary and not sufficient — see §1.12.** Publishing the right *targets* and being
+*resolvable* are two claims, and the second one was assumed here until B-01 tried it.
+
+### 1.7 booblik has a Kotlin/Native client, and the decision saying it does not is superseded
 
 | Fact | Where verified |
 |---|---|
@@ -234,13 +236,38 @@ see §1.7 for the one that does not.
 | The decision is recorded, not accidental: *"Р8. Клиент остаётся Kotlin/JVM"* | `booblik/docs/research/research-architecture.md` §Р8 |
 | What is not portable is enumerated there: sockets, `ByteBuffer`, two primitives from `java.util.concurrent`, `CRC32C` | same section, and the header comment of `booblik-client/build.gradle.kts` |
 
-**Consequence — a deviation from the brief, recorded as D5.** The brief names booblik consumers as
-one of kore's shutdown stages. A native-first library cannot take a JVM-only dependency in common
-code. kore therefore defines the *stage* abstractly and ships the booblik adapter as a JVM-only
-module. The abstraction is not a hedge: the stage is "things that hold a socket and a position and
-must be told to stop before the pools close", and booblik consumers are one instance of it.
+**Correction found while doing B-01 (2026-09-11).** This section used to end here, concluding that
+a native-first library cannot take a JVM-only dependency in common code and that the booblik adapter
+is therefore JVM-only — which was recorded as D5. **That conclusion is wrong, and the three facts
+above are all still true.** They are true *about those two modules*. What they are not is the whole
+of booblik:
 
-### 1.8 A booblik producer loses what it has accumulated when it is closed
+| Fact | Where verified |
+|---|---|
+| `io.github.youndie.booblik:booblik-native` **0.3.3** is published on Maven Central with `linuxX64` and `macosArm64` variants, alongside `booblik-protocol-linuxx64` and `-macosarm64` | the Central listing of `io/github/youndie/booblik/`, read 2026-09-11 |
+| It is a real client, not a stub: `Connection`, `Consumer`, `Producer`, `Socket` | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/` |
+| It came from a multiplatform *split of the protocol* rather than a reimplementation — its own header says so, crediting milestone M-134 | `booblik/booblik-native/build.gradle.kts` |
+
+So the force behind D5 is gone. What remains true is that there are **two clients with two different
+package names and two different APIs** (`io.github.youndie.booblik.net.client` on the JVM,
+`io.github.youndie.booblik.native` on Native), so a single common adapter is still not on the table —
+but "JVM only" is no longer the answer either. The replacement is a question rather than a new
+decision, because the choice between one JVM adapter now and two adapters over two clients has a
+price and an owner: [B-36](../backlog/B-36-booblik-adapter-targets.md).
+
+**Why this was wrong, which is the part worth keeping.** The decision text — *"Р8. Клиент остаётся
+Kotlin/JVM"* — is still in booblik's research document, still accurate about the day it was written,
+and was superseded by a later milestone that did not go back and amend it. Reading a recorded
+decision is not the same as reading the registry. The general rule: **a decision found in somebody
+else's document is a fact about the past; the published artefacts are the fact about now.**
+
+**Consequence that survives the correction.** The brief names booblik consumers as one of kore's
+shutdown stages, and kore still defines the *stage* abstractly rather than depending on booblik from
+`kore-core`. That was never only about portability: the stage is "things that hold a socket and a
+position and must be told to stop before the pools close", and booblik consumers are one instance of
+it.
+
+### 1.8 The two booblik producers disagree about what `close()` means, and the JVM one drops records
 
 Found while reading §1.7, and it is the concrete reason the consumer stage has to distinguish
 *flush* from *close*.
@@ -253,13 +280,36 @@ Found while reading §1.7, and it is the concrete reason the consumer stage has 
 | The accumulator's default linger is 5 ms and its default batch is 100 records | same file, `ProducerConfig` |
 | The first consumer's shutdown calls `producer.close()` with no preceding `flush()` | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:110-126` |
 
+**Amended while doing B-01 (2026-09-11), and the amendment makes the finding stronger.** Having
+learned from §1.7 that a Kotlin/Native client exists, the obvious next question was whether it does
+the same thing. It does not:
+
+| Fact | Where verified |
+|---|---|
+| The **native** `Producer.close()` is also `mailbox.close()` (plus `dispatcher.close()`), with the same `finally { drainPending() }` | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:84-89`, `:124-127` |
+| But the native `drainPending()` **begins with `sendAll()`** and only then fails whatever is still queued in the mailbox | same file, `:228-242` |
+| The JVM `drainPending()` has no `sendAll()`: it fails the accumulated batches too | `booblik-client/.../Producer.kt:228-239` |
+
+So the two published clients of the same broker disagree about what `close()` means. On Native the
+accumulated batch is sent; on the JVM it is discarded. That is a sharper claim than the original one
+and a more useful one: the fix upstream is not a design argument, it is one line that already exists
+in the sibling implementation.
+
 **Consequence.** "Close the consumers and the pools" is not one verb. A stage that closes without
 flushing silently drops up to a linger window of published events on every deployment — a small
 number, always, and invisible, because the records that vanish are the ones the process never got an
-acknowledgement for. kore's consumer stage is *flush with a deadline, then close*, in that order,
-and the deadline is what stops a flush against a dead broker from eating the whole grace period.
-Also carried as a finding against the first consumer in
+acknowledgement for. kore's consumer stage is *flush with a deadline, then close*, in that order, on
+both platforms — kore does not rely on either client's `close()` doing the right thing, precisely
+because they disagree. The deadline is what stops a flush against a dead broker from eating the whole
+grace period. Also carried as a finding against the first consumer in
 [B-31](../backlog/B-31-first-consumer-findings.md).
+
+**And a fact picked up in passing, which kore's own scopes need.** booblik's native module records
+that **`Dispatchers.IO` is `internal` on Kotlin/Native** — checked there by compiling against
+coroutines 1.11.0 rather than read in the documentation, "which says otherwise" — so there is no IO
+pool to offload a blocking call onto, and `newSingleThreadContext` is what that module uses instead.
+kore's own background loops (the health refresh of §1.9, the stage machine's parked coroutine of
+§1.3) have the same problem and it is not solved here. Address: [B-38](../backlog/B-38-native-dispatcher.md).
 
 ### 1.9 sqlx4k's connection pool has no `ping`
 
@@ -353,6 +403,34 @@ takes it from the one place it was already got right and makes it cheap enough t
 target — see D1. Its value here is that it is the one place where all five gaps are visible at once
 and where the fix can be measured against a before.
 
+
+### 1.12 The three observability agents are not on Maven Central
+
+Found while doing B-01, by trying to resolve them rather than by reading a build file.
+
+| Fact | Where verified |
+|---|---|
+| `io.github.youndie:tracy-agent`, `metrik-agent` and `katcher-client` all answer **404** on Maven Central | `repo1.maven.org/maven2/io/github/youndie/<artifact>/maven-metadata.xml`, read 2026-09-11 |
+| The group directory on Central holds kompot, petich, viddik, wizard-core, form-*, experiments-core, chronik, bochka and booblik — and none of the three agents | the Central listing of `io/github/youndie/` |
+| booblik *is* there, under its own group `io.github.youndie.booblik`, at 0.3.3 | the Central listing of `io/github/youndie/booblik/` |
+| The agents are published to the portfolio's own repository instead, which the first consumer declares with a group filter | [konekt](https://github.com/youndie/konekt) `settings.gradle.kts` |
+
+**Consequence 1, and it is about what kind of thing kore is.** kore is public and meant to be
+consumed. A module that declares a repository outsiders cannot reach is a module that fails to
+resolve for them — not at build time with a clear message, but as a missing version, which reads as
+a broken release. So `kore-observability` ships with **no agent dependencies at all** until this is
+decided, rather than with a repository line that works on one machine.
+
+**Consequence 2.** This is not kore's decision to make on its own: the fix is either publishing three
+other projects to Central, or accepting that one kore module is portfolio-only and saying so in the
+README. Both are the owner's call. [B-37](../backlog/B-37-agents-not-on-central.md), and
+[B-28](../backlog/B-28-observability-wiring.md) is blocked on it.
+
+**Consequence 3 — a rule this cost.** §1.6 read the agents' `build.gradle.kts` and concluded their
+targets were right, which they are. It did not ask whether a stranger could resolve them, which they
+cannot. **Reading a build file tells you what a project publishes; only the registry tells you where
+it landed.** The same slip produced §1.7.
+
 ---
 
 ## 2. Decisions
@@ -430,18 +508,26 @@ Why:
 `/health` stays as an alias of `/health/live`, because every chart in the portfolio names it today
 and a migration that breaks a running deployment to gain a nicer URL is not worth it.
 
-### D5. The shutdown participant is an interface kore owns; the booblik adapter is a separate JVM-only module
+### D5. The shutdown participant is an interface kore owns *(half of this decision was withdrawn on 2026-09-11)*
 
-Deviation from the brief, forced by §1.7. The brief names booblik consumers as a stage; booblik
-cannot be a dependency of native common code.
+Decision, and it stands: `kore-core` declares the participant contract and the ordering, and depends
+on no broker client at all. A participant is "something that holds a socket and a position and must
+be told to stop before the pools close"; booblik consumers are one instance.
 
-Decision: `kore-core` declares the participant contract and the ordering. `kore-booblik` is a
-`jvm()`-only module holding the adapter. A native service that publishes to booblik — there are
-none today — would need a native client first, which is booblik's decision to make.
+**Withdrawn:** the second half, which said `kore-booblik` is a `jvm()`-only module because booblik
+cannot be a dependency of native common code. §1.7 carries the correction — `booblik-native` 0.3.3
+is published for `linuxX64` and `macosArm64`. The premise was a recorded decision in booblik's
+research that a later milestone superseded without amending.
 
-Why not the alternative of an optional dependency resolved by reflection: reflection is not an
-option on Kotlin/Native, and an API whose shape differs per platform is an API whose documentation
-is wrong on one of them.
+What replaces it is a question, not a new decision, because the choice has a price and an owner:
+one JVM adapter now, two adapters over two different client APIs, or nothing until a native service
+actually publishes to the broker. [B-36](../backlog/B-36-booblik-adapter-targets.md). Until it is
+answered `kore-booblik` **does not exist in the build** — a module written to a decision known to be
+superseded is worse than a module that is not there yet.
+
+The one argument that survives intact: not an optional dependency resolved by reflection. Reflection
+is not available on Kotlin/Native, and an API whose shape differs per platform is an API whose
+documentation is wrong on one of them.
 
 ### D6. The oracle asserts the `Connection: close` header, not a closed socket
 
