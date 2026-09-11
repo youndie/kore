@@ -7,4 +7,4 @@ package io.github.youndie.kore
  * acceptable is reporting "no unknown variables found" here, which is why the flag is false rather
  * than the check being quietly skipped.
  */
-public actual fun korePlatform(): KorePlatform = KorePlatform("macos", canEnumerateEnvironment = false)
+public actual fun korePlatform(): KorePlatform = KorePlatform("macos")
