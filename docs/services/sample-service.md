@@ -13,6 +13,10 @@ publishes: []
 
 # The sample service
 
+> **Two arms as of 2026-09-12 (B-05, B-39).** `--kore=true` runs the same service wired *with* kore;
+> without it, the control. Both are kept, because a comparison needs both and deleting the control
+> would remove the only evidence kore changes anything.
+>
 > **Built as of 2026-09-11 (B-05), in its *control* form.** Two binaries from one source, two
 > images, both taking `SIGTERM` at PID 1. What is there is the service wired the **ordinary** way —
 > one `/health`, one `ApplicationStopping` subscriber — because that is what the negative control of
@@ -70,7 +74,9 @@ Everything kore mounts — [endpoint-kore-admin](../api/endpoint-kore-admin.md) 
 | `samples/service/src/linuxX64Main/kotlin/io/github/youndie/kore/sample/Main.kt` | **built** — the native entry point |
 | `samples/service/build.gradle.kts` | **built** — two targets, and the fat jar assembled by hand because `application` does not apply to a multiplatform module |
 | `samples/service/Dockerfile` | **built** — two stages, `--target jvm` and `--target native`, both exec form |
-| `samples/oracle/` | not built — the load driver and the assertions, [B-06](../backlog/B-06-oracle-harness.md) |
+| `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/KoreWiring.kt` | **built (B-39)** — the treatment arm, and the current answer to "does kore own the entry point" |
+| `samples/oracle/` | **built (B-06)** — the load driver and the assertions |
+| `samples/oracle/negative-control.sh` | **built (B-03, B-39)** — the four-cell matrix both arms are measured by |
 
 ## 3. How it is built
 

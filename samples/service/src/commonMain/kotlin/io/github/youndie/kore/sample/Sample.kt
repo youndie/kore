@@ -9,7 +9,10 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The fixture the library is judged by — **not a demonstration**.
@@ -61,6 +64,25 @@ public class FragileResource {
     /** Called by the slow route **after** its delay — that is, while the request is in flight. */
     public fun use() {
         check(!closed) { "the resource was closed while this request was still being served" }
+    }
+}
+
+/**
+ * The routes both arms of the experiment serve.
+ *
+ * Shared so the control and the kore-wired variant answer the same `/work` — a comparison where the
+ * two arms served different routes would be comparing two programs.
+ */
+public fun Application.workRoutes(resource: FragileResource = FragileResource()) {
+    routing {
+        get("/work") {
+            val millis = call.request.queryParameters["ms"]?.toLongOrNull() ?: DEFAULT_WORK_MILLIS
+            delay(millis)
+            // AFTER the delay, on purpose: the request has to still be in flight when a stop
+            // subscriber runs, or the experiment measures nothing.
+            resource.use()
+            call.respondText("worked for ${millis}ms\n")
+        }
     }
 }
 
@@ -119,6 +141,19 @@ public class SampleOptions(
     public val shutdownGraceMillis: Long? = null,
     /** Whether the stop subscriber closes the resource the slow route uses. Off by default. */
     public val closeOnStop: Boolean = false,
+    /**
+     * Which arm of the experiment this run is.
+     *
+     * `false` is the **control** — the ordinary wiring the negative control measured. `true` is the
+     * same service with kore, which is what B-39 compares against it.
+     */
+    public val kore: Boolean = false,
+    /** kore's stage deadlines. Short by default so a run is a run rather than a wait. */
+    public val deadlines: ShutdownDeadlines = ShutdownDeadlines(
+        preDrainWait = 2.seconds,
+        drain = 15.seconds,
+        releaseGroup = 2.seconds,
+    ),
 ) {
     public companion object {
         public fun parse(args: Array<String>): SampleOptions {
@@ -132,6 +167,13 @@ public class SampleOptions(
                 port = map["port"]?.toIntOrNull() ?: SAMPLE_PORT,
                 shutdownGraceMillis = map["grace"]?.toLongOrNull(),
                 closeOnStop = map["close-on-stop"] == "true",
+                kore = map["kore"] == "true",
+                deadlines =
+                    ShutdownDeadlines(
+                        preDrainWait = (map["pre-drain"]?.toLongOrNull() ?: 2_000).milliseconds,
+                        drain = (map["drain"]?.toLongOrNull() ?: 15_000).milliseconds,
+                        releaseGroup = (map["release"]?.toLongOrNull() ?: 2_000).milliseconds,
+                    ),
             )
         }
     }

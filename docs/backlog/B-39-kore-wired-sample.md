@@ -1,7 +1,7 @@
 ---
 id: B-39
 title: "The sample wired with kore, and the oracle run that proves the stages"
-status: wip
+status: done
 priority: P0
 size: M
 stage: m2-shutdown
@@ -44,3 +44,42 @@ its acceptance exercised or quietly widened to build the missing variant.
   the negative control in `docs/research/measurements-<date>/`. A7 — the two platforms agree — is
   asserted by comparing the two runs, which is the first time anything has.
 - Anchors: `samples/service/`, `samples/oracle/`, `docs/research/measurements-2026-09-11/negative-control.md`
+
+## Iteration 1 — 2026-09-12
+
+**Done, and it collects the debt three merged items left.** The same sample wired with kore, run by
+the same oracle against the same scenario:
+[the matrix](../research/measurements-2026-09-11/kore-wired.md), 24 runs, every cell identical across
+its three repetitions.
+
+**The claim, demonstrated.** The same service, closing the same resource, on the same signal — and
+the only difference is *when*. In `ApplicationStopping` it runs before the drain on Kotlin/Native and
+breaks **48 requests**; in kore's release stage it runs after, and breaks **none**. Research §1.1 as
+a before and an after rather than a reading of two source files.
+
+**Zero not-applicable, for the first time.** Against the control, A3, A4 and A5 report
+`NOT_APPLICABLE` — it refuses nothing and has no readiness endpoint. The kore runs are 9 of 9 with
+nothing skipped, which is the number that says the instrument finally has a subject for every
+question it asks. **A7 — the two platforms agree — is satisfied for the first time.**
+
+**The trap it nearly fell into, again.** The first version of the treatment arm **closed nothing**.
+It passed 9 of 9 on both platforms and proved nothing: an arm that does not do the thing cannot show
+that doing it at the right time is safe. That is the third time in this repository an experiment
+silently measured nothing, and the **second** time the cause was an arm with no consequence — the
+negative control had the same defect before its third cell existed. The pattern now has a name in the
+record: *when a comparison passes, check that both arms actually do the thing.*
+
+**Four scenarios of [feature-ordered-shutdown](../features/feature-ordered-shutdown.md) become
+`**Automated:**`**, all four through a real container taking a real `SIGTERM`. Overall BDD coverage
+goes from 6 of 34 to **10 of 34**.
+
+**What is deliberately not claimed:** kore's rows are faster (15.5 s and 17.5 s against 20.5 s) and
+that is *not a result* — the arms have different budgets. Comparing them would compare two
+configurations rather than two designs. A6 is the only timing claim: kore stayed inside the grace
+period it was given.
+
+**Also here:** the sample now answers open question 2 of the research in the only way that counts,
+by showing what it costs. Every line of the wiring is a *consumer* writing wiring; no part of it
+lives in the library. That is the current answer to "does kore own the entry point" — it does not —
+and [B-30](B-30-entry-point-question.md) can now be decided against something real instead of in the
+abstract.
