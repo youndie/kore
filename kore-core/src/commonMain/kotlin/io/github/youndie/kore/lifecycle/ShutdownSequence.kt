@@ -8,6 +8,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.coroutineContext
@@ -106,7 +107,12 @@ public class ShutdownSequence(
         stagePlan: StagePlan,
         failures: MutableList<ParticipantFailure>,
     ): StageOutcome {
-        if (stagePlan.participants.isEmpty()) return StageOutcome.COMPLETED
+        if (stagePlan.participants.isEmpty()) {
+            // A DWELL stage still spends its duration: the waiting IS the work. Anything else takes
+            // no time when it has nothing to do.
+            if (stagePlan.duration == StageDuration.DWELL) delay(stagePlan.deadline)
+            return StageOutcome.COMPLETED
+        }
 
         // The participants of a stage run concurrently and on Kotlin/Native that means they can run
         // on different threads, so the failure list has more than one writer and a plain `add` is a
@@ -134,7 +140,15 @@ public class ShutdownSequence(
                 }
             }
 
+        val startedAt = timeSource.markNow()
         val finished = withTimeoutOrNull(stagePlan.deadline) { jobs.joinAll() }
+
+        // A DWELL stage whose participants finished early still waits out the rest of its duration.
+        // The announce stage flips a flag in microseconds and must then let the flip propagate.
+        if (finished != null && stagePlan.duration == StageDuration.DWELL) {
+            val remaining = stagePlan.deadline - startedAt.elapsedNow()
+            if (remaining > Duration.ZERO) delay(remaining)
+        }
 
         return if (finished == null) {
             scope.cancel("${stagePlan.stage}: deadline of ${stagePlan.deadline} exceeded")

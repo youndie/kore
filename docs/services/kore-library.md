@@ -71,7 +71,7 @@ Where each concern will live. One module per reason to depend on something.
 
 | File | What is there |
 |---|---|
-| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript` |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04, B-11)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript`, and `shutdownSequence { }` with `ShutdownDeadlines` (the assembly a consumer touches) |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | the check registry, the cached result, the background refresh loop |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` | the schema DSL, the reader, the renderer behind `--print-config` |
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | enumeration through `__environ` — the target where the unknown-variable check is possible |
