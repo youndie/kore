@@ -1,0 +1,556 @@
+---
+id: research-architecture
+title: kore — architecture research
+type: research
+status: active
+date: 2026-09-11
+---
+
+# Research: the architecture of kore
+
+kore is one library that gives every Kotlin service binary in the portfolio the same
+process-lifecycle behaviour: an ordered shutdown, three real probes, a typed configuration read
+from the environment, one-line wiring of the three observability agents, and a `/version` that
+names the commit it was built from. It is the part of a Go service that comes from the standard
+library and from habit, written once for Ktor instead of re-derived per service — and written
+**native-first**, because the servers it is for are Kotlin/Native binaries.
+
+It is deliberately none of these: a dependency-injection container, a router, or a configuration
+framework with seven sources. Those have owners already; what has no owner is the *order* in which
+a process stops.
+
+This document records **verified facts** (read in artefacts and in code, with the address), the
+**decisions** taken from them, and the **risks**. Anything unverified is called a hypothesis and
+says where it will be settled.
+
+There is no kore code yet. Everything in §1 was therefore verified against something that does
+exist: the sources of the Ktor version this portfolio pins, the Kotlin/Native platform klibs of the
+compiler it uses, the published sources of third-party libraries, the Kubernetes documentation, and
+the code of the first consumer and of the four toolkits kore has to wire together.
+
+Companion document: [research-oracle](research-oracle.md) — the acceptance experiment and the
+numbers, both written before the code.
+
+---
+
+## 1. Verified facts
+
+### 1.1 Ktor's stop order is *inverted* between JVM and Kotlin/Native
+
+Verified against the published sources of `io.ktor:ktor-server-core` **3.5.2** — the version
+[konekt](https://github.com/youndie/konekt) pins — in both the JVM and the `linuxx64` artefacts.
+
+| Fact | Where verified |
+|---|---|
+| On JVM, `EmbeddedServer.stop` calls `engine.stop(grace, timeout)` **first** and `destroyApplication()` **second** | `ktor-server-core-jvm-3.5.2-sources.jar` → `jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:404-412` |
+| `destroyApplication()` raises `ApplicationStopping`, calls `application.disposeAndJoin()`, then raises `ApplicationStopped` | same file, `293-306` |
+| On Kotlin/Native, `EmbeddedServer.stop` calls `destroyBlocking(application)` **first** and `engine.stop(grace, timeout)` **second** | `ktor-server-core-linuxx64-3.5.2-sources.jar` → `posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:84-94` |
+| `disposeAndJoin()` is `applicationJob.cancelAndJoin()` followed by `uninstallAllPlugins()` | `commonMain/io/ktor/server/application/Application.kt:162-165` |
+
+So the same three lines of user code mean two different things:
+
+```
+JVM      stop accepting → drain in-flight → ApplicationStopping → cancel the application → ApplicationStopped
+Native   ApplicationStopping → cancel the application → ApplicationStopped → stop accepting → drain in-flight
+```
+
+**Consequence 1 — this is why kore exists.** `ApplicationStopping` is the hook every Ktor example
+uses for "close the pool, stop the workers, close the broker connection". On JVM that runs after
+the drain, which is correct. On Kotlin/Native it runs *before* the drain, so a service that follows
+the idiom pulls its database pool and its broker socket out from under the requests it is still
+supposed to be finishing. Nothing in the Ktor documentation says the two differ, both compile from
+the same common code, and the difference is invisible in a test that does not hold a request open
+across the stop.
+
+**Consequence 2 — the order has to be owned by kore, not by the engine.** kore cannot fix the
+engine and will not fork it, so it must not *use* the engine's ordering as its ordering. kore runs
+its own sequence around `EmbeddedServer.stop` and treats `ApplicationStopping` as an event it
+observes rather than as the place work is done. The public promise "readiness falls, then in-flight
+drains, then pools and consumers close, then the process exits" is then true on both platforms
+because kore imposes it, which is what "the order is a specification, not a side effect" has to mean
+in practice.
+
+**Consequence 3 — a stage that must run after the drain cannot be a Ktor subscriber at all.**
+That includes the one stage every consumer has: closing the connection pools. See
+[feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §3.
+
+**Hypothesis (check in M2).** The claim above is about *where the events are raised*, which is read
+directly. What is not yet read is whether an in-flight CIO call is a child of `applicationJob` and
+therefore actually cancelled by `disposeAndJoin()` on native, or merely deprived of the plugins it
+needs. The consequence is the same for kore either way — a request in flight during
+`ApplicationStopping` is not safe — but the failure it produces (a cancellation vs. a
+`NullPointerException` from an uninstalled plugin) differs, and the oracle in
+[research-oracle](research-oracle.md) §2 is what will say which. Do not write either into a
+document until it has been run.
+
+### 1.2 On CIO, `ApplicationStopPreparing` fires *after* the listening socket stops accepting
+
+Verified against `io.ktor:ktor-server-cio` 3.5.2.
+
+| Fact | Where verified |
+|---|---|
+| `stopSuspend` completes `stopRequest`, waits `gracePeriodMillis` for the server job, then cancels it and waits `timeoutMillis - gracePeriodMillis` | `ktor-server-cio-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:91-107` |
+| The server job, on `stopRequest`, cancels each connector's `acceptJob`, **then** raises `ApplicationStopPreparing`, **then** joins the connectors' root jobs | same file, `250-260` |
+| The default idle timeout for a kept-alive connection is 45 seconds | same file, `Configuration.connectionIdleTimeoutSeconds = 45` |
+
+**Consequence 1.** `ApplicationStopPreparing` is the one Ktor event that *sounds* like "we are about
+to stop, flip readiness now", and on CIO it is useless for that: by the time it fires the socket has
+stopped accepting, so a kubelet probe arriving afterwards gets a connection refused rather than a
+503, and the drain deadline is already counting. Readiness must be flipped by kore's own signal
+handling, **before** `EmbeddedServer.stop` is called at all.
+
+**Consequence 2.** `timeoutMillis` is an *absolute* budget, not an extra one: the hard-kill window is
+`timeoutMillis - gracePeriodMillis`. Configured with `timeout <= grace`, the cancel is followed by a
+non-positive timeout and the engine does not wait for the cancellation to take effect. kore
+validates the pair at configuration time rather than letting it be discovered during an incident.
+
+**Consequence 3.** During the drain, new connections are refused. Anything that wants to observe the
+draining state — a probe, an operator with `curl` — must do so before `stop()` is called. This is
+the second reason the pre-drain window in §2 D2 is a stage of its own and not a formality.
+
+### 1.3 On Kotlin/Native the shutdown hook is a single global slot, and it runs inside a POSIX signal handler
+
+Verified against `ktor-server-core-linuxx64-3.5.2-sources.jar`.
+
+| Fact | Where verified |
+|---|---|
+| `addShutdownHook` is common API with a per-platform actual | `commonMain/io/ktor/server/engine/ShutdownHook.kt` |
+| On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
+| The handler is installed with `signal(SIGINT, …)` / `signal(SIGTERM, …)` and a `staticCFunction` that reads that global | same file |
+| `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:48-49` |
+| Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `commonMain/io/ktor/server/engine/ShutdownHook.kt`, `posixMain/.../ShutdownHookNative.kt` |
+| On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
+| On JVM the mechanism can be switched off entirely by the system property `io.ktor.server.engine.ShutdownHook` | same file, `SHUTDOWN_HOOK_ENABLED` |
+
+**Consequence 1.** kore may not deliver its shutdown through `addShutdownHook`. On Native it would
+either silently replace `EmbeddedServer.start`'s hook or be silently replaced by it — whichever ran
+last — and "whichever ran last" is a registration order nobody writes down. kore installs its own
+handler and **calls `EmbeddedServer.stop` itself**, which also makes the JVM and the Native paths one
+piece of code rather than two.
+
+**Consequence 2 — and this is a safety property, not a preference.** Ktor's native handler runs
+arbitrary Kotlin, including `runBlocking`, on the signal-handler stack. That is not async-signal-safe:
+allocation, locks and the coroutine machinery are all reachable from it. kore's own handler must do
+the minimum a signal handler may do — set a flag and wake something — and let an ordinary coroutine
+on an ordinary thread run the sequence. `platform.posix` exposes `sigaction`, `sigemptyset` and
+`sigfillset` on `linux_x64` and `linux_arm64` (verified by dumping
+`klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` from the Kotlin/Native 2.4.10
+distribution), so the handler can be installed properly rather than through the ANSI `signal()`.
+
+**Consequence 3.** Because Ktor's own hook is installed by `start()` and cannot be removed, kore has
+to be the thing that is *later*: it registers after the server has started, and accepts that on
+Native its handler is the surviving one by construction. That is an ordering dependency worth a
+test of its own rather than a comment — see the property test in
+[research-oracle](research-oracle.md) §3.
+
+### 1.4 `Connection: close` on a response does not make CIO close the connection
+
+The brief's oracle asks for a 503 carrying `Connection: close`. Two separate questions: may the
+header be set, and does setting it do what the name suggests.
+
+| Fact | Where verified |
+|---|---|
+| Ktor's unsafe-header list is exactly `Transfer-Encoding` and `Upgrade`, so `Connection` may be appended by ordinary application code | `ktor-http-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/http/HttpHeaders.kt`, `UnsafeHeadersArray` |
+| CIO writes the response headers to the wire verbatim and adds no `Connection` logic of its own | `ktor-server-cio-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationResponse.kt`, `sendResponseMessage` |
+| Whether CIO ends the connection after a response is decided by `isLastHttpRequest(version, connectionOptions)`, where `connectionOptions` is parsed from the **request's** `Connection` header | `commonMain/io/ktor/server/cio/backend/ServerPipeline.kt` |
+
+**Consequence.** The header is emitted and a well-behaved client honours it, but the *server* keeps
+the keep-alive connection in its pipeline loop regardless. The socket goes away when the client
+closes it, when the 45-second idle timeout expires, or when `stop()`'s grace period runs out and the
+job is cancelled. So the oracle can assert the header — that is a real, checkable promise to the
+client — and must **not** assert that the connection was closed by the server, because CIO does not
+offer that and an assertion that passes for the wrong reason is worse than none. Stated as a
+deviation from the brief in D6.
+
+### 1.5 There is no `System.getenv()` on Kotlin/Native, and enumerating the environment is per-target
+
+The configuration feature's most valuable promise — *fail on an unknown variable* — needs the
+ability to list what is in the environment, not just to ask for names one at a time.
+
+| Fact | Where verified |
+|---|---|
+| Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | [tracy](https://github.com/youndie/tracy) `server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
+| `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.10 distribution, `klib dump-metadata klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
+| `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `klib/platform/macos_arm64/...posix`; both greps are empty |
+| `_NSGetEnviron`, the documented macOS replacement, is not in `platform.posix`, `platform.darwin` or `platform.Foundation` either — reaching it needs a cinterop `.def` of one's own | the same `klib dump-metadata` against those three klibs; all three greps return 0 |
+
+**Consequence 1.** The strict-unknown check is a capability of the **JVM and Linux native** targets.
+On macOS native it cannot be implemented out of the platform libraries, and kore must say so out
+loud rather than quietly returning "no unknown variables found" — a check that always passes is
+worse than an absent one, because a deployment reads it as evidence.
+
+**Consequence 2.** Since the servers kore is for run on Linux and macOS native exists to let the same
+binary build on a laptop, the degradation is acceptable *if it is visible*: `--print-config` states
+which target it is running on and whether unknown-variable detection is available there.
+See [feature-typed-config](../features/feature-typed-config.md) §7.
+
+**Consequence 3.** "Unknown variable" cannot mean "any variable this process did not declare" in any
+case. A container's environment carries `PATH`, `HOSTNAME`, `KUBERNETES_SERVICE_HOST` and every
+`*_PORT` variable the kubelet injects. The check is scoped to a declared prefix, and the prefix is
+part of the schema. Without that the feature is unusable on its first deployment, which is exactly
+where it would be switched off and never switched on again.
+
+### 1.6 What the three observability agents actually do when a process stops
+
+The brief treats "logs to tracy, metrics to metrik, crashes to katcher" as one line of wiring. Read
+in the agents, it is three different shutdown contracts.
+
+| Fact | Where verified |
+|---|---|
+| tracy's delivery has `suspend fun stop(grace)`: it cancels its loop and makes one last bounded flush, deliberately, because *"the records produced during a shutdown … are the least replaceable ones in the buffer"* | [tracy](https://github.com/youndie/tracy) `agent/src/commonMain/kotlin/io/github/youndie/tracy/agent/TracyDelivery.kt:82-86` |
+| Nothing subscribes that `stop` to anything. The first consumer constructs the delivery, calls `start(this)` and discards the reference, so `stop` cannot be called | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/observability/Observability.kt:73` |
+| metrik's agent **does** stop itself on `ApplicationStopping`, and its `stop()` cancels the job, cancels the scope, closes the sender and closes the dispatcher — with **no flush** of the open window | [metrik](https://github.com/youndie/metrik) `agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/Metrik.kt:89` and `MetrikAgent.kt:128-134` |
+| metrik's aggregation window defaults to 60 seconds | `metrik/shared/.../Protocol.kt`, `DEFAULT_WINDOW_MS`, and the comment recording it in konekt's `ObservabilityConfig.kt:22-30` |
+| katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** | [katcher](https://github.com/youndie/katcher) `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` — the only lifecycle function in the file |
+| katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
+
+**Consequence 1.** "One line of wiring" is worth having precisely because these three do not agree.
+kore owns three different stages: *ask tracy to flush and wait, bounded*; *let metrik's own
+subscription run, and know that the open window is lost*; *do nothing for katcher, because there is
+nothing to call*.
+
+**Consequence 2 — a defect in the first consumer, found by reading rather than by an incident.**
+konekt loses the last flush interval of tracy records on every single shutdown, because the object
+that could flush them is unreachable. That is the shape of failure kore is for: nothing is wrong
+with either library, and the wiring between them was written once, correctly enough to start, and
+never revisited. Carried as [B-31](../backlog/B-31-first-consumer-findings.md).
+
+**Consequence 3 — and it is specific to Native.** metrik stops on `ApplicationStopping`. By §1.1
+that event fires *before* the drain on Kotlin/Native, so on a native binary the requests served
+during the drain are not measured at all — and those are exactly the requests an ordered shutdown
+exists to protect. kore's ordering fixes this as a side effect of fixing §1.1, which is worth
+noticing: the same misordering costs correctness in one place and observability in another.
+
+**Consequence 4.** All three agents publish `jvm`, `linuxX64`, `linuxArm64` and `macosArm64`
+(read in `agent/build.gradle.kts` of tracy and metrik, `client/build.gradle.kts` of katcher), so
+kore's own target set can match them and the wiring can live in common code. This is not a given —
+see §1.7 for the one that does not.
+
+### 1.7 booblik's client is Kotlin/JVM, by a recorded decision
+
+| Fact | Where verified |
+|---|---|
+| `booblik-client` and `booblik-net` are `kotlin("jvm")` modules; there is no multiplatform variant | [booblik](https://github.com/youndie/booblik) `booblik-client/build.gradle.kts`, `booblik-net/build.gradle.kts` |
+| The decision is recorded, not accidental: *"Р8. Клиент остаётся Kotlin/JVM"* | `booblik/docs/research/research-architecture.md` §Р8 |
+| What is not portable is enumerated there: sockets, `ByteBuffer`, two primitives from `java.util.concurrent`, `CRC32C` | same section, and the header comment of `booblik-client/build.gradle.kts` |
+
+**Consequence — a deviation from the brief, recorded as D5.** The brief names booblik consumers as
+one of kore's shutdown stages. A native-first library cannot take a JVM-only dependency in common
+code. kore therefore defines the *stage* abstractly and ships the booblik adapter as a JVM-only
+module. The abstraction is not a hedge: the stage is "things that hold a socket and a position and
+must be told to stop before the pools close", and booblik consumers are one instance of it.
+
+### 1.8 A booblik producer loses what it has accumulated when it is closed
+
+Found while reading §1.7, and it is the concrete reason the consumer stage has to distinguish
+*flush* from *close*.
+
+| Fact | Where verified |
+|---|---|
+| `Producer.close()` is one line: `mailbox.close()` | `booblik/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:118-120` |
+| The producer's loop ends in `finally { drainPending() }`, and `drainPending` completes every queued record **exceptionally** with `ConnectionClosedException` — it does not send them | same file, `228-239` |
+| `flush()` exists, is `suspend`, and is the only thing that pushes the accumulator | same file, `112-117` |
+| The accumulator's default linger is 5 ms and its default batch is 100 records | same file, `ProducerConfig` |
+| The first consumer's shutdown calls `producer.close()` with no preceding `flush()` | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:110-126` |
+
+**Consequence.** "Close the consumers and the pools" is not one verb. A stage that closes without
+flushing silently drops up to a linger window of published events on every deployment — a small
+number, always, and invisible, because the records that vanish are the ones the process never got an
+acknowledgement for. kore's consumer stage is *flush with a deadline, then close*, in that order,
+and the deadline is what stops a flush against a dead broker from eating the whole grace period.
+Also carried as a finding against the first consumer in
+[B-31](../backlog/B-31-first-consumer-findings.md).
+
+### 1.9 sqlx4k's connection pool has no `ping`
+
+The brief names a pool `ping` as the readiness check for the database.
+
+| Fact | Where verified |
+|---|---|
+| `ConnectionPool` declares `poolSize()`, `poolIdleSize()`, `suspend acquire(): Result<Connection>` and `suspend close(): Result<Unit>` — and nothing else | `io.github.smyrgeorge:sqlx4k:1.13.0` sources, `commonMain/io/github/smyrgeorge/sqlx4k/ConnectionPool.kt` |
+| 1.13.0 is the version the three native services in the portfolio pin | `gradle/libs.versions.toml` of tracy, metrik and katcher |
+
+**Consequence 1.** On the native side the readiness check for a database is *run a trivial statement
+and bound it*, not *ask the pool whether it is fine*. `acquire()` on its own proves a connection
+object was handed out, which a pool can do from its idle set without the server on the far end being
+alive — that is the check that reports healthy through an outage.
+
+**Consequence 2.** `close()` being `suspend` and returning a `Result` is convenient: the pool stage
+composes with the rest of the sequence without a thread hand-off, and a close that fails is a value
+rather than an exception thrown from a shutdown path.
+
+**Consequence 3 — a bound is not free.** A blocking call is not interrupted by `withTimeout`; the
+timeout returns and the call goes on holding its thread. Any dependency check kore ships must
+therefore be genuinely suspending, or be run somewhere its overrun cannot consume the drain budget.
+This has bitten the portfolio before and is not re-derived here.
+
+### 1.10 What Kubernetes actually does on pod deletion — readiness is not what removes the pod
+
+Verified against the Kubernetes documentation sources
+(`kubernetes/website`, `content/en/docs/concepts/workloads/pods/pod-lifecycle.md` and `probes.md`,
+fetched 2026-09-11).
+
+| Fact | Where verified |
+|---|---|
+| *"At the same time as the kubelet is starting graceful shutdown of the Pod, the control plane evaluates whether to remove that shutting-down Pod from EndpointSlice objects"* — the two are concurrent | `pod-lifecycle.md`, "Pod Termination Flow", step 3 |
+| *"Terminating endpoints always have their `ready` status as `false`"*, independent of the container's own readiness probe | same section |
+| The default `terminationGracePeriodSeconds` is 30 seconds; a `preStop` hook runs **before** `TERM`, and if it outlives the grace period the kubelet grants a one-off 2-second extension | same section, steps 1–2 |
+| A failing readiness probe makes the EndpointSlice controller remove the Pod's IP from the Services that match it | `pod-lifecycle.md`, "Readiness probe" |
+| If a startup probe is configured, liveness and readiness probes are not executed until it succeeds | `pod-lifecycle.md`, "Startup probe" |
+| Probe defaults: `initialDelaySeconds` 0, `periodSeconds` 10, `timeoutSeconds` 1, `successThreshold` 1, `failureThreshold` 3 | `probes.md`, "Configure Probes" |
+
+**Consequence 1 — the brief's first step is necessary and not sufficient, and the difference matters.**
+"readiness → false" does not evict the pod from the load balancer during an ordinary rollout: the
+control plane has already marked the terminating endpoint `ready: false` on its own. What flipping
+readiness in-process buys is (a) the truth, for anything that asks the pod directly — an external
+load balancer, an ingress controller or a mesh sidecar that polls the probe rather than watching
+EndpointSlices — and (b) the same behaviour outside Kubernetes, where nothing else marks anything.
+What actually stops traffic arriving after `TERM` is **time**: the interval between the readiness
+signal and the start of the drain, long enough for the rule change to reach every node.
+
+**Consequence 2.** So the pre-drain delay is a stage with a number, not a formality, and the number
+has a floor: one readiness period times the failure threshold, plus propagation. kore's default is
+derived from that floor and stated in [feature-ordered-shutdown](../features/feature-ordered-shutdown.md)
+§2 rather than picked to look round.
+
+**Consequence 3.** The whole sequence has to fit inside `terminationGracePeriodSeconds`, whose
+default is 30. kore's defaults must sum to less than that with room to spare, and kore must say
+what it needs so a chart can raise it — a grace period smaller than the configured sequence is a
+`SIGKILL` in the middle of a drain, which looks exactly like a crash.
+
+**Consequence 4.** `startupProbe` suppressing the other two is what makes three separate probes worth
+having rather than one path served three times: a slow start is not a liveness failure, and a
+dependency that is briefly away is not a reason to restart. That is the distinction
+[feature-health-probes](../features/feature-health-probes.md) §2 is built on.
+
+### 1.11 The first consumer today: three probes on one route, and no `/version`
+
+Read in [konekt](https://github.com/youndie/konekt) at the commit in the working tree on 2026-09-11.
+It is the most complete service in the portfolio and it is what kore's first release has to improve
+on, so what it does now is a baseline rather than a criticism.
+
+| Fact | Where verified |
+|---|---|
+| `startupProbe`, `livenessProbe` and `readinessProbe` all point at `GET /health` | `konekt/charts/konekt/templates/server.yaml:103-118` |
+| `/health` is `call.respondText("ok")` — it touches no dependency | `konekt/server/src/main/kotlin/io/konekt/Application.kt:188` |
+| There is no `/version` route and no build-identity constant anywhere in the repository | a grep for `"/version"`, `gitCommit`, `buildTime` and `BuildInfo` across the repository returns nothing |
+| The deployment's identity travels as the `RELEASE` environment variable, set from the chart, and is used to name a metrik deploy marker and a katcher crash group | `konekt/charts/konekt/templates/server.yaml:80-82`, `konekt/server/.../observability/ObservabilityConfig.kt:38-45` |
+| Shutdown is one `ApplicationStopping` subscriber: cancel the worker scope, close the broker connection | `konekt/server/src/main/kotlin/io/konekt/Application.kt:412-417` |
+| Configuration is a hand-written `fromEnv()` of ~35 lines: `System.getenv(...)`, `?:` for defaults, `error(...)` for four required keys | `konekt/server/src/main/kotlin/io/konekt/KonektConfig.kt:57-96` |
+| The observability half of the configuration is separate and already has the rule kore generalises: an endpoint without its key is a **refusal at startup**, not a silent no-op | `konekt/server/.../observability/ObservabilityConfig.kt:48-69` |
+
+**Consequence 1.** Everything in the brief is a real gap in a real service, not a hypothetical one.
+The chart's own comment argues correctly that a probe must not read the store — and then uses the
+same route for readiness, which is the one probe that *should* answer for dependencies.
+
+**Consequence 2 — the good half is the specification.** `ObservabilityConfig`'s "both variables or
+neither, and one alone fails the start" is exactly the behaviour kore's config schema should make
+declarative instead of hand-written, and the comment explaining why is the argument for the whole
+feature: *"a deployment that believes it is observed and is not"*. kore does not invent that rule; it
+takes it from the one place it was already got right and makes it cheap enough to be everywhere.
+
+**Consequence 3.** konekt is a JVM service. It is the first consumer, and it is not the primary
+target — see D1. Its value here is that it is the one place where all five gaps are visible at once
+and where the fix can be measured against a before.
+
+---
+
+## 2. Decisions
+
+### D1. kore is Kotlin Multiplatform, and Kotlin/Native is the priority target
+
+Brief: unstated — "all your binaries".
+Decision: **KMP**, with `linuxX64` and `linuxArm64` as the targets that decide the design, plus
+`jvm` and `macosArm64`.
+
+Why:
+
+- the servers the portfolio deploys are Kotlin/Native binaries — tracy, metrik, katcher and shildik
+  all run native, for resident sets in the tens of mebibytes against ~100 Mi on the JVM. A library
+  that is JVM-first and ported later is a library whose hard cases are discovered last;
+- §1.1 makes native the *harder* platform, not merely another one: the engine's ordering is wrong
+  there, `expect`/`actual` is needed for the environment, and the signal handling is genuinely
+  unsafe. A design that is right on native is right on the JVM by construction; the reverse is not
+  true, and every one of §1.1, §1.3 and §1.5 is invisible from the JVM;
+- the three agents kore wires already publish exactly `jvm`, `linuxX64`, `linuxArm64` and
+  `macosArm64` (§1.6), so matching that set makes the wiring common code rather than four copies;
+- the price: `macosArm64` is a development target with a documented hole in it (§1.5), and the
+  booblik adapter cannot be common at all (§1.7, D5).
+
+`macosArm64` is in the set so the library builds and its tests run on a laptop, not because anything
+is deployed there. Apple mobile targets are out: kore is about a server process, and a phone has
+neither a `SIGTERM` nor a readiness probe.
+
+### D2. The stop sequence is five named stages with individual deadlines, and kore owns the clock
+
+Decision: `signal → announce → drain → release → exit`, and each stage has a deadline of its own
+rather than sharing one budget.
+
+Why:
+
+- a single overall timeout is a budget the first stage can spend entirely. A dependency check that
+  hangs (§1.9 consequence 3) or a flush against a dead broker (§1.8) would otherwise leave nothing
+  for the drain, and the symptom is a `SIGKILL` that reads as a crash;
+- naming the stages is what makes the order testable. A property test can assert a *sequence of
+  recorded stage transitions*; it cannot assert anything about a lambda in `ApplicationStopping`;
+- the announce stage — readiness false, then wait — is a stage because §1.10 says the wait is what
+  does the work, and a wait with no name is a wait somebody deletes as pointless;
+- the price: five numbers to configure instead of one. Mitigated by deriving every default from the
+  Kubernetes floor in §1.10 and by refusing, at startup, a set whose sum exceeds the grace period
+  kore was told about.
+
+### D3. kore calls `EmbeddedServer.stop` itself and never relies on `addShutdownHook`
+
+Follows from §1.3. The alternative — registering through Ktor's hook — is unavailable on native
+without a coin flip about which registration was last, and gives up the ability to run anything
+*before* the engine begins stopping, which is the whole of the announce stage.
+
+The price: kore has to install signal handlers, which is platform code on Native and a
+`Runtime.addShutdownHook` on the JVM, and it has to cope with the fact that Ktor's own hook is
+already installed and cannot be removed. That is a named risk (Risk 2) rather than a solved problem.
+
+### D4. Probes are three routes with three different questions, and only readiness reads dependencies
+
+Decision: `GET /health/startup`, `GET /health/ready`, `GET /health/live`. Startup answers "the
+process finished coming up". Ready answers "the process is willing to be sent traffic, and its
+declared dependencies answered". Live answers "this process is not wedged" and **never** touches a
+dependency.
+
+Why:
+
+- a liveness probe that reads the database restarts a healthy pod during a database blip, and then
+  every pod, which is how a dependency outage becomes an outage of everything in front of it;
+- readiness is the only one of the three whose failure is cheap: traffic stops, nothing is killed
+  (§1.10);
+- startup exists to buy time without buying a long liveness delay (§1.10 consequence 4);
+- the price: three routes to configure in every chart instead of one, and a genuine possibility of
+  getting the chart wrong. kore ships the probe block it expects as documentation in
+  [feature-health-probes](../features/feature-health-probes.md) §6, and `--print-config` prints it.
+
+`/health` stays as an alias of `/health/live`, because every chart in the portfolio names it today
+and a migration that breaks a running deployment to gain a nicer URL is not worth it.
+
+### D5. The shutdown participant is an interface kore owns; the booblik adapter is a separate JVM-only module
+
+Deviation from the brief, forced by §1.7. The brief names booblik consumers as a stage; booblik
+cannot be a dependency of native common code.
+
+Decision: `kore-core` declares the participant contract and the ordering. `kore-booblik` is a
+`jvm()`-only module holding the adapter. A native service that publishes to booblik — there are
+none today — would need a native client first, which is booblik's decision to make.
+
+Why not the alternative of an optional dependency resolved by reflection: reflection is not an
+option on Kotlin/Native, and an API whose shape differs per platform is an API whose documentation
+is wrong on one of them.
+
+### D6. The oracle asserts the `Connection: close` header, not a closed socket
+
+Deviation from the brief's wording, forced by §1.4. What kore can promise is that a request refused
+during the drain carries `503` and `Connection: close`, so a client that honours the header does not
+reuse the connection. What it cannot promise on CIO is that the server hangs up. Asserting the
+second would produce a test that passes because of the 45-second idle timeout or because of the
+grace-period cancellation — in both cases for a reason unrelated to the code under test.
+
+Recorded here rather than silently narrowed, because the next reader will otherwise ask why the
+oracle is weaker than the brief.
+
+### D7. Build identity is generated Kotlin source, not a resource
+
+Decision: a Gradle plugin — or, in the first milestone, a plain Gradle task — emits a Kotlin file
+with the commit, the build timestamp and the version, and `/version` serves that object.
+
+Why: Kotlin/Native has no JVM-style resource loading, and a `Manifest` does not exist there at all.
+A generated source file is the one mechanism that is identical on both platforms. The price is a
+generated file in the build directory and a task dependency that is easy to forget to declare —
+which is a known way to get a stale value and a green build, so the task's output is an input of the
+compilation rather than a side effect.
+
+### D8. `--print-config` prints the resolved configuration with secrets masked, and exits
+
+Decision: a flag on the binary, not an HTTP route.
+
+Why: the question it answers — "what does this deployment think it is configured as" — is asked
+before the process serves, often *because* the process will not serve. A route needs a process that
+started; a flag works on the image, in a `kubectl run`, in CI, and in the `migrate`-style one-shot
+container the portfolio already uses. Secrets are masked by a `secret` marker on the schema field,
+so masking is a property of the declaration rather than a list of names somebody maintains.
+
+---
+
+## 3. Risks and open questions
+
+**Risk 1. The ordering is right and nothing proves it stays right.** The whole library is one
+promise about a sequence, and a sequence is exactly what a green unit test can fail to cover: a test
+that stops a server with nothing in flight passes on an implementation that does the stages in any
+order at all. Mitigation, and it is machinery rather than intent: the property test of
+[research-oracle](research-oracle.md) §3 asserts over *recorded stage transitions* with randomised
+stage durations and randomised failures, and the end-to-end oracle of §2 runs a real `kill -TERM`
+under real load. Both are milestone gates, and the property test is proved by mutation — reorder two
+stages in the implementation and it must fail.
+
+**Risk 2. Ktor's own shutdown hook is installed by `start()` and cannot be removed.** On Native it
+lives in the same global slot kore needs (§1.3), so the two are in a race decided by registration
+order. Mitigation: kore registers after `start()` returns and asserts, in a test on a real binary,
+that its handler is the one that runs — by observing that the ordered sequence happened, which
+Ktor's hook cannot produce. Open: whether a future Ktor version changes the slot to a list, which
+would make kore's handler co-resident with one that calls `stop()` directly and reintroduces the
+unordered path. Re-check on every Ktor bump; the check belongs in the bump's pull request.
+
+**Risk 3. A dependency check can outlive its deadline and eat the drain.** `withTimeout` does not
+interrupt a blocking call, and a native driver's "suspending" call may be blocking underneath.
+Mitigation: every dependency check declares its own timeout, the readiness route answers from a
+*cached* result refreshed by a background loop rather than by calling the dependency on the request
+path, and the loop's overrun is reported as a stale result rather than as a hang. That also makes a
+readiness probe cheap enough to run every two seconds, which §1.10 needs.
+
+**Risk 4. A default that is wrong is worse than no default, because nobody reads it again.** Every
+number kore ships — the pre-drain wait, the drain deadline, the release deadline — decides how a
+real deployment behaves. Mitigation: each default is derived in a document from the Kubernetes floor
+in §1.10 rather than chosen, `--print-config` prints the effective value beside its origin
+(`default`, `env`, `code`), and kore refuses at startup when the sum exceeds the grace period it was
+told about. Open: what kore should do when it is *not* told about the grace period, which is the
+common case outside Kubernetes. Leading hypothesis: assume the Kubernetes default of 30 s and say so
+in `--print-config`; settle in M3.
+
+**Risk 5. Native binaries are the target and the CI that builds them is not free.** Everything in
+§1.1, §1.3 and §1.5 is only observable on a native binary under a real signal, which means the gate
+needs a Linux runner that builds and runs one. Mitigation: the oracle runs against a container
+holding the native sample, and the JVM sample runs the identical scenario so a divergence between
+the two is a test failure rather than a discovery. Open: the wall-clock cost of a native link in CI,
+which decides whether the oracle runs per pull request or per milestone. Measure in M1, before the
+suite is large enough for the answer to be expensive to act on.
+
+**Open question 1. Where the profiler hook belongs.** The brief asks for "a hook for the profiler",
+and the portfolio has a real precedent — an AOT-cache training run driven from outside the process.
+The hypothesis is that kore should own *enabling* a profiling endpoint or an on-demand dump and
+nothing else, because the profilers differ per platform (JFR and async-profiler on the JVM, nothing
+equivalent on Kotlin/Native). If that holds, the honest shape is a small extension point plus a JVM
+adapter, and on native the hook exists and does nothing — which must be *stated by*
+`--print-config`, not discovered. Settle in M4; it is the least-defined item in the brief and the
+one most likely to be dropped rather than built.
+
+**Open question 2. Whether kore should own the HTTP server at all.** Everything above is written as
+"kore mounts routes into your application and wraps your `EmbeddedServer`". The alternative is that
+kore *is* the entry point: `koreMain { }` builds the server, installs the routes, reads the config
+and runs the sequence. That is more opinionated, removes a class of wiring mistakes, and is closer
+to what the brief describes as "one line". It is also how a library stops being a library.
+Hypothesis: both, with the wrapper as the supported path and the pieces public, which is what the
+two samples in [services/sample-service](../services/sample-service.md) exist to test. Settle in
+M2, when there is a second sample to disagree with the first.
+
+---
+
+## 4. What happens next
+
+The order of work and the acceptance criteria live in [backlog.md](../../backlog.md). Three things
+have to be nailed down before anything else, because every other item rests on them:
+
+1. **The stage machine and its recorded transitions** (M1) — the data structure the property test
+   asserts over. Written before any stage does real work, because a sequence retrofitted with
+   observability is a sequence whose test was written to match it.
+2. **A native sample that really receives `SIGTERM`** (M1) — §1.1, §1.3 and §1.5 are unobservable
+   without one, and every fact above that is about Native is a claim this sample turns into a
+   measurement.
+3. **The oracle, run once against the unfixed shape** (M1) — a negative control. If `kill -TERM`
+   under load does not break a service built the ordinary way, the premise of the whole library is
+   wrong and that is worth learning in week one rather than at the first release.

@@ -1,0 +1,7 @@
+build/
+.gradle/
+.idea/
+local.properties
+.kotlin/
+*.klib
+__pycache__/

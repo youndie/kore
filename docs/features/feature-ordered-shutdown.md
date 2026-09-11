@@ -1,0 +1,210 @@
+---
+id: feature-ordered-shutdown
+title: Ordered shutdown
+type: feature
+status: draft
+owner: unassigned
+involved_services:
+  - kore-library
+  - sample-service
+client_entries: []
+api:
+  - endpoint-kore-admin
+tags: [lifecycle, sigterm, drain]
+---
+
+# Ordered shutdown
+
+> **`status: draft`** — designed, not built. The facts it rests on are verified and sourced in
+> [research-architecture](../research/research-architecture.md) §1.1–§1.4 and §1.8–§1.10; the
+> behaviour below is not yet observable anywhere.
+
+## 1. Overview
+
+When a kore service receives `SIGTERM`, it stops in a fixed, named order: it stops claiming to be
+ready, waits long enough for that to reach whatever routes traffic, finishes the requests it had
+already accepted, refuses anything new with a `503` that says not to reuse the connection, tells its
+consumers and pools to stop — flushing before closing — and then exits, on its own, inside the grace
+period it was given.
+
+The order is the product. Everything in it is individually obvious and the combination is
+individually got wrong: the portfolio's most complete service today cancels its workers and closes
+its broker socket in a Ktor `ApplicationStopping` subscriber, which on Kotlin/Native runs **before**
+in-flight requests have finished (research §1.1) — and on the JVM runs after, so the same source
+means two different things on two targets with nothing saying so.
+
+## 2. Business rules
+
+Each rule is checkable, and each has a reason that is not "it seems tidier".
+
+1. **Readiness goes false before anything else happens.** Not on a Ktor event: research §1.2 shows
+   the only candidate event fires after the listening socket has stopped accepting, which is too late
+   to be observed by a probe and too late to be useful.
+2. **The announce stage then waits, and the wait is not a formality.** Research §1.10: during a
+   rollout the control plane has already marked the terminating endpoint `ready: false` on its own,
+   so what flipping readiness buys is the truth for anything that polls the pod directly. What
+   actually stops traffic arriving after `SIGTERM` is the time it takes a rule change to reach every
+   node. The default is derived from the Kubernetes floor — one readiness period times the failure
+   threshold, plus propagation — and stated in §4 of
+   [feature-health-probes](feature-health-probes.md), not chosen to look round.
+3. **A request accepted before the signal gets a response.** Not a reset, not a truncated body.
+4. **A request arriving after the announce stage is refused with `503` and `Connection: close`.**
+   The header is a promise to the client that the connection is finished. It is deliberately *not* a
+   promise that the server hangs up: on CIO the keep-alive decision is read from the **request's**
+   `Connection` header (research §1.4), and kore will not assert what the engine does not do.
+5. **Every stage has its own deadline, and one stage cannot spend another's.** A dependency check
+   that hangs or a flush against a dead broker must not leave the drain with nothing.
+6. **A participant that fails does not stop the sequence.** A shutdown that aborts halfway leaves
+   open exactly the resources it exists to close. The failure is recorded; the remaining stages run.
+7. **Consumers are flushed before they are closed, and closed before the pools are.** Research §1.8:
+   a booblik producer's `close()` completes every accumulated record *exceptionally* — closing
+   without flushing drops up to a linger window of published events on every deployment, invisibly,
+   because the records that vanish are the ones nothing was waiting on.
+8. **The sequence runs exactly once**, whatever arrives: two signals, a signal and a programmatic
+   stop, a signal during the sequence.
+9. **The sum of the stage deadlines must fit inside the grace period**, and kore refuses at startup
+   when it does not. A grace period shorter than the sequence is a `SIGKILL` in the middle of a
+   drain, which in a log looks exactly like a crash.
+
+## 3. The sequence
+
+The specification. The names are public, because the property test of
+[research-oracle](../research/research-oracle.md) §3 asserts over the recorded transitions and a
+test can only assert over something that has a name.
+
+```
+SIGTERM / SIGINT
+      │
+      ▼
+  signal      the handler sets a flag and wakes a parked coroutine. Nothing else.
+      │       (research §1.3: Ktor's native handler runs runBlocking on the signal stack)
+      ▼
+  announce    readiness → false            deadline: none; then wait preDrainDelay
+      │       /health/ready answers 503; /health/live still answers 200
+      ▼
+  drain       EmbeddedServer.stop(grace, timeout)          deadline: drainDeadline
+      │       accept stops; in-flight finishes; new arrivals get 503 + Connection: close
+      ▼
+  release     ordered, three groups, each with its own deadline
+      │         1. consumers   flush, then close
+      │         2. pools       close
+      │         3. telemetry   flush what can be flushed
+      ▼
+  exit        the process returns from main
+```
+
+**Why `release` is after `drain` and not a Ktor subscriber.** Research §1.1 consequence 3: on
+Kotlin/Native `ApplicationStopping` fires before the drain, so a stage that must run after it
+*cannot* be a Ktor subscriber at all. kore runs the release group itself, after `EmbeddedServer.stop`
+has returned, on both platforms.
+
+**Why `signal` is a stage with a name even though it does almost nothing.** It is where the two
+platforms differ most and where the unsafe thing lives. Naming it is what lets the property test say
+"the sequence began exactly once" about something a signal handler can deliver twice.
+
+**What kore does not control, and says so.** metrik's plugin subscribes its own agent to
+`ApplicationStopping` (research §1.6), so metrik stops inside the `drain` stage — after the drain on
+the JVM, before it on Native. kore cannot reorder someone else's subscription without taking over the
+plugin. The consequence is written down in
+[feature-observability-wiring](feature-observability-wiring.md) §7 and carried as an upstream
+proposal in [research-upstream-proposals](../research/research-upstream-proposals.md) §3, not
+silently absorbed.
+
+## 4. Code anchors
+
+| Service | Code |
+|---|---|
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` — the stage machine and the recorded transitions |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/Participant.kt` — the contract a consumer implements |
+| kore-library | `kore-core/src/posixMain/kotlin/io/github/youndie/kore/signal/` — `sigaction`, and a handler that only sets a flag |
+| kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
+| kore-library | `kore-booblik/src/main/kotlin/io/github/youndie/kore/booblik/` — flush-then-close, JVM only (research D5) |
+| sample-service | `samples/oracle/` — the load driver and the assertions |
+
+## 5. Scenarios (BDD)
+
+**All of these are *target* behaviour** — there is no implementation and therefore no automated
+check. A scenario gains an `**Automated:**` line when a test exists; until then the absence of the
+line is the honest signal, and the count in `bdd_report` reflects it.
+
+### Scenario: a request in flight when the signal arrives is finished
+* **Given:** the service is serving and `N` requests are in flight on the slow route
+* **When:** the process receives `SIGTERM`
+* **Then:** every one of those `N` requests receives a complete response
+* **And:** none of them receives `500`
+* **And:** the assertion is made from the client's record, not from the server's log
+
+### Scenario: readiness falls before the drain begins
+* **Given:** the service is serving and a poller is calling `GET /health/ready` every 100 ms
+* **When:** the process receives `SIGTERM`
+* **Then:** `/health/ready` answers `503` strictly before the first request is refused
+* **And:** the interval between that `503` and the first refusal is at least the configured
+  pre-drain wait
+
+### Scenario: a request arriving during the drain is refused, and says so
+* **Given:** the process has entered the drain stage
+* **When:** a new request arrives on an already-open keep-alive connection
+* **Then:** the response is `503`
+* **And:** it carries `Connection: close`
+* **And:** it is **not** asserted that the server closed the socket — research D6
+
+### Scenario: a participant that hangs does not consume the drain
+* **Given:** a registered consumer whose flush never returns
+* **When:** the sequence reaches the release stage
+* **Then:** that participant's group ends at its own deadline
+* **And:** the remaining groups still run
+* **And:** the process still exits inside the grace period
+
+### Scenario: a participant that throws does not abort the sequence
+* **Given:** a registered pool whose `close()` throws
+* **When:** the sequence reaches the release stage
+* **Then:** the failure is recorded
+* **And:** the telemetry group still runs and the process still exits `0`
+
+### Scenario: a producer's accumulated records are flushed before it is closed
+* **Given:** a booblik producer holding records inside its linger window
+* **When:** the sequence reaches the release stage
+* **Then:** those records are sent before `close()` is called
+* **And:** no record is completed with `ConnectionClosedException` as a result of the shutdown
+
+### Scenario: two signals run the sequence once
+* **Given:** the sequence has begun
+* **When:** a second `SIGTERM` arrives
+* **Then:** the recorded transitions contain each stage exactly once
+
+### Scenario: the two platforms agree
+* **Given:** the JVM sample and the native sample, same source, same scenario
+* **When:** each is put through the run above
+* **Then:** every assertion has the same outcome on both
+* **And:** a divergence fails the run rather than being reported as a platform difference
+
+### Scenario: a sequence that cannot fit is refused at startup
+* **Given:** stage deadlines summing to more than the grace period kore was told about
+* **When:** the process starts
+* **Then:** it refuses to start and names the two numbers
+
+## 6. Out of scope
+
+* **Multiple replicas.** Whether a rolling deploy drops a request depends on readiness periods,
+  endpoint propagation and surge settings — the chart's business, not kore's.
+* **`SIGKILL`, OOM kills, and a node going away.** kore's promise is about `SIGTERM`.
+* **Restarting anything.** kore stops a process; it does not manage one.
+* **Draining at the connection level.** kore refuses at the request level. Connection-level draining
+  needs engine cooperation that CIO does not offer (research §1.4).
+
+## 7. Quirks
+
+* **`Connection: close` does not close the connection on CIO.** Research §1.4. The client is expected
+  to honour it; the socket goes when the client closes it, when CIO's 45-second idle timeout expires,
+  or when the grace period ends and the job is cancelled.
+* **`timeoutMillis` is an absolute budget, not an extra one.** CIO's hard-kill window is
+  `timeoutMillis - gracePeriodMillis` (research §1.2). Configured with `timeout <= grace`, the engine
+  cancels and then does not wait for the cancellation to take effect. kore validates the pair at
+  startup rather than letting it be discovered.
+* **On Kotlin/Native, whoever registers a shutdown hook last wins the only slot there is.** kore
+  registers after `EmbeddedServer.start` and therefore wins today. A library added later that also
+  calls `addShutdownHook` would take it back silently. Risk 2 of the research; it is why the oracle
+  asserts the *sequence* and not merely the exit code.
+* **The announce stage has no deadline of its own.** Flipping a flag cannot fail and cannot hang. The
+  wait that follows it is a duration, not a deadline, and that distinction is why it survives a
+  reading of the code by somebody looking for things to delete.
