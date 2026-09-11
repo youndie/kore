@@ -124,6 +124,12 @@ time a gate looks like it covers more than it does.
 - **A clean `SIGTERM` shutdown exits `0` on Kotlin/Native and `143` on the JVM.** Both are right.
   Never assert a specific exit code across the two; assert that the process ended itself and was not
   `SIGKILL`ed (`137`).
+- **Rebuild the image, not just the binary.** An experiment against a container measures whatever is
+  in the image. Rebuilding the Kotlin and re-running produced four cells of results about the
+  previous build, consistently and convincingly.
+- **A control has to be able to fail for the reason it is testing.** Twelve consistent runs of the
+  negative control demonstrated nothing about research §1.1, because its stop subscriber closed
+  nothing. Before believing a green control, ask what would have to be true for it to go red.
 - **Measure a task with `--no-build-cache --rerun-tasks`.** `org.gradle.caching=true` is on here, so
   `clean` plus a timed run measures the cache: the native release link came out at 0.76 s that way
   and at 35.3 s when actually run.
