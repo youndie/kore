@@ -69,7 +69,14 @@ there. Anything that must hold on those targets needs a test that runs where the
 covered, and the document says so.
 
 **Read a result file, not a log line.** `BUILD SUCCESSFUL` through a pipe has been wrong in this
-portfolio before; the test-result XML and the artefact's timestamp have not.
+portfolio before; the test-result XML and the artefact's timestamp have not. CI does the same: the
+build job's last step prints every result file with its counts and fails when there are none, because
+a suite that ran zero tests exits zero.
+
+**CI is two jobs — `check` and `build` — and neither covers the other.** `check` is `make check`, the
+documentation gate. `build` is `./gradlew build` for all four targets. Until B-07 there was only the
+first, which meant a pull request that did not compile was green; that is worth remembering the next
+time a gate looks like it covers more than it does.
 
 ## The two rules
 

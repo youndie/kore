@@ -24,4 +24,10 @@ dependency, one stand-in consumer, one awkward configuration schema — built fo
   set than it looks, and the choice decides what the readiness check of B-18 can do.
 
 - AC: both binaries start, serve `/work?ms=`, and are containerised with the signal reaching PID 1.
+- **AC added from [B-07](B-07-native-link-cost.md):** measure `linkDebugExecutableLinuxX64` in CI,
+  cold and warm, and write it beside the build numbers in
+  `docs/research/measurements-2026-09-11/ci-build.md`. B-07 was written about the cost of a *link*
+  and could not measure one — `./gradlew build` produces klibs, and nothing in the repository had a
+  `main`. This item is the first thing that will. If the number turns the per-pull-request gate into
+  a bad trade, that decision is re-opened here rather than assumed settled.
 - Anchors: `samples/service/`, `samples/service/Dockerfile`
