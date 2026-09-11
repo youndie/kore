@@ -1,7 +1,7 @@
 ---
 id: B-03
 title: "The negative control: run the oracle against the unfixed shape"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m1-oracle
