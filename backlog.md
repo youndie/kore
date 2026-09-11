@@ -99,7 +99,6 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
-| [B-18](docs/backlog/B-18-pooled-store-check.md) `[ ]` | The pooled-store check runs a statement, not an acquire | P1 | S | B-16 |
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[ ]` | Measure and settle the pre-drain default | P1 | S | B-09 |
 | [B-24](docs/backlog/B-24-unknown-variable-refusal.md) `[ ]` | Prefix scoping and the unknown-variable refusal | P1 | S | B-22 |
 | [B-26](docs/backlog/B-26-build-identity-plugin.md) `[ ]` | The Gradle plugin that generates the build identity | P1 | M | B-01 |
@@ -115,11 +114,12 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-31](docs/backlog/B-31-first-consumer-findings.md) `[ ]` | Findings against the first consumer, found by reading | P2 | S | - |
 | [B-32](docs/backlog/B-32-file-upstream.md) `[ ]` | File the upstream proposals that are ready; ask before Ktor | P2 | S | B-03 |
 | [B-34](docs/backlog/B-34-the-three-numbers.md) `[ ]` | The three numbers, measured as comparisons | P2 | S | B-06 |
+| [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
 | [B-29](docs/backlog/B-29-profiler-hook.md) `[?]` | Decide the shape of the profiler hook, or drop it | P3 | S | - |
 | [B-02](docs/backlog/B-02-documentation-gate.md) `[ ]` | The documentation gate in CI | infra | S | - |
 | [B-35](docs/backlog/B-35-draft-gate.md) `[ ]` | Turn on the draft gate on the default branch | infra | XS | B-13, B-17, B-23, B-27, B-28 |
 
-## Closed (19)
+## Closed (20)
 
 **Shape**
 
@@ -148,6 +148,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 - [B-16](docs/backlog/B-16-check-registry.md) `[x]` - The check registry, the cached result and the refresh loop
 - [B-17](docs/backlog/B-17-probe-routes.md) `[x]` - The three routes and the /health alias
+- [B-18](docs/backlog/B-18-pooled-store-check.md) `[x]` - The pooled-store check runs a statement, not an acquire
 
 **Typed configuration**
 
