@@ -1,7 +1,7 @@
 ---
 id: B-12
 title: "Refuse at startup a sequence that cannot fit the grace period"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m2-shutdown
