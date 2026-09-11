@@ -27,8 +27,8 @@ publishes:
 > * `kore-observability` has no agent dependencies — [B-37](../backlog/B-37-agents-not-on-central.md);
 > * `kore-build` and `samples/` belong to B-26 and B-05 and were never B-01's.
 >
-> `kore-core` carries the lifecycle package since B-04; everything else in it is still a path where
-> code will live.
+> `kore-core` carries the lifecycle package since B-04 and the signal package since B-08; everything
+> else in it is still a path where code will live.
 >
 > Everything else in this document is still a decision rather than an observation.
 
@@ -77,7 +77,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | enumeration through `__environ` — the target where the unknown-variable check is possible |
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | the honest degradation of research §1.5: lookup works, enumeration does not |
 | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` | `System.getenv()`, which is the whole of it on this target |
-| `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | `sigaction`, and a handler that only sets a flag |
+| `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the probe and version routes, and the wrapper that calls `EmbeddedServer.stop` itself |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
 | `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |
@@ -109,10 +109,15 @@ Kotlin/Native, and an API that differs in shape per platform is one whose docume
 one of them.
 
 **Why the signal handler does nothing but set a flag.** Research §1.3: Ktor's native handler runs
-`runBlocking` on the signal-handler stack, which is not async-signal-safe. kore's handler writes an
-atomic and wakes a coroutine that is already parked on an ordinary dispatcher. That is also why the
-handler is in `posixMain` rather than in a per-target source set — `sigaction`, `sigemptyset` and
-`sigfillset` are present on both Linux targets, verified in the platform klibs.
+`runBlocking` on the signal-handler stack, which is not async-signal-safe. kore's handler writes one
+integer with a lock-free compare-and-set, and an ordinary coroutine notices.
+
+It lives in `nativeMain` and uses `signal()` rather than `sigaction()`. That is portability, not the
+interesting choice: `struct sigaction` differs between Linux and Darwin, so `sigaction` would mean two
+implementations of a handler that writes one integer. **The waiting half is what genuinely cannot be
+shared** — on Native the handler returns and `main` carries on, while on the JVM the hook thread *is*
+the shutdown and must not return until the sequence is done. That asymmetry is the reason this is an
+`expect`/`actual` pair at all.
 
 **Why kore calls `EmbeddedServer.stop` rather than registering through `addShutdownHook`.**
 Research D3. On Kotlin/Native the hook is a single global slot and the last registration wins;

@@ -149,7 +149,9 @@ silently absorbed.
 |---|---|
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` — the stage machine and the recorded transitions |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/Participant.kt` — the contract a consumer implements |
-| kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `sigaction`, and a handler that only sets a flag |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatch.kt` — the contract, and why kore never calls `addShutdownHook` |
+| kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `signal()`, and a handler that writes one integer |
+| kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/signal/` — the hook thread that must not return until the sequence is done |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
 | kore-library | `kore-booblik/` — flush-then-close; **not built yet**, its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md) |
 | sample-service | `samples/oracle/` — the load driver and the assertions |
@@ -246,6 +248,10 @@ signal, and `bdd_report` counts it as manual.
   registers after `EmbeddedServer.start` and therefore wins today. A library added later that also
   calls `addShutdownHook` would take it back silently. Risk 2 of the research; it is why the oracle
   asserts the *sequence* and not merely the exit code.
+* **On the JVM the shutdown hook thread is the shutdown, and returning from it ends the process.**
+  So kore's hook waits for the sequence to say it is finished — bounded, so forgetting that call
+  costs latency rather than a process that will not exit. On Native the handler returns immediately
+  and `main` ending is what stops the process. Same promise, opposite mechanics.
 * **The announce stage has no deadline of its own.** Flipping a flag cannot fail and cannot hang. The
   wait that follows it is a duration, not a deadline, and that distinction is why it survives a
   reading of the code by somebody looking for things to delete.
