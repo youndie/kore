@@ -27,8 +27,8 @@ publishes:
 > * `kore-observability` has no agent dependencies — [B-37](../backlog/B-37-agents-not-on-central.md);
 > * `kore-build` and `samples/` belong to B-26 and B-05 and were never B-01's.
 >
-> `kore-core` carries the lifecycle package since B-04 and the signal package since B-08; everything
-> else in it is still a path where code will live.
+> `kore-core` carries the lifecycle package since B-04 and B-11, the signal package since B-08 and
+> the health package since B-16; everything else in it is still a path where code will live.
 >
 > Everything else in this document is still a decision rather than an observation.
 
@@ -72,7 +72,7 @@ Where each concern will live. One module per reason to depend on something.
 | File | What is there |
 |---|---|
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04, B-11)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript`, and `shutdownSequence { }` with `ShutdownDeadlines` (the assembly a consumer touches) |
-| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | the check registry, the cached result, the background refresh loop |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | **built (B-16)** — `HealthCheck`, `HealthRegistry`, and `HealthStatus.UNKNOWN` as a first-class answer |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` | the schema DSL, the reader, the renderer behind `--print-config` |
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | enumeration through `__environ` — the target where the unknown-variable check is possible |
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | the honest degradation of research §1.5: lookup works, enumeration does not |
