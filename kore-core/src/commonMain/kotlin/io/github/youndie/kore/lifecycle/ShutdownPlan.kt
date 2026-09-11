@@ -29,14 +29,65 @@ public class ShutdownDeadlines(
     public val drain: Duration = 15.seconds,
     /** Per release group. Three groups, so three of these in the worst case. */
     public val releaseGroup: Duration = 3.seconds,
+    /**
+     * How long the process will be given before it is killed.
+     *
+     * **`null` means kore was not told**, and it then assumes the Kubernetes default. That assumption
+     * is currently a *hypothesis* rather than a settled decision — B-25 is open and belongs to the
+     * owner. What **is** settled is that the assumption is printed rather than hidden: an assumption
+     * somebody can contradict is not the same thing as a constant.
+     */
+    gracePeriod: Duration? = null,
 ) {
-    /** What the whole sequence can cost. Compared against the grace period by B-12. */
+    /** The grace period in force, declared or assumed. */
+    public val gracePeriod: Duration = gracePeriod ?: KUBERNETES_DEFAULT_GRACE_PERIOD
+
+    /** Whether that number came from the deployment or from kore. Printed beside it. */
+    public val gracePeriodWasDeclared: Boolean = gracePeriod != null
+
+    /** What the whole sequence can cost. */
     public val total: Duration get() = preDrainWait + drain + releaseGroup * 3
 
     init {
         require(!preDrainWait.isNegative() && !drain.isNegative() && !releaseGroup.isNegative()) {
             "a deadline cannot be negative: preDrainWait=$preDrainWait drain=$drain releaseGroup=$releaseGroup"
         }
+        // REFUSED AT STARTUP, where somebody is looking at both numbers — rather than discovered as a
+        // SIGKILL in the middle of a drain, which in a log looks exactly like a crash. The message
+        // names both, because the reader has to see which of the two they got wrong.
+        require(total <= this.gracePeriod) {
+            "the shutdown sequence needs $total and the grace period is ${this.gracePeriod}" +
+                (if (this.gracePeriodWasDeclared) "" else " (assumed; kore was not told)") +
+                ": preDrainWait=$preDrainWait + drain=$drain + 3 x releaseGroup=$releaseGroup. " +
+                "Either shorten a deadline or raise terminationGracePeriodSeconds"
+        }
+    }
+
+    /**
+     * What `--print-config` shows: the sum, the grace period, and where each number came from.
+     *
+     * The **origin** is on the line for the same reason it is on every configuration value: "kore
+     * assumed 30 s" and "the deployment said 30 s" are different facts, and only the second is
+     * something anybody checked.
+     */
+    public fun describe(): String =
+        buildString {
+            appendLine("shutdown deadlines:")
+            appendLine("  announce (wait)   $preDrainWait")
+            appendLine("  drain             $drain — spent in full under load, not a ceiling")
+            appendLine("  release, x3       $releaseGroup")
+            appendLine("  total             $total")
+            appendLine(
+                "  grace period      $gracePeriod ${if (gracePeriodWasDeclared) "(declared)" else "(ASSUMED — kore was not told)"}",
+            )
+        }
+
+    public companion object {
+        /**
+         * Kubernetes' own default for `terminationGracePeriodSeconds`, read in its documentation
+         * (research §1.10) rather than recalled.
+         */
+        public val KUBERNETES_DEFAULT_GRACE_PERIOD: Duration = 30.seconds
     }
 }
 
