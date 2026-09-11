@@ -39,6 +39,10 @@ jvmToolchain = "25"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+# The engine, and only the SAMPLE depends on it. kore-ktor takes whatever `EmbeddedServer` it is
+# handed; putting an engine in a library's classpath is choosing one for every consumer. CIO because
+# it is what the portfolio's native services run and what research §1.2 and §1.4 were read from.
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 # Test-only, and it is load-bearing rather than a convenience: the stage machine is about DURATIONS,
 # and a test that waits real seconds for a five-second stage measures the runner and takes five

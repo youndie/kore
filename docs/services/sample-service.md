@@ -13,9 +13,12 @@ publishes: []
 
 # The sample service
 
-> **Not built yet.** Like [kore-library](kore-library.md), this document describes a decision. It is
-> written before the code because the sample is the instrument the library is judged by, and an
-> instrument designed after the thing it measures tends to agree with it.
+> **Built as of 2026-09-11 (B-05), in its *control* form.** Two binaries from one source, two
+> images, both taking `SIGTERM` at PID 1. What is there is the service wired the **ordinary** way —
+> one `/health`, one `ApplicationStopping` subscriber — because that is what the negative control of
+> [research-oracle](../research/research-oracle.md) §1 has to run first. The load driver and the
+> assertions are [B-06](../backlog/B-06-oracle-harness.md); the pooled dependency and the
+> configuration schema are not there yet and are named in §4 and §7.
 
 ## 1. Responsibility
 
@@ -52,11 +55,12 @@ Everything kore mounts — [endpoint-kore-admin](../api/endpoint-kore-admin.md) 
 
 | File | What is there |
 |---|---|
-| `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/Main.kt` | the whole sample: schema, wiring, the slow route |
-| `samples/service/src/jvmMain/kotlin/` | the JVM entry point |
-| `samples/service/src/linuxX64Main/kotlin/` | the native entry point |
-| `samples/service/Dockerfile` | the container the oracle runs, for both variants |
-| `samples/oracle/` | the load driver and the assertions of research-oracle §2.3 |
+| `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/Sample.kt` | **built** — the slow route, `/health`, the stand-in consumer, and the ordinary `ApplicationStopping` wiring the control needs |
+| `samples/service/src/jvmMain/kotlin/io/github/youndie/kore/sample/Main.kt` | **built** — the JVM entry point, and the only thing that differs between the builds |
+| `samples/service/src/linuxX64Main/kotlin/io/github/youndie/kore/sample/Main.kt` | **built** — the native entry point |
+| `samples/service/build.gradle.kts` | **built** — two targets, and the fat jar assembled by hand because `application` does not apply to a multiplatform module |
+| `samples/service/Dockerfile` | **built** — two stages, `--target jvm` and `--target native`, both exec form |
+| `samples/oracle/` | not built — the load driver and the assertions, [B-06](../backlog/B-06-oracle-harness.md) |
 
 ## 3. How it is built
 
@@ -82,7 +86,7 @@ shown nothing wrong and concluded the library was unnecessary.
 |---|---|---|
 | Library | `kore-core`, `kore-ktor` | the thing under test |
 | Library | `io.ktor:ktor-server-cio` | the engine; CIO because it is what the portfolio's native services run and what research §1.2 was read from |
-| Database | a pooled store | so the release stage closes something real. Which one is [B-05](../backlog/B-05-sample-service.md) — it has to exist on both targets, which is a smaller set than it looks |
+| Database | a pooled store | **not chosen yet.** It has to exist on both targets, which is a smaller set than it looks, and the choice decides what the readiness check can do — so it belongs with [B-18](../backlog/B-18-pooled-store-check.md), which has to choose one anyway. B-05's acceptance did not need it |
 
 ## 5. Infrastructure and deploy
 
@@ -94,12 +98,26 @@ shown nothing wrong and concluded the library was unnecessary.
 ## 6. Local setup
 
 ```bash
-./gradlew :samples:service:runJvm
+~/.claude/bin/wsl-run ./gradlew :samples:service:build
+cd samples/service && docker build --target jvm -t kore-sample:jvm . && docker build --target native -t kore-sample:native .
 ```
 
-The native variant needs a Linux host or a container — see [kore-library](kore-library.md) §6. The
-oracle run is a separate command, because a scenario that takes a minute and needs Docker is one that
-must not be attached to `check` by accident (research Risk 5).
+The binaries are built **outside** Docker and copied in, which is the portfolio's settled shape: a
+Gradle and a Kotlin/Native toolchain in the build context on every run is not worth it.
+
+What that produces, measured on 2026-09-11
+([the record](../research/measurements-2026-09-11/ci-build.md)):
+
+| | |
+|---|---|
+| `service-all.jar` | 10.8 MB — assembled by hand; `application` and the Ktor Gradle plugin are `kotlinJvm`-only and do not apply to a multiplatform module |
+| `service.kexe` (release) | 3.6 MB, a dynamically linked ELF |
+| `kore-sample:jvm` | 493 MB |
+| `kore-sample:native` | 47.7 MB |
+| `linkReleaseExecutableLinuxX64` | 35.3 s — twenty-five times the debug link |
+
+The oracle run is a separate command, because a scenario that takes a minute and needs Docker is one
+that must not be attached to `check` by accident (research Risk 5).
 
 ## 7. Configuration
 
@@ -110,6 +128,18 @@ obvious.
 
 ## 8. Quirks
 
+* **A shell-form `ENTRYPOINT` would make every oracle run pass for the wrong reason.** `/bin/sh -c`
+  becomes PID 1 and does not forward `SIGTERM` to its child, so the process never sees the signal,
+  the container is killed after the grace period, and the run looks exactly like a process that shut
+  down instantly. Both stages use exec form; verified on 2026-09-11 by reading `/proc/<pid>/cmdline`
+  of the container's init from the host — `/app/service` for the native image, `java -jar
+  /app/service.jar` for the JVM one.
+* **`distroless/cc` does not carry `libcrypt.so.1`, and the binary needs it.** Read out of `ldd`
+  rather than discovered as a container that will not start. Re-run `ldd` after any dependency
+  change; the list is the image's real contract.
+* **The two platforms return different exit codes for the same clean shutdown** — `0` on
+  Kotlin/Native, `143` on the JVM. Both are correct. This is what corrected oracle assertion A6,
+  which used to demand `0` and would have failed every JVM run.
 * **The sample's slow route is the only thing keeping the oracle honest, and it is a parameter.**
   Set too low, every assertion still passes and nothing was in flight. That is why research-oracle
   §2.5 counts requests in flight at the signal and fails the run as *inconclusive* below a floor,

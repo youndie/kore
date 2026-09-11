@@ -119,6 +119,14 @@ time a gate looks like it covers more than it does.
 - **A pool check runs a statement, not an `acquire()`.** A pool hands out an idle connection whose far
   end is gone, and sqlx4k's pool has no `ping` to ask instead (research §1.9).
 - **Every stage has its own deadline.** One shared budget is a budget the first stage can spend.
+- **`ENTRYPOINT` in exec form, always.** Shell form makes `/bin/sh -c` PID 1, and it does not forward
+  `SIGTERM` — so the process never sees the signal and the run looks like an instant clean shutdown.
+- **A clean `SIGTERM` shutdown exits `0` on Kotlin/Native and `143` on the JVM.** Both are right.
+  Never assert a specific exit code across the two; assert that the process ended itself and was not
+  `SIGKILL`ed (`137`).
+- **Measure a task with `--no-build-cache --rerun-tasks`.** `org.gradle.caching=true` is on here, so
+  `clean` plus a timed run measures the cache: the native release link came out at 0.76 s that way
+  and at 35.3 s when actually run.
 - **A stage detaches its participants rather than joining them.** `withTimeout` around a
   `coroutineScope` still joins the children on the way out, so one participant that ignores
   cancellation makes the whole time bound a lie. Cancel the scope and move on: a leaked coroutine in

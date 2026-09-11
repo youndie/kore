@@ -52,3 +52,59 @@ once something links.
 A fallback of "JVM per pull request, native per milestone" was considered and is recorded as
 rejected: a gate that covers one platform while the library claims two is a gate with a hole in it,
 and this library's entire argument is a difference between the two platforms.
+
+---
+
+# The native link, measured — added the same day by [B-05](../../backlog/B-05-sample-service.md)
+
+B-07 could not measure a link because nothing had a `main`. The sample service does, so here it is.
+
+Taken on the Linux build box (20 cores), `~/.konan` warm, **`--no-build-cache --rerun-tasks`** after
+`clean`:
+
+| Task | Wall |
+|---|---|
+| `linkReleaseExecutableLinuxX64` | **35.3 s** |
+| `linkDebugExecutableLinuxX64` | **1.4 s** |
+
+**The first attempt at this measured 0.76 s and was wrong.** `org.gradle.caching=true` is on in this
+repository, so `clean` removed the output while the build cache still held the entry and handed it
+back. The number describes the cache, not the linker. `--no-build-cache --rerun-tasks` is what makes
+the task actually run — the same shape of mistake as measuring a warm process and calling it a cold
+start.
+
+**Release is twenty-five times debug**, which is the whole of the answer: the optimising LLVM pass is
+the cost, and a debug link is nearly free. That is worth knowing before anyone proposes dropping the
+release link from the gate to save time — and worth re-asking when there is more than one small
+module to optimise.
+
+## The two images, for the same reason
+
+Built from `samples/service/Dockerfile`, both entry points in exec form:
+
+| Image | Size |
+|---|---|
+| `kore-sample:native` (`distroless/cc-debian13` + `libcrypt.so.1`) | **47.7 MB** |
+| `kore-sample:jvm` (`eclipse-temurin:25-jre`) | **493 MB** |
+
+`libcrypt.so.1` is copied in explicitly: `ldd` on the binary lists it and `distroless/cc` does not
+carry it. Read rather than assumed, and it is the kind of gap that shows up as a container which
+will not start.
+
+## Stopping, with nothing in flight
+
+A baseline for [B-34](../../backlog/B-34-the-three-numbers.md), not a result: `docker kill -s TERM`
+against an idle container, from the signal to the container exiting.
+
+| Image | Time | Exit code |
+|---|---|---|
+| jvm | 472 ms | **143** |
+| native | 535 ms | **0** |
+
+The exit codes are the finding. A clean shutdown returns `143` (`128 + SIGTERM`) on the JVM, because
+the JVM runs its shutdown hooks and then dies of the signal, and `0` on Kotlin/Native, because `main`
+returns. Oracle assertion A6 said "exited with code 0" and would have failed every correct JVM run;
+it now asserts that the process ended itself inside the budget and was not `SIGKILL`ed, and records
+the code rather than judging it.
+
+These numbers say nothing about a shutdown *under load*, which is the one the oracle takes.
