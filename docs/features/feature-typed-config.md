@@ -92,18 +92,24 @@ library's.
 
 ## 6. Scenarios (BDD)
 
-**All *target*** — no implementation, no automated check.
+**Four of nine are automated as of B-21.** The five that remain all need something B-21 did not
+build: enumeration of the environment (B-22), the unknown-variable refusal (B-24), or the
+`--print-config` flag (B-23). Note that "a variable outside the prefix is not the schema's business"
+would *pass vacuously* today — there is no unknown check for it to survive — which is why it stays
+unmarked until there is one.
 
 ### Scenario: a missing required variable stops the process
 * **Given:** a schema with a required `SAMPLE_STORE_URL` and nothing set
 * **When:** the process starts
 * **Then:** it refuses to start
 * **And:** the message names `SAMPLE_STORE_URL`
+* **Automated:** `ConfigSchemaTest`
 
 ### Scenario: a value that does not parse stops the process
 * **Given:** `SAMPLE_TIMEOUT_MS` declared as an integer and set to `soon`
 * **When:** the process starts
 * **Then:** it refuses to start and names the variable and the expected type
+* **Automated:** `ConfigSchemaTest`
 
 ### Scenario: a near-miss name is refused, not ignored
 * **Given:** the schema declares `SAMPLE_TIMEOUT_MS` and the environment sets `SAMPLE_TIMEOUT_MSEC`
@@ -123,12 +129,14 @@ library's.
 * **Given:** `TRACY_ENDPOINT` set and `TRACY_KEY` unset, declared as a pair
 * **When:** the process starts
 * **Then:** it refuses to start and names both
+* **Automated:** `ConfigSchemaTest`
 
 ### Scenario: a boolean means exactly "true"
 * **Given:** a switch declared as a boolean and set to `True`
 * **When:** the configuration is read
 * **Then:** the value is false
 * **And:** the same holds for `1`, `yes` and an empty string
+* **Automated:** `ConfigSchemaTest`
 
 ### Scenario: --print-config shows origins and masks secrets
 * **Given:** a schema with a defaulted field, a field set in the environment, and a secret
