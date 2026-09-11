@@ -5,8 +5,8 @@ shutdown, three probes, a typed configuration from the environment, one-call obs
 and `/version`. **Native-first** — `linuxX64` and `linuxArm64` decide the design; `jvm` and
 `macosArm64` follow.
 
-**Almost no code yet.** Three module skeletons exist (`kore-core`, `kore-ktor`,
-`kore-observability`) and only the first carries any source. Everything else is research, a backlog
+**Almost no code yet.** Three modules exist (`kore-core`, `kore-ktor`, `kore-observability`); only
+`kore-core` carries source, and only its `lifecycle/` package. Everything else is research, a backlog
 and the layer documents: treat a path under `kore-*/src/` or `samples/` named in a document as *where
 the code will live* unless it is in that list.
 
@@ -112,6 +112,13 @@ portfolio before; the test-result XML and the artefact's timestamp have not.
 - **A pool check runs a statement, not an `acquire()`.** A pool hands out an idle connection whose far
   end is gone, and sqlx4k's pool has no `ping` to ask instead (research §1.9).
 - **Every stage has its own deadline.** One shared budget is a budget the first stage can spend.
+- **A stage detaches its participants rather than joining them.** `withTimeout` around a
+  `coroutineScope` still joins the children on the way out, so one participant that ignores
+  cancellation makes the whole time bound a lie. Cancel the scope and move on: a leaked coroutine in
+  a process that is exiting costs nothing, a `SIGKILL` mid-drain costs a request.
+- **No commas in a backticked test name.** Kotlin/Native refuses them with
+  `Name contains illegal characters: ","`, and the JVM target compiles them happily — so the failure
+  arrives from a target you were not thinking about.
 - **A number that was not measured says so.** The five-second pre-drain default is a hypothesis with
   an address ([B-20](docs/backlog/B-20-pre-drain-default.md)), and it is written as one in the table
   that ships it.

@@ -459,10 +459,16 @@ Why:
 is deployed there. Apple mobile targets are out: kore is about a server process, and a phone has
 neither a `SIGTERM` nor a readiness probe.
 
-### D2. The stop sequence is five named stages with individual deadlines, and kore owns the clock
+### D2. The stop sequence is named stages with individual deadlines, and kore owns the clock
 
 Decision: `signal → announce → drain → release → exit`, and each stage has a deadline of its own
 rather than sharing one budget.
+
+**Amended while implementing (B-04):** *five* was the story and *seven* is the machine. `release`
+carries three deadlines, one per group, so the unit that carries a deadline is the group — and the
+property that the transcript is a prefix of the specified order needs one unambiguous list.
+`KoreStage` therefore has seven entries and the five-stage grouping stays the way it is explained.
+The decision below is unchanged; only the count was imprecise.
 
 Why:
 

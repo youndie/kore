@@ -105,6 +105,23 @@ has returned, on both platforms.
 platforms differ most and where the unsafe thing lives. Naming it is what lets the property test say
 "the sequence began exactly once" about something a signal handler can deliver twice.
 
+**Five stages in the story, seven in the machine, and the difference matters** *(found while
+implementing, B-04)*. The diagram above reads as five, with `release` holding three groups. That is
+the right story and it is ambiguous about the one thing the machine cannot be ambiguous about: **the
+unit that carries a deadline**. `release` has three of them, so as a single stage it would need
+either a deadline it does not have or three it cannot express — and property 1 of
+[research-oracle](../research/research-oracle.md) §3.2 asserts the transcript is a *prefix of one
+unambiguous list*. So `KoreStage` has seven entries, the three release groups among them, and the
+five-stage grouping stays the human-facing one.
+
+**The time bound is a promise about waiting, not about stopping** *(also B-04)*. A stage runs its
+participants in a detached scope and, at the deadline, cancels that scope **without joining it**. So
+a participant that ignores cancellation keeps running while the sequence moves on. The alternative —
+structured concurrency, joining the children — makes rule 5 a lie the first time a participant blocks
+in a way `withTimeout` cannot interrupt, which on Kotlin/Native is not hypothetical (research
+Risk 3). A shutdown that overruns its grace period is killed mid-drain; a leaked coroutine in a
+process that is exiting costs nothing.
+
 **What kore does not control, and says so.** metrik's plugin subscribes its own agent to
 `ApplicationStopping` (research §1.6), so metrik stops inside the `drain` stage — after the drain on
 the JVM, before it on Native. kore cannot reorder someone else's subscription without taking over the
@@ -126,9 +143,10 @@ silently absorbed.
 
 ## 5. Scenarios (BDD)
 
-**All of these are *target* behaviour** — there is no implementation and therefore no automated
-check. A scenario gains an `**Automated:**` line when a test exists; until then the absence of the
-line is the honest signal, and the count in `bdd_report` reflects it.
+**Mostly *target* behaviour.** The stage machine exists (B-04); nothing above it does, so a scenario
+that ends in a request, a status code or a process exit has nothing to run against. A scenario gains
+an `**Automated:**` line when a test covers **all** of it — the absence of the line is the honest
+signal, and `bdd_report` counts it as manual.
 
 ### Scenario: a request in flight when the signal arrives is finished
 * **Given:** the service is serving and `N` requests are in flight on the slow route
@@ -175,6 +193,12 @@ line is the honest signal, and the count in `bdd_report` reflects it.
 * **Given:** the sequence has begun
 * **When:** a second `SIGTERM` arrives
 * **Then:** the recorded transitions contain each stage exactly once
+* **Automated:** `ShutdownSequenceTest`
+
+> The only scenario in this document that is automated today, and deliberately the only one. The
+> other two the stage machine touches — a participant that hangs, a participant that throws — both
+> end in "and the process still exits", which no test of a machine can observe. They stay unmarked
+> until the oracle of [research-oracle](../research/research-oracle.md) §2 can run them.
 
 ### Scenario: the two platforms agree
 * **Given:** the JVM sample and the native sample, same source, same scenario
