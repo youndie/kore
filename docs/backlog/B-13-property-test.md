@@ -1,7 +1,7 @@
 ---
 id: B-13
 title: "The property test over the stop order, proved by mutation"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m2-shutdown
