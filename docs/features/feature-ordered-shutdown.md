@@ -48,7 +48,12 @@ Each rule is checkable, and each has a reason that is not "it seems tidier".
    threshold, plus propagation — and stated in §4 of
    [feature-health-probes](feature-health-probes.md), not chosen to look round.
 3. **A request accepted before the signal gets a response.** Not a reset, not a truncated body.
-4. **A request arriving after the announce stage is refused with `503` and `Connection: close`.**
+4. **A request arriving after the announce stage is refused with `503` and `Connection: close` —
+   and kore is what refuses it.** Ktor does not, and this was measured rather than assumed: with a
+   grace period long enough to observe, CIO served 48 further requests on already-open connections
+   after `SIGTERM` and refused none of them (research §1.13). "Stop accepting" stops new
+   *connections*, not new *requests*. So the refusal is a plugin kore installs, gated on the sequence
+   having begun; without it there is no refusal anywhere and the oracle's A3 has no subject.
    The header is a promise to the client that the connection is finished. It is deliberately *not* a
    promise that the server hangs up: on CIO the keep-alive decision is read from the **request's**
    `Connection` header (research §1.4), and kore will not assert what the engine does not do.
@@ -86,7 +91,8 @@ SIGTERM / SIGINT
       │       /health/ready answers 503; /health/live still answers 200
       ▼
   drain       EmbeddedServer.stop(grace, timeout)          deadline: drainDeadline
-      │       accept stops; in-flight finishes; new arrivals get 503 + Connection: close
+      │       accept stops (new CONNECTIONS only); in-flight finishes;
+      │       kore's own plugin answers 503 + Connection: close to anything new
       ▼
   release     ordered, three groups, each with its own deadline
       │         1. consumers   flush, then close
@@ -121,6 +127,13 @@ structured concurrency, joining the children — makes rule 5 a lie the first ti
 in a way `withTimeout` cannot interrupt, which on Kotlin/Native is not hypothetical (research
 Risk 3). A shutdown that overruns its grace period is killed mid-drain; a leaked coroutine in a
 process that is exiting costs nothing.
+
+**The drain deadline is not an upper bound; under load it is the shutdown time** *(measured, B-06)*.
+CIO's `stop` waits for the connectors' jobs, and a keep-alive client keeps those alive, so the grace
+period is spent in full whenever anything is still connected: a 20-second grace produced a
+20.5-second shutdown with eight busy connections. kore's refusal changes what those clients *get*,
+not how long the engine waits — so `drainDeadline` must be read as "how long shutdown takes under
+load", and sized accordingly.
 
 **What kore does not control, and says so.** metrik's plugin subscribes its own agent to
 `ApplicationStopping` (research §1.6), so metrik stops inside the `drain` stage — after the drain on

@@ -74,14 +74,19 @@ in practice.
 That includes the one stage every consumer has: closing the connection pools. See
 [feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §3.
 
-**Hypothesis (check in M2).** The claim above is about *where the events are raised*, which is read
-directly. What is not yet read is whether an in-flight CIO call is a child of `applicationJob` and
-therefore actually cancelled by `disposeAndJoin()` on native, or merely deprived of the plugins it
-needs. The consequence is the same for kore either way — a request in flight during
-`ApplicationStopping` is not safe — but the failure it produces (a cancellation vs. a
-`NullPointerException` from an uninstalled plugin) differs, and the oracle in
-[research-oracle](research-oracle.md) §2 is what will say which. Do not write either into a
-document until it has been run.
+**Hypothesis — settled on 2026-09-11 by running it (B-06), and it was wrong.** This used to ask
+whether an in-flight CIO call is a child of `applicationJob` and therefore cancelled by
+`disposeAndJoin()` on native, and said "the consequence is the same for kore either way — a request
+in flight during `ApplicationStopping` is not safe".
+
+It is not the same, and that sentence was the mistake. Run with a grace period long enough to see
+anything, **all eight in-flight requests completed on Kotlin/Native** (§1.13). Whatever
+`applicationJob.cancelAndJoin()` cancels, the in-flight calls are not it.
+
+The ordering above stands — it is read directly in the source, and `ApplicationStopping` does fire
+before the drain on Native. What changes is the danger: it is not that Ktor kills the request, it is
+that **a subscriber closing a pool kills it**, while the request is still being served. Same
+requirement on kore, smaller and true claim behind it.
 
 ### 1.2 On CIO, `ApplicationStopPreparing` fires *after* the listening socket stops accepting
 
@@ -104,9 +109,12 @@ handling, **before** `EmbeddedServer.stop` is called at all.
 non-positive timeout and the engine does not wait for the cancellation to take effect. kore
 validates the pair at configuration time rather than letting it be discovered during an incident.
 
-**Consequence 3.** During the drain, new connections are refused. Anything that wants to observe the
-draining state — a probe, an operator with `curl` — must do so before `stop()` is called. This is
-the second reason the pre-drain window in §2 D2 is a stage of its own and not a formality.
+**Consequence 3.** During the drain, new **connections** are refused — and that is all. A client
+that already holds a keep-alive connection goes on being served normally for the whole grace period,
+which §1.13 measured: 48 requests after the signal, none refused. So a probe that dials in during the
+drain gets a connection refused, and a probe reusing a connection gets a cheerful `200`. Neither is
+the answer kore wants, which is the second reason the pre-drain window in §2 D2 is a stage of its own
+rather than a formality — and the reason kore installs a refusal of its own.
 
 ### 1.3 On Kotlin/Native the shutdown hook is a single global slot, and it runs inside a POSIX signal handler
 
@@ -430,6 +438,59 @@ README. Both are the owner's call. [B-37](../backlog/B-37-agents-not-on-central.
 targets were right, which they are. It did not ask whether a stranger could resolve them, which they
 cannot. **Reading a build file tells you what a project publishes; only the registry tells you where
 it landed.** The same slip produced §1.7.
+
+
+### 1.13 CIO does not refuse anything while it drains — it keeps serving, for the whole grace period
+
+Found by **running** the oracle (B-06), not by reading. It is the most consequential thing in this
+document after §1.1, and it contradicts what §1.1 was taken to imply.
+
+The experiment: the sample service under closed-loop load, eight keep-alive connections on a route
+taking 3 s, `SIGTERM` to PID 1, and the client's own record read afterwards.
+
+| Fact | Where verified |
+|---|---|
+| `ApplicationEngine.Configuration.shutdownGracePeriod` defaults to **1000 ms** and `shutdownTimeout` to **5000 ms** | `ktor-server-core` 3.5.2, `commonMain/io/ktor/server/engine/ApplicationEngine.kt:61` and `:68` |
+| At the default, **every** in-flight 3-second request is cut off — on **both** platforms | oracle run, `kore-sample:jvm` and `:native`: A1 failed 8 of 8, "the connection closed before a status line", process gone in 1435 ms / 1599 ms |
+| With `shutdownGracePeriod = 20 s`, **every** in-flight request completes — on **both** platforms | oracle run, `kore-probe:jvm` and `:native`: A1 passed, 8 of 8 |
+| During those 20 s the server **kept serving new requests** on the already-open connections: 48 exchanges after the signal, **none** refused, no `503`, no `Connection: close` | the same run's record: `exchanges: 64, spanning the signal: 8, after it: 48` |
+| Both processes exited at ~20.5 s — the **whole** grace period, not when the work finished | `exit 0 after 20568ms`, `exit 143 after 20452ms` |
+
+**Consequence 1 — the headline. "Drain" in Ktor means "keep serving until the grace expires".** It
+does not mean "finish what is in flight and stop". §1.2 read correctly that the accept job is
+cancelled; what that stops is **new connections**, not new **requests**, and a keep-alive client goes
+on being served for the entire period. So a `drainDeadline` is not an upper bound on shutdown time —
+under sustained load it **is** the shutdown time, every time.
+
+**Consequence 2 — kore has to implement the refusal itself, and nothing said so.**
+[feature-ordered-shutdown](../features/feature-ordered-shutdown.md) rule 4 promises that a request
+arriving after the announce stage is refused with `503` and `Connection: close`. **Ktor does not do
+that and will not.** It is a plugin kore installs, gated on the sequence having begun — otherwise
+there is no refusal anywhere and A3 has no subject, which is exactly what the run reported.
+
+**Consequence 3 — the default grace period is the first thing to fix, and it is not the ordering.**
+One second is shorter than a great many real requests. At the default, both platforms drop in-flight
+work for the same simple reason, and §1.1's ordering difference is invisible underneath it. kore must
+set `shutdownGracePeriod` and `shutdownTimeout` explicitly from its own stage deadlines and never
+inherit these.
+
+**Consequence 4 — §1.1's hypothesis is refuted, and the fact behind it stands.** §1.1 recorded, as an
+explicit hypothesis for M2, that an in-flight call might be cancelled by `disposeAndJoin()` on
+Kotlin/Native, where `ApplicationStopping` fires before the drain. With a grace period long enough to
+see it: **all eight in-flight requests completed on native.** So whatever `applicationJob.cancelAndJoin()`
+cancels, the in-flight calls are not it.
+
+What is **not** refuted is the ordering itself — `ApplicationStopping` still runs before the drain on
+Native, read directly in the source. What changes is the consequence: the danger is not that Ktor
+kills the request, it is that **a subscriber closing a pool does**, while the request is still being
+served. That is a smaller claim than the one §1.1 carried, and a true one.
+[B-14](../backlog/B-14-inflight-hypothesis.md) is closed by this and records it.
+
+**Consequence 5 — an experiment has to be able to see what it is looking for.** At Ktor's default
+grace period the oracle cannot distinguish "the ordering is wrong" from "the budget was one second",
+because the second failure happens first and looks identical. The negative control of
+[research-oracle](research-oracle.md) §1 must therefore be run at **both** settings, and say which is
+which. A run at the default alone would have produced a confident, wrong conclusion — it nearly did.
 
 ---
 

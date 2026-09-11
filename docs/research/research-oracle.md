@@ -32,6 +32,13 @@ is stated and sourced there.
 JVM sample and the native sample, each wired the way a Ktor example and the first consumer wire
 things: one `ApplicationStopping` subscriber, one `/health` route, `embeddedServer(...).start(wait = true)`.
 
+**And it has to be run at two grace periods, not one** *(learned by running it, B-06)*. Ktor's
+default `shutdownGracePeriod` is **one second**. At that setting every request slower than a second
+is cut off on both platforms, for a reason that has nothing to do with ordering — and a run at the
+default alone produces a confident, wrong conclusion about §1.1. It nearly did. So: once at the
+default, to record what an unconfigured service actually does, and once at a grace period long enough
+for the ordering question to be visible.
+
 The reason is not ceremony. Every fact in research-architecture §1.1 says this configuration should
 break under load on Kotlin/Native and survive on the JVM. If it does not break, one of three things
 is true — the fact is wrong, the load is not load, or the harness cannot see the failure — and each
@@ -83,7 +90,7 @@ oracle that trusts it can be satisfied by a comment.
 |---|---|---|
 | A1 | **Every request that had been accepted before the signal received a response.** No connection ends with a reset, a truncated body, or a read timeout. | This is the whole claim. It is also the one that fails on Kotlin/Native today for the reason in research-architecture §1.1. |
 | A2 | **Every response is either a normal status or `503`.** No `500`. | A `500` means a handler ran against something that had already been closed — the release stage overtaking the drain. A `503` is a refusal kore *chose*; a `500` is one it suffered. |
-| A3 | **Every `503` carries `Connection: close`.** | So a client that honours the header does not put the connection back in its pool. Deliberately *not* "the server closed the socket" — see research-architecture D6. |
+| A3 | **Every `503` carries `Connection: close`.** | So a client that honours the header does not put the connection back in its pool. Deliberately *not* "the server closed the socket" — see research-architecture D6. **Against a service without kore this has no subject and reports NOT_APPLICABLE**: Ktor refuses nothing while it drains (research §1.13), which is itself the finding. |
 | A4 | **`GET /health/ready` answered `503` strictly before the first request was refused**, and strictly before the first `503` of any kind. | Readiness falls before the drain begins. This is the ordering claim, checked from outside the process. |
 | A5 | **The interval between the readiness signal and the first refusal is at least the configured pre-drain wait.** | The wait is the stage that does the work (research-architecture §1.10); without this assertion it can be deleted and everything else still passes. |
 | A6 | **The process exited on its own, inside the grace period, without being `SIGKILL`ed.** | A sequence that is correct and slower than its budget is a sequence that never runs to the end in production. |

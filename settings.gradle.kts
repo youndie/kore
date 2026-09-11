@@ -39,6 +39,11 @@ include(":kore-observability")
 // one, so that "the two platforms behave alike" is an assertion rather than a hope.
 include(":samples:service")
 
+// The load driver and the assertions of research-oracle §2.3. Plain `kotlin("jvm")`: it drives
+// containers from outside and is never itself the thing under test, so it has no reason to be
+// multiplatform — and every reason not to be, since it has to keep working when the subject does not.
+include(":samples:oracle")
+
 // NOT HERE YET: `:kore-booblik`. `docs/services/kore-library.md` §2a names it as a `jvm()`-only
 // module, on a decision (research D5) whose premise turned out to be gone — `booblik-native` is
 // published for linuxX64 and macosArm64. Its target set is B-36, a question, and a module built to
