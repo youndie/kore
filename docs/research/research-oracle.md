@@ -205,9 +205,26 @@ replaces the other.
 
 **Three of these were run by hand in B-04**, against the machine and its eleven example-based tests,
 before the generative version existed: reversing the specified order (2 of 13 red), joining the
-stage's scope instead of detaching it (1 red), and removing the once-only guard (1 red). B-13 repeats
-them against the generated inputs, where a surviving mutant means something different — that the
-*generator* never produced the case.
+stage's scope instead of detaching it (1 red), and removing the once-only guard (1 red).
+
+**Run again in B-13 against the generated plans**, where a surviving mutant would mean something
+different — that the *generator* never produced the case:
+
+| Mutation | Against 200 generated plans |
+|---|---|
+| reverse the specified order | 13 of 30 red |
+| join the stage's scope instead of detaching it | 3 of 30 red, including **two of the generative properties by name** — "a stage never runs longer than its own deadline" and "the total never exceeds the sum of the deadlines" |
+| a throwing participant aborts the sequence | red |
+| remove the once-only guard | red |
+| a DWELL stage skips its wait | 1 of 30 red |
+
+The second row is the one worth reading: the detach is the design decision the machine makes that is
+easiest to argue away, and it is the generative properties rather than a hand-written example that
+refuse the alternative.
+
+**The suite passed on its first run**, which is a claim about the implementation only because the
+mutations above say so. A property test that has never been made to fail is a property test nobody
+has any reason to believe.
 
 ---
 
