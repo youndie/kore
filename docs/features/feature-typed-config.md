@@ -92,11 +92,11 @@ library's.
 
 ## 6. Scenarios (BDD)
 
-**Four of nine are automated as of B-21.** The five that remain all need something B-21 did not
-build: enumeration of the environment (B-22), the unknown-variable refusal (B-24), or the
-`--print-config` flag (B-23). Note that "a variable outside the prefix is not the schema's business"
-would *pass vacuously* today — there is no unknown check for it to survive — which is why it stays
-unmarked until there is one.
+**Eight of nine are automated as of B-23.** The one that remains is the near-miss name: `--print-config`
+now *lists* an unknown variable, and [B-24](../backlog/B-24-unknown-variable-refusal.md) is what makes
+it a **refusal**. "A variable outside the prefix is not the schema's business" was held back at B-21
+because it would have passed vacuously — there was no unknown check for it to survive. There is one
+now, so it is marked.
 
 ### Scenario: a missing required variable stops the process
 * **Given:** a schema with a required `SAMPLE_STORE_URL` and nothing set
@@ -124,6 +124,7 @@ unmarked until there is one.
 * **When:** the process starts
 * **Then:** it starts
 * **And:** none of them is reported as unknown
+* **Automated:** `PrintConfigTest`
 
 ### Scenario: a declared pair, half set, stops the process
 * **Given:** `TRACY_ENDPOINT` set and `TRACY_KEY` unset, declared as a pair
@@ -144,18 +145,21 @@ unmarked until there is one.
 * **Then:** it prints each key with its value and one of `default`, `env` or `code`
 * **And:** the secret's value does not appear anywhere in the output
 * **And:** the process exits without binding a port
+* **Automated:** `PrintConfigTest`
 
 ### Scenario: --print-config works on a configuration that cannot start
 * **Given:** a required variable is missing
 * **When:** the binary is run with `--print-config`
 * **Then:** it exits non-zero with the same message the start would give
 * **And:** it still prints what it did resolve
+* **Automated:** `PrintConfigTest`
 
 ### Scenario: the unknown-variable check reports its own absence
 * **Given:** a build for `macosArm64`
 * **When:** the binary is run with `--print-config`
 * **Then:** the output states that unknown-variable detection is unavailable on this target
 * **And:** it does **not** report that no unknown variables were found
+* **Automated:** `PrintConfigTest`
 
 ## 7. Out of scope
 
