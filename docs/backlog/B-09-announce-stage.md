@@ -6,7 +6,7 @@ priority: P0
 size: S
 stage: m2-shutdown
 epic: feature-ordered-shutdown
-blocked_by: [B-04]
+blocked_by: [B-04, B-16]
 ---
 
 # B-09 — The announce stage: readiness false, then wait
@@ -23,5 +23,11 @@ Flip the readiness gate, then wait the configured pre-drain delay before anythin
   refused rather than a 503, and the drain deadline is already counting.
 - Does **not** cover: the default's value, which is a hypothesis until [B-20](B-20-pre-drain-default.md).
 
-- AC: assertion A4 and A5 of research-oracle §2.3 hold against the sample on both platforms.
+- AC: the stage flips the readiness gate and then waits, asserted over the transcript of the stage
+  machine. **The end-to-end proof — A4 and A5 against a running container — is
+  [B-39](B-39-kore-wired-sample.md)**, because it needs a sample that uses kore and there is not one:
+  `samples/service` is the control and its whole value is being wired the ordinary way.
+- Also `blocked_by` [B-16](B-16-check-registry.md), added 2026-09-12: a stage that sets readiness
+  false needs somewhere for readiness to live. The original `blocked_by` named only the stage machine
+  and would have had this item picked before anything it could announce existed.
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/`

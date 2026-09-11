@@ -1,7 +1,7 @@
 ---
 id: B-10
 title: "The drain stage and the 503 that says not to come back"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m2-shutdown
@@ -35,6 +35,8 @@ stage with `503` plus `Connection: close`.
   that has nothing to do with ordering. kore derives both numbers from its own stage deadlines and
   never inherits them.
 
-- AC: assertions A1, A2 and A3 hold on both platforms; a configuration with `timeout <= grace` is
-  refused at startup and the message names both numbers.
+- AC: the refusal answers `503` with `Connection: close` once the sequence has begun, and a
+  configuration with `timeout <= grace` is refused at startup with both numbers in the message.
+  **The end-to-end proof — A1, A2 and A3 against a running container — is
+  [B-39](B-39-kore-wired-sample.md)**; there is no sample that uses kore yet.
 - Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/`
