@@ -92,7 +92,14 @@ class ShutdownPlanTest {
 
     @Test
     fun `the announce wait is spent even with nothing registered`() = runTest {
-        val transcript = shutdownSequence(ShutdownDeadlines(preDrainWait = 7.seconds), timeSource = testScheduler.timeSource).run()
+        // The other two are shortened because with the defaults this sums to 31s against a 30s
+        // grace period, and B-12's fit check refuses it. The check found that here, in this suite,
+        // on its first run — which is the cheap place for a budget to be wrong.
+        val transcript =
+            shutdownSequence(
+                ShutdownDeadlines(preDrainWait = 7.seconds, drain = 5.seconds, releaseGroup = 1.seconds),
+                timeSource = testScheduler.timeSource,
+            ).run()
 
         // The announce stage has no participants by construction, so a stage machine that skipped
         // empty stages would skip the one whose entire job is to wait. It is the stage most likely to
@@ -111,5 +118,66 @@ class ShutdownPlanTest {
     @Test
     fun `a negative deadline is refused`() {
         assertFailsWith<IllegalArgumentException> { ShutdownDeadlines(drain = (-1).seconds) }
+    }
+
+    // --- B-12: the sequence has to fit the grace period ------------------------------------------
+
+    @Test
+    fun `a sequence longer than the grace period is refused and names both numbers`() {
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                ShutdownDeadlines(preDrainWait = 10.seconds, drain = 30.seconds, gracePeriod = 30.seconds)
+            }
+
+        // The reader has to see WHICH of the two they got wrong without opening the source.
+        assertTrue(failure.message!!.contains("49s"), "the message did not name the sum: ${failure.message}")
+        assertTrue(failure.message!!.contains("30s"), "the message did not name the grace period")
+        assertTrue(failure.message!!.contains("terminationGracePeriodSeconds"), "it did not say what to change")
+    }
+
+    @Test
+    fun `a sequence that exactly fills the grace period is allowed`() {
+        // The boundary is <=, not <. A sequence that uses its whole budget has not overrun it, and
+        // refusing it would make the printed sum a lie by one second.
+        ShutdownDeadlines(preDrainWait = 5.seconds, drain = 16.seconds, releaseGroup = 3.seconds, gracePeriod = 30.seconds)
+    }
+
+    @Test
+    fun `an undeclared grace period is assumed and the assumption is visible`() {
+        val deadlines = ShutdownDeadlines()
+
+        assertEquals(ShutdownDeadlines.KUBERNETES_DEFAULT_GRACE_PERIOD, deadlines.gracePeriod)
+        assertEquals(false, deadlines.gracePeriodWasDeclared)
+        // The whole point of B-25's leading hypothesis: an assumption somebody can contradict is not
+        // the same thing as a constant.
+        assertTrue(deadlines.describe().contains("ASSUMED"), "the assumption was not printed")
+    }
+
+    @Test
+    fun `a declared grace period is used and says it was declared`() {
+        val deadlines = ShutdownDeadlines(gracePeriod = 60.seconds)
+
+        assertEquals(60.seconds, deadlines.gracePeriod)
+        assertTrue(deadlines.gracePeriodWasDeclared)
+        assertTrue(deadlines.describe().contains("(declared)"))
+        assertTrue(!deadlines.describe().contains("ASSUMED"))
+    }
+
+    @Test
+    fun `the description shows the sum beside the grace period`() {
+        val text = ShutdownDeadlines(gracePeriod = 40.seconds).describe()
+
+        assertTrue(text.contains("total"), "the sum was not shown")
+        assertTrue(text.contains("29s"), "the sum was not the defaults' 29s: $text")
+        assertTrue(text.contains("40s"), "the grace period was not shown")
+    }
+
+    @Test
+    fun `the shipped defaults fit an undeclared grace period`() {
+        // If this ever fails, every service that configured nothing stops starting — which is the
+        // right failure and the wrong moment to discover it.
+        val deadlines = ShutdownDeadlines()
+
+        assertTrue(deadlines.total <= deadlines.gracePeriod, "${deadlines.total} > ${deadlines.gracePeriod}")
     }
 }
