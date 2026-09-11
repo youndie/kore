@@ -4,6 +4,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -54,9 +55,34 @@ class ShutdownRefusalTest {
 
         client.get("/work")
 
-        // Without `finish()` the refused call carries on down the pipeline and the handler runs
-        // anyway — against exactly the resources the shutdown is closing.
         assertEquals(false, routeRan, "the handler ran for a call that had already been refused")
+    }
+
+    /**
+     * What `finish()` is actually for, and this test exists because a mutation proved the previous
+     * one did not cover it.
+     *
+     * Removing `finish()` left every test green: routing itself does not run a handler for a call
+     * whose response has already been sent, so the route was never the thing at risk. **Everything
+     * else in the pipeline is.** A plugin intercepting a later phase — logging, metrics, a tracing
+     * span, anything a service installs — goes on running for a request that was refused before it
+     * began, and does its work against exactly the resources the shutdown is closing.
+     *
+     * So the mutant survived because the assertion was aimed at the wrong thing, not because the
+     * line was unnecessary.
+     */
+    @Test
+    fun `nothing later in the pipeline runs for a refused call`() = testApplication {
+        var laterPluginRan = false
+        application {
+            installShutdownRefusal(isShuttingDown = { true })
+            intercept(ApplicationCallPipeline.Call) { laterPluginRan = true }
+            routing { get("/work") { call.respondText("worked\n") } }
+        }
+
+        client.get("/work")
+
+        assertEquals(false, laterPluginRan, "a later pipeline phase ran for a call already refused")
     }
 
     /**

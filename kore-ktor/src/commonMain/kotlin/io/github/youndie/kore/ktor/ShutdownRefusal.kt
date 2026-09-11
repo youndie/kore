@@ -39,7 +39,11 @@ public fun Application.installShutdownRefusal(
 
         call.response.header(HttpHeaders.Connection, "close")
         call.respondText(SHUTTING_DOWN_BODY, status = HttpStatusCode.ServiceUnavailable)
-        // Without this the refused call carries on down the pipeline and the route answers too.
+        // Stops the REST OF THE PIPELINE, which is not the route — routing does not run a handler
+        // for a call whose response has already been sent, and a mutation proved it. What carries on
+        // without this line is every plugin at a later phase: logging, metrics, a tracing span,
+        // anything a service installed. All of them would run for a request refused before it began,
+        // against exactly the resources the shutdown is closing.
         finish()
     }
 }
