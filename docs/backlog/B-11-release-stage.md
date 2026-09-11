@@ -1,7 +1,7 @@
 ---
 id: B-11
 title: "The release stage: three groups, three deadlines"
-status: wip
+status: done
 priority: P0
 size: M
 stage: m2-shutdown
@@ -30,3 +30,32 @@ Consumers, then pools, then telemetry — each group with its own deadline, run 
   "and the process still exits", which no test of a machine can observe — that half is
   [B-39](B-39-kore-wired-sample.md).
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/`
+
+## Iteration 1 — 2026-09-12
+
+**Done.** `shutdownSequence { }`, `ShutdownPlanBuilder` and `ShutdownDeadlines` — the assembly a
+consumer actually touches, with every default carrying its derivation. 8 tests, 24 green on each
+platform.
+
+The order is not configurable: `consumer` before `pool` because a consumer mid-handler still needs
+one, `telemetry` last because it is the only group whose job is to report on the others, and `drain`
+is its own stage rather than a group because it must run before everything the draining requests
+need. A test registers them in the wrong order and asserts the right one.
+
+**Writing the tests found a defect in the stage machine, and it was the predictable one.**
+`runStage` returned immediately for a stage with no participants — sensible for a pool group with no
+pools, and it silently deleted the **announce** stage, whose entire job is to wait. The test asked
+for seven seconds and got 5.462 µs.
+
+So `StagePlan` now carries what its duration *means*: `DEADLINE` bounds work, `DWELL` is time to
+spend. Exactly one stage is `DWELL`, and the feature document says why. Mutation: removing the dwell
+turns 1 of 24 red.
+
+**And a test failure that was the test's fault, worth the same attention.** The second failure —
+a release group recorded as 4.8 ms instead of 3 s — was `shutdownSequence` not accepting a
+`TimeSource`, so the transcript was stamped from the real clock while the delays ran on `runTest`'s
+virtual one. A test failing against a mechanism that works. The builder takes one now, with the
+reason on the parameter.
+
+**Not done:** the grace-period fit check, which is [B-12](B-12-deadlines-must-fit.md) and now has a
+`total` to compare against; and the end-to-end proof, [B-39](B-39-kore-wired-sample.md).

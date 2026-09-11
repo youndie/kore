@@ -128,6 +128,14 @@ in a way `withTimeout` cannot interrupt, which on Kotlin/Native is not hypotheti
 Risk 3). A shutdown that overruns its grace period is killed mid-drain; a leaked coroutine in a
 process that is exiting costs nothing.
 
+**One stage spends its duration; the rest bound work** *(found by implementing, B-11)*. A stage with
+nothing to do takes no time — waiting out a pool-closing deadline with no pools registered would be
+absurd. The **announce** stage is the exception: its entire job is to wait, and the machine's obvious
+behaviour deleted that wait silently. A test asked for seven seconds and got five microseconds. So
+the duration carries what it *means*, and the announce stage is marked as time to spend rather than a
+bound on work. It is the stage most likely to be optimised away by somebody who has not read why it
+is there, and now the type says so.
+
 **The drain deadline is not an upper bound; under load it is the shutdown time** *(measured, B-06)*.
 CIO's `stop` waits for the connectors' jobs, and a keep-alive client keeps those alive, so the grace
 period is spent in full whenever anything is still connected: a 20-second grace produced a
