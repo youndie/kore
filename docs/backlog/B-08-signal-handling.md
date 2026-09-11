@@ -1,7 +1,7 @@
 ---
 id: B-08
 title: "Signal handling: a handler that only sets a flag"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m2-shutdown
