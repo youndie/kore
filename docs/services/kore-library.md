@@ -77,7 +77,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | enumeration through `__environ` — the target where the unknown-variable check is possible |
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | the honest degradation of research §1.5: lookup works, enumeration does not |
 | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` | `System.getenv()`, which is the whole of it on this target |
-| `kore-core/src/posixMain/kotlin/io/github/youndie/kore/signal/` | `sigaction`, and a handler that only sets a flag |
+| `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | `sigaction`, and a handler that only sets a flag |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the probe and version routes, and the wrapper that calls `EmbeddedServer.stop` itself |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
 | `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |

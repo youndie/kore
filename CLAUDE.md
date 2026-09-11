@@ -21,7 +21,7 @@ the code will live* unless it is in that list.
    - **`ApplicationStopPreparing` fires after the socket has stopped accepting** on CIO (§1.2), so it
      is useless for flipping readiness — which is the one thing its name suggests;
    - **the Native shutdown hook is one global slot and runs on the signal stack** (§1.3), so kore
-     never uses `addShutdownHook` and installs `sigaction` itself;
+     never uses `addShutdownHook` and installs its own handler, which writes a flag and nothing else;
    - **`Connection: close` in a response does not close a CIO connection** (§1.4) — the engine reads
      the *request's* header. kore promises the header, not the socket, and the oracle asserts
      accordingly;

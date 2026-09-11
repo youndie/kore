@@ -153,7 +153,16 @@ the minimum a signal handler may do — set a flag and wake something — and le
 on an ordinary thread run the sequence. `platform.posix` exposes `sigaction`, `sigemptyset` and
 `sigfillset` on `linux_x64` and `linux_arm64` (verified by dumping
 `klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` from the Kotlin/Native 2.4.10
-distribution), so the handler can be installed properly rather than through the ANSI `signal()`.
+distribution).
+
+**Amended while implementing (B-08): kore uses `signal()`, not `sigaction()`, and the choice is not
+the interesting one.** `struct sigaction` has a different shape on Linux and on Darwin —
+`__sigaction_handler` against `__sigaction_u` — and all three native targets share one source set, so
+`sigaction` would mean two implementations of a handler that writes one integer. What separates kore
+from Ktor here is *what the handler does*, not what installs it. glibc's `signal()` keeps the handler
+installed after it fires, which matters because the alternative semantics would let a second
+`SIGTERM` reach the default disposition and kill the process mid-sequence — asserted by raising
+`SIGTERM` twice in a test rather than taken from a manual page.
 
 **Consequence 3.** Because Ktor's own hook is installed by `start()` and cannot be removed, kore has
 to be the thing that is *later*: it registers after the server has started, and accepts that on

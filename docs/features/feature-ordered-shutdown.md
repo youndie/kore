@@ -149,7 +149,7 @@ silently absorbed.
 |---|---|
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` — the stage machine and the recorded transitions |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/Participant.kt` — the contract a consumer implements |
-| kore-library | `kore-core/src/posixMain/kotlin/io/github/youndie/kore/signal/` — `sigaction`, and a handler that only sets a flag |
+| kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `sigaction`, and a handler that only sets a flag |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
 | kore-library | `kore-booblik/` — flush-then-close; **not built yet**, its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md) |
 | sample-service | `samples/oracle/` — the load driver and the assertions |
