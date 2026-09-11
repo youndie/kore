@@ -16,9 +16,19 @@ package io.github.youndie.kore
 public class KorePlatform internal constructor(
     /** `jvm`, `linux` or `macos`. Printed by `--print-config` and served by `/version`. */
     public val name: String,
-    /** Whether the whole environment can be listed, not merely queried by name. */
-    public val canEnumerateEnvironment: Boolean,
 ) {
+    /**
+     * Whether the whole environment can be listed, not merely queried by name.
+     *
+     * **Derived rather than declared** (changed in B-22). Each target used to state this as a
+     * constant beside the implementation that had to match it — two sources of truth for one fact,
+     * and the day they disagree is the day a deployment is told it has a capability it does not.
+     * Now there is one: the environment answers, and this reports what it answered.
+     */
+    public val canEnumerateEnvironment: Boolean
+        get() = io.github.youndie.kore.config.systemEnvironment().names() is
+            io.github.youndie.kore.config.EnvironmentNames.Listed
+
     override fun toString(): String =
         "KorePlatform($name, canEnumerateEnvironment=$canEnumerateEnvironment)"
 }
