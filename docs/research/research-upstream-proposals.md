@@ -118,23 +118,33 @@ application, so it can. A correct default beats a correct API nobody calls.
 **What kore does meanwhile.** It holds the delivery and calls `stop` in its telemetry group, with its
 own deadline ([feature-observability-wiring](../features/feature-observability-wiring.md) §3).
 
-## 4. booblik — `youndie/booblik`, ready to file
+## 4. booblik — `youndie/booblik`, ready to file, and it is one line
 
-**Claim.** `Producer.close()` is `mailbox.close()`, and the loop's `finally` calls `drainPending()`,
-which completes every queued record **exceptionally** with `ConnectionClosedException` rather than
-sending it. So closing a producer without first calling `flush()` discards up to a linger window of
-records, silently — and the records that vanish are exactly the ones nothing was awaiting.
+**Claim.** The JVM and Native clients of the same broker disagree about what `Producer.close()`
+does, and the JVM one is the one that loses data.
 
-**Verified against** `booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:118-120`
-and `:228-239`.
+Both are `mailbox.close()` with a `finally { drainPending() }`. The **native** `drainPending()`
+begins with `sendAll()` and then fails only what was still queued in the mailbox. The **JVM**
+`drainPending()` has no `sendAll()`: it completes the accumulated batches exceptionally with
+`ConnectionClosedException` instead of sending them. So closing a JVM producer without first calling
+`flush()` discards up to a linger window of records, silently — and the records that vanish are
+exactly the ones nothing was awaiting.
 
-**Proposed shape.** Either a flushing `close()`, or a `close()` that is loud about what it dropped.
-The current behaviour is defensible — a close during a broken connection must not block — but it is
-indistinguishable from a clean close, and that is the part worth changing.
+**Verified against** `booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:228-239`
+against `booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:228-242`.
+
+**Proposed shape.** Port the native `sendAll()` into the JVM `drainPending()`. This is deliberately
+not the design argument the entry used to carry ("either a flushing `close()`, or a `close()` that is
+loud about what it dropped") — the project has already decided what `close()` should mean, in the
+implementation it wrote second, and the other one was not brought along.
 
 **What kore does meanwhile.** Its consumer group flushes with a deadline and then closes, in that
-order, and that order is a business rule rather than a convention
-([feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §2 rule 7).
+order, on both platforms — it does not rely on either client's `close()`, precisely because they
+disagree ([feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §2 rule 7).
+
+**How this was found, because the shape recurs.** Not by reading the JVM client more carefully. By
+learning that a second implementation existed and asking whether it agreed. One implementation cannot
+tell you it is wrong; two can.
 
 ## 5. katcher — `youndie/katcher`, a question rather than a defect
 

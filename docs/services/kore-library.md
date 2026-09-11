@@ -18,11 +18,16 @@ publishes:
 
 # kore — the library and its modules
 
-> **Nothing in this document is built yet.** kore's repository holds documentation and a backlog;
-> the module layout below is a decision, not an observation, and the paths in §2a are where the code
-> will live rather than where it is. The layer that *is* verified is
-> [research-architecture](../research/research-architecture.md) — every fact there was read in an
-> artefact that exists. When a module lands, this document is corrected against the code.
+> **Partly built as of 2026-09-11 (B-01).** Three modules exist and compile on all four targets:
+> `kore-core`, `kore-ktor`, `kore-observability`. They are skeletons — only `kore-core` carries any
+> source. Two rows of §2a are **deliberately not built**, and the reason in each case is a decision
+> whose premise changed:
+>
+> * `kore-booblik` is absent — [B-36](../backlog/B-36-booblik-adapter-targets.md);
+> * `kore-observability` has no agent dependencies — [B-37](../backlog/B-37-agents-not-on-central.md);
+> * `kore-build` and `samples/` belong to B-26 and B-05 and were never B-01's.
+>
+> Everything else in this document is still a decision rather than an observation.
 
 ## 1. Responsibility
 
@@ -72,7 +77,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/posixMain/kotlin/io/github/youndie/kore/signal/` | `sigaction`, and a handler that only sets a flag |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the probe and version routes, and the wrapper that calls `EmbeddedServer.stop` itself |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
-| `kore-booblik/src/main/kotlin/io/github/youndie/kore/booblik/` | the JVM-only adapter of research D5 — flush, then close |
+| `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |
 | `kore-build/src/main/kotlin/io/github/youndie/kore/build/` | the Gradle plugin that generates the build-identity source |
 | `samples/` | the two sample binaries — [sample-service](sample-service.md) |
 
@@ -90,10 +95,15 @@ can only be tested by scripting them, which is the class of test this library ex
 not send anything to tracy should not resolve three agent artefacts to get it. The three shutdown
 contracts of research §1.6 live here and nowhere else.
 
-**Why `kore-booblik` is a `jvm()` module on its own.** Forced, not chosen: booblik's client is
-Kotlin/JVM by its own recorded decision (research §1.7). The alternative — an optional dependency
-discovered by reflection — is unavailable on Kotlin/Native at all, and an API that differs in shape
-per platform is an API whose documentation is wrong on one of them.
+**Why `kore-booblik` is a module on its own, and why it does not exist yet.** Separate because
+`kore-core` must not depend on a broker client at all — a participant is a contract, not a booblik
+type. Absent because the decision that said "and it is JVM-only" rested on a premise that turned out
+to be false: there are two published booblik clients with two different APIs, not one
+(research §1.7). Which targets the adapter has is [B-36](../backlog/B-36-booblik-adapter-targets.md),
+and a module written to a superseded decision is worse than a module that is not there yet. The one
+argument that survives: not an optional dependency discovered by reflection — unavailable on
+Kotlin/Native, and an API that differs in shape per platform is one whose documentation is wrong on
+one of them.
 
 **Why the signal handler does nothing but set a flag.** Research §1.3: Ktor's native handler runs
 `runBlocking` on the signal-handler stack, which is not async-signal-safe. kore's handler writes an
@@ -118,8 +128,8 @@ a green build.
 |---|---|---|
 | Library | `io.ktor:ktor-server-core` | the application, the events, `EmbeddedServer` — `kore-ktor` only |
 | Library | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | the stage machine and the health refresh loop |
-| Library | tracy agent, metrik agent, katcher client | `kore-observability` only |
-| Library | booblik client | `kore-booblik` only, and JVM only |
+| Library | tracy agent, metrik agent, katcher client | `kore-observability` only — **not declared yet**: none of the three is on Maven Central (research §1.12), which is [B-37](../backlog/B-37-agents-not-on-central.md) |
+| Library | a booblik client | `kore-booblik` only — and there are two of them, one per platform ([B-36](../backlog/B-36-booblik-adapter-targets.md)) |
 | Toolchain | Kotlin 2.4.10 / Kotlin/Native | the platform klibs research §1.3 and §1.5 were read from |
 
 Version pinning follows the portfolio's rule: every version is read from the registry's own metadata
@@ -130,7 +140,11 @@ before it is written down, not recalled. kore's own catalogue carries the reason
 kore is a library. It publishes artefacts; it deploys nothing.
 
 * **Artefacts:** `io.github.youndie:kore-*`, targets `jvm`, `linuxX64`, `linuxArm64`, `macosArm64`
-  (research D1). `kore-booblik` is `jvm` only.
+  (research D1). Verified by building them on 2026-09-11: all three native klibs and the JVM jar are
+  produced, and the `macosArm64` klib cross-compiles on a Linux host. `kore-booblik`'s targets are
+  [B-36](../backlog/B-36-booblik-adapter-targets.md).
+* **Resolvable by whom:** everything kore depends on today is on Maven Central. That is a property
+  worth keeping and it is the whole content of [B-37](../backlog/B-37-agents-not-on-central.md).
 * **Gradle plugin:** `io.github.youndie.kore` — generates the build identity of
   [feature-build-identity](../features/feature-build-identity.md).
 * **What a consumer deploys** is its own image; what kore contributes to that image is the four
@@ -140,15 +154,29 @@ kore is a library. It publishes artefacts; it deploys nothing.
 ## 6. Local setup
 
 ```bash
-./gradlew build
+~/.claude/bin/wsl-run ./gradlew build
 ```
 
-Apple targets and anything needing a simulator do not apply — there are none. The native link and
-the oracle of [research-oracle](../research/research-oracle.md) §2 need Linux; the Kotlin/Native
-Apple-host toolchain cross-compiles the Linux klibs but does not produce a Linux executable, so the
-end-to-end run happens on a Linux machine or in a container. Which of the two the gate uses is
-[B-06](../backlog/B-06-oracle-harness.md), and the cost of a native link per pull request is
-measured before it is decided (research Risk 5).
+**The build runs on the Linux box, not on the Mac** — the repository is a mutagen session, and the
+wrapper flushes it and goes over ssh. Editing and `git` stay on the Mac: the replica is one-way, so
+work done there is reverted and a diff taken there proves nothing.
+
+What a green `build` covers, measured on 2026-09-11 rather than assumed:
+
+| On the Linux box | |
+|---|---|
+| `compileKotlinJvm`, `compileKotlinLinuxX64`, `compileKotlinLinuxArm64`, `compileKotlinMacosArm64` | **run** — all four produce artefacts, the Apple klib included |
+| `jvmTest`, `linuxX64Test` | **run** — result XML written |
+| `linuxArm64Test`, `macosArm64Test` | **SKIPPED**, inside `BUILD SUCCESSFUL` — a host cannot run what it cannot execute |
+
+So a green build means the `linuxArm64` and `macosArm64` code *compiles* and says nothing about any
+test there. Anything that must be true on those targets needs a test that runs somewhere they run,
+or it is not covered.
+
+The oracle of [research-oracle](../research/research-oracle.md) §2 needs a Linux *executable*, which
+is a link rather than a klib; which machine the gate uses is
+[B-06](../backlog/B-06-oracle-harness.md), and the cost of a native link per pull request is measured
+before it is decided (research Risk 5).
 
 ## 7. Configuration
 

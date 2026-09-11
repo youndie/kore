@@ -1,0 +1,45 @@
+# One line per version, and the comment above a line says what makes it non-obvious.
+#
+# Every version below was read from `repo1.maven.org`'s own `maven-metadata.xml` on 2026-09-11, not
+# recalled and not taken from the search API, which answers some of them stale. Where the newest
+# release was NOT chosen, the line says why — "newest" is a fact about the registry, not a reason.
+
+[versions]
+
+# NOT 2.4.20, which is the current release. Three reasons, and none of them is caution:
+#
+#   * every fact in `docs/research/research-architecture.md` §1.3 and §1.5 was verified by dumping
+#     the platform klibs of the 2.4.10 distribution — `__environ`, `sigaction`, the absence of
+#     `environ` on macOS. Pinning a different compiler makes those verification addresses point at
+#     a distribution this build does not use, and a research document whose addresses cannot be
+#     re-checked is a document that has to be believed;
+#   * it is the version the portfolio's toolkits are built with, and kore is meant to resolve
+#     beside them;
+#   * it is the Kotlin/Native distribution already on both machines, so a build here does not
+#     start with a gigabyte of download.
+#
+# Bumping it means re-running the klib dumps, not just editing this line.
+kotlin = "2.4.10"
+
+# The current release, and also the exact artefact §1.1-§1.4 of the research were read in:
+# `EmbeddedServerJvm.kt:404`, `EmbeddedServerNix.kt:84`, `CIOApplicationEngine.kt:91`,
+# `ServerPipeline.kt`. The whole reason kore exists is a difference between two files in THIS
+# version; a bump is a re-read of those four places before anything else.
+ktor = "3.5.2"
+
+# The current release. `api` rather than `implementation` wherever it appears: kore hands back and
+# takes in coroutine types, so they are part of the surface rather than a detail behind it.
+coroutines = "1.11.0"
+
+# WHAT THE JVM HALF COMPILES TO, and it is deliberately the portfolio's number rather than the low
+# floor a library would normally pick. A library published at 25 cannot be consumed below 25;
+# kore's consumers are this portfolio's services, which are on 25 already. Choosing a lower floor is
+# a publishing decision and belongs to B-33, where there is something published to be wrong about.
+jvmToolchain = "25"
+
+[libraries]
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

@@ -6,7 +6,7 @@ priority: P1
 size: M
 stage: m5-wiring
 epic: feature-observability-wiring
-blocked_by: [B-11, B-21]
+blocked_by: [B-11, B-21, B-37]
 ---
 
 # B-28 — The three agents in one call, with three shutdown contracts
@@ -23,6 +23,9 @@ treatment each actually needs.
 - **Installing a buffer without the thing that empties it must be impossible through kore.** tracy's
   plugin and its delivery are two objects; installing only the first logs into memory and reports
   nothing.
+- **Blocked on [B-37](B-37-agents-not-on-central.md), found during B-01:** none of the three agents
+  is on Maven Central, so there is no way to depend on them that a consumer outside the portfolio can
+  resolve. That is a decision before it is a wiring job.
 - Does **not** cover: the losses kore cannot fix from outside — metrik's open window, katcher's
   un-stoppable scope. Those are documented in
   [feature-observability-wiring](../features/feature-observability-wiring.md) §7 and filed in
