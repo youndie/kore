@@ -1,7 +1,7 @@
 ---
 id: B-22
 title: "Environment enumeration per target, and the honest macOS gap"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m4-config
