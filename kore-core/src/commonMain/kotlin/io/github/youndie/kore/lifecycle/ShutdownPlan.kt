@@ -49,10 +49,21 @@ public class ShutdownDeadlines(
  * configuration is a sequence whose order is not a promise.
  */
 public class ShutdownPlanBuilder internal constructor() {
+    private val announcements = mutableListOf<ShutdownParticipant>()
     private val consumers = mutableListOf<ShutdownParticipant>()
     private val pools = mutableListOf<ShutdownParticipant>()
     private val telemetry = mutableListOf<ShutdownParticipant>()
     private var engine: ShutdownParticipant? = null
+
+    /**
+     * Runs at the start of the announce stage, before its wait.
+     *
+     * In practice exactly one thing goes here — [AnnounceNotReady] — and it is a registration rather
+     * than a hard-wired line so the machine keeps knowing nothing about readiness.
+     */
+    public fun announce(participant: ShutdownParticipant) {
+        announcements += participant
+    }
 
     /** Things holding a position or a socket: flush, then close. Before the pools they use. */
     public fun consumer(participant: ShutdownParticipant) {
@@ -81,7 +92,7 @@ public class ShutdownPlanBuilder internal constructor() {
     internal fun build(deadlines: ShutdownDeadlines): List<StagePlan> =
         listOf(
             StagePlan(KoreStage.SIGNAL, Duration.ZERO),
-            StagePlan(KoreStage.ANNOUNCE, deadlines.preDrainWait, duration = StageDuration.DWELL),
+            StagePlan(KoreStage.ANNOUNCE, deadlines.preDrainWait, announcements.toList(), StageDuration.DWELL),
             StagePlan(KoreStage.DRAIN, deadlines.drain, listOfNotNull(engine)),
             StagePlan(KoreStage.RELEASE_CONSUMERS, deadlines.releaseGroup, consumers.toList()),
             StagePlan(KoreStage.RELEASE_POOLS, deadlines.releaseGroup, pools.toList()),
