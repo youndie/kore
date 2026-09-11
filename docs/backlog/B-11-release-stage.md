@@ -1,7 +1,7 @@
 ---
 id: B-11
 title: "The release stage: three groups, three deadlines"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m2-shutdown

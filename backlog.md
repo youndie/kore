@@ -99,7 +99,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-09](docs/backlog/B-09-announce-stage.md) `[ ]` | The announce stage: readiness false, then wait | P0 | S | B-04, B-16 |
-| [B-11](docs/backlog/B-11-release-stage.md) `[ ]` | The release stage: three groups, three deadlines | P0 | M | B-04 |
+| [B-11](docs/backlog/B-11-release-stage.md) `[~]` | The release stage: three groups, three deadlines | P0 | M | B-04 |
 | [B-13](docs/backlog/B-13-property-test.md) `[ ]` | The property test over the stop order, proved by mutation | P0 | M | B-04 |
 | [B-16](docs/backlog/B-16-check-registry.md) `[ ]` | The check registry, the cached result and the refresh loop | P0 | M | - |
 | [B-17](docs/backlog/B-17-probe-routes.md) `[ ]` | The three routes and the /health alias | P0 | S | B-16 |
