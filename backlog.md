@@ -98,7 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-23](docs/backlog/B-23-print-config.md) `[ ]` | --print-config: values, origins, masks, and the probe block | P0 | S | B-21 |
+| [B-23](docs/backlog/B-23-print-config.md) `[~]` | --print-config: values, origins, masks, and the probe block | P0 | S | B-21 |
 | [B-12](docs/backlog/B-12-deadlines-must-fit.md) `[ ]` | Refuse at startup a sequence that cannot fit the grace period | P1 | S | B-11 |
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
 | [B-18](docs/backlog/B-18-pooled-store-check.md) `[ ]` | The pooled-store check runs a statement, not an acquire | P1 | S | B-16 |

@@ -1,7 +1,7 @@
 ---
 id: B-23
 title: "--print-config: values, origins, masks, and the probe block"
-status: open
+status: wip
 priority: P0
 size: S
 stage: m4-config
