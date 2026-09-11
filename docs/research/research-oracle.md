@@ -86,8 +86,19 @@ oracle that trusts it can be satisfied by a comment.
 | A3 | **Every `503` carries `Connection: close`.** | So a client that honours the header does not put the connection back in its pool. Deliberately *not* "the server closed the socket" — see research-architecture D6. |
 | A4 | **`GET /health/ready` answered `503` strictly before the first request was refused**, and strictly before the first `503` of any kind. | Readiness falls before the drain begins. This is the ordering claim, checked from outside the process. |
 | A5 | **The interval between the readiness signal and the first refusal is at least the configured pre-drain wait.** | The wait is the stage that does the work (research-architecture §1.10); without this assertion it can be deleted and everything else still passes. |
-| A6 | **The process exited on its own, with code 0, before the grace period.** No `SIGKILL`. | A sequence that is correct and slower than its budget is a sequence that never runs to the end in production. |
+| A6 | **The process exited on its own, inside the grace period, without being `SIGKILL`ed.** | A sequence that is correct and slower than its budget is a sequence that never runs to the end in production. |
 | A7 | **The `jvm` and `linuxX64` runs agree on A1–A6.** | Stated as an assertion so a platform-specific regression is a red run rather than a difference somebody notices later. |
+
+**A6 used to say "with code 0" and that was wrong** — corrected on 2026-09-11 against the two
+containers of B-05, before anything was built on it. A clean `SIGTERM` shutdown produces a
+**different exit code on each platform**: the native binary returns from `main` and exits **0**,
+while the JVM runs its shutdown hooks and then exits **143** (`128 + SIGTERM`), which is the normal
+and correct outcome there. Asserting `0` would have failed every JVM run for being right.
+
+So the assertion is about *how* the process ended, not about a number: it ended itself, inside the
+budget, and was not killed. `137` (`128 + SIGKILL`) is the failure this is looking for. The exit code
+is still recorded in the run's output, because a change in it is worth seeing even when it is not a
+failure.
 
 ### 2.4 What the run deliberately does not assert
 
@@ -96,6 +107,8 @@ oracle that trusts it can be satisfied by a comment.
   because of the grace-period cancellation — in both cases for a reason unrelated to kore.
 - **Any absolute timing beyond A5 and A6.** Wall-clock numbers belong in §4, where they are measured
   as a comparison rather than asserted against a constant that describes the runner.
+- **A particular exit code.** See the correction above: the two platforms disagree about what a clean
+  `SIGTERM` shutdown returns, and both are right.
 - **Anything about ordering *inside* the release stage.** That is §3's job; the oracle cannot see it
   from outside the process, and an oracle that claims what it cannot observe is the failure mode this
   document exists to avoid.

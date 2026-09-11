@@ -35,6 +35,10 @@ include(":kore-ktor")
 // does not resolve three agent artefacts to get it.
 include(":kore-observability")
 
+// The fixture the library is judged by, not a demonstration: one source, a JVM binary and a native
+// one, so that "the two platforms behave alike" is an assertion rather than a hope.
+include(":samples:service")
+
 // NOT HERE YET: `:kore-booblik`. `docs/services/kore-library.md` §2a names it as a `jvm()`-only
 // module, on a decision (research D5) whose premise turned out to be gone — `booblik-native` is
 // published for linuxX64 and macosArm64. Its target set is B-36, a question, and a module built to
