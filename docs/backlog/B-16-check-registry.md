@@ -1,7 +1,7 @@
 ---
 id: B-16
 title: "The check registry, the cached result and the refresh loop"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m3-probes
