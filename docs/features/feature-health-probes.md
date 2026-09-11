@@ -129,7 +129,10 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 
 ## 7. Scenarios (BDD)
 
-**All *target*** — no implementation, no automated check.
+**Five of six are automated as of B-17.** The sixth needs a real pooled store and is
+[B-18](../backlog/B-18-pooled-store-check.md). A scenario gains its line when a test covers **all** of
+it; where a clause is a consequence rather than a second observable, the scenario says so instead of
+quietly counting it.
 
 ### Scenario: the process is up but its store is unreachable
 * **Given:** the service has started and its pooled store is unreachable
@@ -138,28 +141,34 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 * **And:** the body names the failing check
 * **And:** `GET /health/live` answers `200` — the process is not wedged, and restarting it would not
   help
+* **Automated:** `ProbeRoutesTest`
 
 ### Scenario: liveness survives a dependency outage
 * **Given:** every dependency check is failing
 * **When:** `GET /health/live` is polled for longer than the liveness failure threshold
 * **Then:** it answers `200` throughout
-* **And:** the container is not restarted
+* **And:** the container is not restarted — which is the kubelet's consequence of the line above
+  rather than a second thing to check; no test of a process can observe it
+* **Automated:** `ProbeRoutesTest`
 
 ### Scenario: a check that hangs produces a stale result, not a hung probe
 * **Given:** a registered check whose function never returns
 * **When:** `GET /health/ready` is called after the refresh budget has passed
 * **Then:** the response is `503` within the probe's own timeout
 * **And:** the body reports the age of the last result
+* **Automated:** `ProbeRoutesTest`
 
 ### Scenario: startup does not un-latch
 * **Given:** `GET /health/startup` has answered `200`
 * **When:** a dependency later fails, and later still the shutdown sequence begins
 * **Then:** `GET /health/startup` answers `200` in both cases
+* **Automated:** `ProbeRoutesTest`
 
 ### Scenario: a process that has not run its first check is not ready
 * **Given:** the server is listening and no check has completed yet
 * **When:** `GET /health/ready` is called
 * **Then:** the response is `503`
+* **Automated:** `ProbeRoutesTest`
 
 ### Scenario: a pool that hands out a dead connection is not healthy
 * **Given:** a pool whose `acquire()` succeeds from its idle set while the server on the far end is

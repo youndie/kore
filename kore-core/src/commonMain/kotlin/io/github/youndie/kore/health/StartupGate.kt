@@ -30,6 +30,9 @@ public class StartupGate(
 
     /** Says one gate has completed. Unknown names are ignored: a gate reported twice is not an error. */
     public fun completed(gate: String) {
+        // An early-out, NOT a correctness guard — and that was established by mutation rather than
+        // assumed. `started` is monotonic, so removing this line changes nothing observable: the
+        // mutant survives and is equivalent. It stays because it says what the function is for.
         if (started) return
         outstanding -= gate
         if (outstanding.isEmpty()) started = true
