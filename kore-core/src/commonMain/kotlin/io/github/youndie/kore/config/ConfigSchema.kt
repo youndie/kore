@@ -135,6 +135,31 @@ public class ConfigSchema(
             }
         }
 
+
+        // THE UNKNOWN-VARIABLE REFUSAL, and it is scoped to the prefix for a reason that decides
+        // whether the feature is usable at all: a container's environment carries PATH, HOSTNAME,
+        // KUBERNETES_SERVICE_HOST and every *_PORT the kubelet injects. A check over the whole
+        // environment fails on its first deployment, gets switched off, and is never switched on
+        // again — so an unscoped version of this feature is a feature that does not exist.
+        //
+        // A target that cannot list the environment contributes nothing here, and does NOT quietly
+        // report "none": that distinction lives in EnvironmentNames, and `--print-config` prints
+        // which of the two happened.
+        val listing = environment.names()
+        if (listing is EnvironmentNames.Listed) {
+            val declared = keys.map { variableOf(it) }.toSet()
+            listing.names
+                .filter { it.startsWith("${prefix}_") && it !in declared }
+                .sorted()
+                .forEach { unknown ->
+                    problems +=
+                        ConfigProblem(
+                            unknown,
+                            "is set under the ${prefix}_ prefix and is not declared — a near miss of " +
+                                "a declared name reads as a setting that is being ignored",
+                        )
+                }
+        }
         pairs.forEach { pair ->
             val first = resolved[pair.first]
             val second = resolved[pair.second]
