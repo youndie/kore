@@ -1,7 +1,7 @@
 ---
 id: B-10
 title: "The drain stage and the 503 that says not to come back"
-status: open
+status: done
 priority: P0
 size: M
 stage: m2-shutdown
@@ -35,6 +35,45 @@ stage with `503` plus `Connection: close`.
   that has nothing to do with ordering. kore derives both numbers from its own stage deadlines and
   never inherits them.
 
-- AC: assertions A1, A2 and A3 hold on both platforms; a configuration with `timeout <= grace` is
-  refused at startup and the message names both numbers.
+- AC: the refusal answers `503` with `Connection: close` once the sequence has begun, and a
+  configuration with `timeout <= grace` is refused at startup with both numbers in the message.
+  **The end-to-end proof — A1, A2 and A3 against a running container — is
+  [B-39](B-39-kore-wired-sample.md)**; there is no sample that uses kore yet.
 - Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/`
+
+## Iteration 1 — 2026-09-12
+
+**Done.** `installShutdownRefusal`, `EngineDrain` and `KoreRoutes` in `kore-ktor`. 10 tests green on
+`jvm` **and** `linuxX64` — the native half matters here, because the refusal is the thing research
+§1.13 says has to exist and `ktor-server-test-host` publishes for all three native targets (checked in
+Central before depending on it from a common test source set).
+
+**The exemption list turned out to be the load-bearing half.** A `503` from `/health/live` is a
+failed liveness probe, and enough of those restart the pod **in the middle of the shutdown it is
+reporting**. Readiness is exempt for a different reason — it is *supposed* to fail during a shutdown
+and its own answer says which check did, where a blanket refusal reaches the same status code saying
+nothing.
+
+**A mutation survived, and what it exposed was the test rather than the code.**
+
+| Mutation | First run | After |
+|---|---|---|
+| drop `finish()` | **survived** — every test green | 1 of 11 red |
+| stop exempting liveness | 1 of 10 red | |
+| allow `timeout == grace` | 1 of 10 red | |
+| drop the `Connection: close` header | 1 of 10 red | |
+
+The test aimed at `finish()` asserted that the *route* does not also run — and routing does not run a
+handler for a call whose response has already been sent, so the route was never the thing at risk.
+**Everything else in the pipeline is:** a plugin at a later phase — logging, metrics, a tracing span,
+anything a service installs — goes on running for a request refused before it began, against exactly
+the resources the shutdown is closing. The new test intercepts a later phase, and the production
+comment now says what the line actually protects instead of what it was assumed to.
+
+This is the second time in this repository that a passing test turned out to assert the wrong thing,
+and both times mutation is what said so.
+
+**Deliberately not done:** where the shutdown state lives. `installShutdownRefusal` takes a predicate,
+so this item does not decide that — it is the announce stage's, [B-09](B-09-announce-stage.md). And
+the end-to-end proof of A1–A3 against a running container is [B-39](B-39-kore-wired-sample.md), which
+is why this item's acceptance was narrowed before it was taken.

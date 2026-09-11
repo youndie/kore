@@ -78,7 +78,9 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | the honest degradation of research §1.5: lookup works, enumeration does not |
 | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` | `System.getenv()`, which is the whole of it on this target |
 | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
-| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the probe and version routes, and the wrapper that calls `EmbeddedServer.stop` itself |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the probe and version routes — B-17 |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
 | `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |
 | `kore-build/src/main/kotlin/io/github/youndie/kore/build/` | the Gradle plugin that generates the build-identity source |

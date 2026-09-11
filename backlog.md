@@ -98,8 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-09](docs/backlog/B-09-announce-stage.md) `[ ]` | The announce stage: readiness false, then wait | P0 | S | B-04 |
-| [B-10](docs/backlog/B-10-drain-stage.md) `[ ]` | The drain stage and the 503 that says not to come back | P0 | M | B-04 |
+| [B-09](docs/backlog/B-09-announce-stage.md) `[ ]` | The announce stage: readiness false, then wait | P0 | S | B-04, B-16 |
 | [B-11](docs/backlog/B-11-release-stage.md) `[ ]` | The release stage: three groups, three deadlines | P0 | M | B-04 |
 | [B-13](docs/backlog/B-13-property-test.md) `[ ]` | The property test over the stop order, proved by mutation | P0 | M | B-04 |
 | [B-16](docs/backlog/B-16-check-registry.md) `[ ]` | The check registry, the cached result and the refresh loop | P0 | M | - |
@@ -107,6 +106,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-21](docs/backlog/B-21-config-schema.md) `[ ]` | The schema DSL and the reader | P0 | M | - |
 | [B-22](docs/backlog/B-22-environment-enumeration.md) `[ ]` | Environment enumeration per target, and the honest macOS gap | P0 | M | B-21 |
 | [B-23](docs/backlog/B-23-print-config.md) `[ ]` | --print-config: values, origins, masks, and the probe block | P0 | S | B-21 |
+| [B-39](docs/backlog/B-39-kore-wired-sample.md) `[ ]` | The sample wired with kore, and the oracle run that proves the stages | P0 | M | B-09, B-10, B-11, B-17 |
 | [B-12](docs/backlog/B-12-deadlines-must-fit.md) `[ ]` | Refuse at startup a sequence that cannot fit the grace period | P1 | S | B-11 |
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
 | [B-18](docs/backlog/B-18-pooled-store-check.md) `[ ]` | The pooled-store check runs a statement, not an acquire | P1 | S | B-16 |
@@ -129,7 +129,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-02](docs/backlog/B-02-documentation-gate.md) `[ ]` | The documentation gate in CI | infra | S | - |
 | [B-35](docs/backlog/B-35-draft-gate.md) `[ ]` | Turn on the draft gate on the default branch | infra | XS | B-13, B-17, B-23, B-27, B-28 |
 
-## Closed (8)
+## Closed (9)
 
 **Shape**
 
@@ -146,6 +146,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 **The ordered shutdown**
 
 - [B-08](docs/backlog/B-08-signal-handling.md) `[x]` - Signal handling: a handler that only sets a flag
+- [B-10](docs/backlog/B-10-drain-stage.md) `[x]` - The drain stage and the 503 that says not to come back
 - [B-14](docs/backlog/B-14-inflight-hypothesis.md) `[x]` - Settle what disposeAndJoin does to an in-flight call on Native
 
 <!-- END INDEX -->

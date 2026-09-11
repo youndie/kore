@@ -248,6 +248,11 @@ signal, and `bdd_report` counts it as manual.
   registers after `EmbeddedServer.start` and therefore wins today. A library added later that also
   calls `addShutdownHook` would take it back silently. Risk 2 of the research; it is why the oracle
   asserts the *sequence* and not merely the exit code.
+* **The refusal must not refuse the liveness probe.** A `503` from `/health/live` is a failed
+  liveness probe, and enough of them restart the pod **in the middle of the shutdown it is
+  reporting** — turning the orderly stop into the abrupt one this feature exists to prevent. Startup,
+  liveness, `/health` and `/version` keep answering; readiness is exempt for a different reason, that
+  it is *supposed* to fail and says which check did.
 * **On the JVM the shutdown hook thread is the shutdown, and returning from it ends the process.**
   So kore's hook waits for the sequence to say it is finished — bounded, so forgetting that call
   costs latency rather than a process that will not exit. On Native the handler returns immediately

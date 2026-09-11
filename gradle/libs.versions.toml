@@ -50,6 +50,10 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 # transcript's marks are taken from, so an assertion about "the stage ended at its deadline" is exact
 # rather than approximately true.
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+# Test-only. It publishes linuxx64, linuxarm64 and macosarm64 — checked in Central before depending on
+# it from a common test source set, which is the check a `-jvm`-suffixed coordinate in a KMP module
+# means somebody skipped.
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

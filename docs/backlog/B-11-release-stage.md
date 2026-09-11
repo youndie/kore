@@ -25,6 +25,8 @@ Consumers, then pools, then telemetry — each group with its own deadline, run 
 - A participant that throws is recorded and the sequence continues: a shutdown that aborts halfway
   leaves open exactly what it exists to close.
 
-- AC: the scenarios "a participant that hangs" and "a participant that throws" of
-  [feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §5 hold.
+- AC: the three groups run in order with their own deadlines, over the stage machine. The two
+  scenarios of [feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §5 both end in
+  "and the process still exits", which no test of a machine can observe — that half is
+  [B-39](B-39-kore-wired-sample.md).
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/`
