@@ -11,11 +11,22 @@ name: check
 # one nobody remembers to add to the list, so the check that would have caught it never runs.
 # Sixty documents are checked in seconds. There is nothing here worth economising on.
 on:
+  # `push` narrowed to the default branch on 2026-09-11 (B-07). NOT a path filter — those are refused
+  # below for good reasons — but a trigger filter, and it removes a duplicate: every item in this
+  # backlog opens a pull request, so an unrestricted `push` ran the whole workflow twice for every
+  # commit on a branch. With a build job in it that is no longer a rounding error.
   push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: "0 6 * * 1"          # Monday morning, for the anchors job below
   workflow_dispatch:
+
+# Supersede a pull request's own earlier runs; never cancel one on the default branch, where the run
+# is the record of what that commit did.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # The gate. Exactly the target a contributor runs: a local check set that differs from the CI one
@@ -79,6 +90,55 @@ jobs:
       #
       # - if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       #   run: python3 scripts/docs_check.py --on-main
+
+  # THE CODE GATE, and it exists because the job above does not compile anything. `make check` reads
+  # the documents; a repository whose only required check reads documents is one where a pull request
+  # that does not build is green — and this loop merges on green.
+  #
+  # One `./gradlew build` for all four targets. What that covers is not obvious and is written down
+  # in CLAUDE.md rather than left to be assumed: `linuxArm64Test` and `macosArm64Test` are SKIPPED on
+  # a Linux host, inside a successful build, so green means those two targets COMPILE.
+  build:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      # The Gradle distribution, the dependency cache and the build cache.
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ~/.konan is NOT part of the Gradle cache and it is the expensive half: the Kotlin/Native
+      # distribution plus the platform klibs of four targets. Without this every run downloads it
+      # again, which is the difference this item was written to measure.
+      #
+      # Keyed on the Kotlin version, because that is what decides which distribution is fetched —
+      # not on a lockfile, which does not name it.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      - run: ./gradlew build --no-daemon
+
+      # Read the result files rather than trusting the exit code. A suite that ran zero tests exits
+      # zero, and on a multiplatform build the tests that silently do not run are the interesting
+      # ones.
+      - name: report which suites actually ran
+        if: always()
+        run: |
+          found=0
+          for f in $(find . -path '*test-results*' -name '*.xml' | sort); do
+            printf '%s ' "${f#./}"
+            grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' "$f" || echo
+            found=1
+          done
+          [ "$found" = 1 ] || { echo "::error::no test result files - no suite ran"; exit 1; }
 
   # Separate from the gate, and on a schedule rather than on a pull request, because an anchor rots
   # when somebody refactors a **different** repository. A pull request here is the least likely
