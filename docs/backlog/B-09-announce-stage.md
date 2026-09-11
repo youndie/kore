@@ -1,7 +1,7 @@
 ---
 id: B-09
 title: "The announce stage: readiness false, then wait"
-status: open
+status: wip
 priority: P0
 size: S
 stage: m2-shutdown

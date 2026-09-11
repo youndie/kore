@@ -98,7 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-09](docs/backlog/B-09-announce-stage.md) `[ ]` | The announce stage: readiness false, then wait | P0 | S | B-04, B-16 |
+| [B-09](docs/backlog/B-09-announce-stage.md) `[~]` | The announce stage: readiness false, then wait | P0 | S | B-04, B-16 |
 | [B-17](docs/backlog/B-17-probe-routes.md) `[ ]` | The three routes and the /health alias | P0 | S | B-16 |
 | [B-21](docs/backlog/B-21-config-schema.md) `[ ]` | The schema DSL and the reader | P0 | M | - |
 | [B-22](docs/backlog/B-22-environment-enumeration.md) `[ ]` | Environment enumeration per target, and the honest macOS gap | P0 | M | B-21 |
