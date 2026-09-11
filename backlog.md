@@ -60,6 +60,7 @@ research hypothesis was confirmed or refuted. None has closed yet.
 | [B-03](docs/backlog/B-03-negative-control.md) `[ ]` | The negative control: run the oracle against the unfixed shape | P0 | M | B-05, B-06 |
 | [B-05](docs/backlog/B-05-sample-service.md) `[ ]` | The sample service: one source, two binaries | P0 | M | B-01 |
 | [B-06](docs/backlog/B-06-oracle-harness.md) `[ ]` | The oracle harness: load, signal, assertions | P0 | L | B-05 |
+| [B-07](docs/backlog/B-07-native-link-cost.md) `[~]` | Measure what a native link costs CI, and decide the gate's cadence | P0 | S | B-01 |
 | [B-08](docs/backlog/B-08-signal-handling.md) `[ ]` | Signal handling: a handler that only sets a flag | P0 | M | B-04 |
 | [B-09](docs/backlog/B-09-announce-stage.md) `[ ]` | The announce stage: readiness false, then wait | P0 | S | B-04 |
 | [B-10](docs/backlog/B-10-drain-stage.md) `[ ]` | The drain stage and the 503 that says not to come back | P0 | M | B-04 |
@@ -70,7 +71,6 @@ research hypothesis was confirmed or refuted. None has closed yet.
 | [B-21](docs/backlog/B-21-config-schema.md) `[ ]` | The schema DSL and the reader | P0 | M | - |
 | [B-22](docs/backlog/B-22-environment-enumeration.md) `[ ]` | Environment enumeration per target, and the honest macOS gap | P0 | M | B-21 |
 | [B-23](docs/backlog/B-23-print-config.md) `[ ]` | --print-config: values, origins, masks, and the probe block | P0 | S | B-21 |
-| [B-07](docs/backlog/B-07-native-link-cost.md) `[ ]` | Measure what a native link costs CI, and decide the gate's cadence | P1 | S | B-01 |
 | [B-12](docs/backlog/B-12-deadlines-must-fit.md) `[ ]` | Refuse at startup a sequence that cannot fit the grace period | P1 | S | B-11 |
 | [B-14](docs/backlog/B-14-inflight-hypothesis.md) `[ ]` | Settle what disposeAndJoin does to an in-flight call on Native | P1 | S | B-03 |
 | [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11, B-36 |
