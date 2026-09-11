@@ -81,12 +81,38 @@ public class ConfigSchema(
     public fun variableOf(key: ConfigKey<*>): String = "${prefix}_${key.name}"
 
     /**
+     * What a read produced, problems and all.
+     *
+     * Separate from [read] because `--print-config` is asked most often *because* the process will
+     * not start: it has to show what it did resolve alongside what it could not, and a reader that
+     * threw on the first problem could show neither.
+     */
+    public class Attempt internal constructor(
+        public val values: List<ResolvedValue>,
+        public val problems: List<ConfigProblem>,
+    ) {
+        public val usable: Boolean get() = problems.isEmpty()
+    }
+
+    /** Reads without throwing. [read] is this plus the refusal. */
+    public fun attempt(environment: Environment): Attempt {
+        val result = readInto(environment)
+        return Attempt(result.first.values.toList(), result.second)
+    }
+
+    /**
      * Reads once, before anything serves.
      *
      * A missing value is a process that will not start rather than a route that fails later under a
      * user — rule 2, taken from the first consumer rather than invented.
      */
     public fun read(environment: Environment): Configuration {
+        val (resolved, problems) = readInto(environment)
+        if (problems.isNotEmpty()) throw ConfigurationException(prefix, problems)
+        return Configuration(prefix, resolved)
+    }
+
+    private fun readInto(environment: Environment): Pair<LinkedHashMap<String, ResolvedValue>, List<ConfigProblem>> {
         val problems = mutableListOf<ConfigProblem>()
         val resolved = LinkedHashMap<String, ResolvedValue>()
 
@@ -125,7 +151,6 @@ public class ConfigSchema(
             }
         }
 
-        if (problems.isNotEmpty()) throw ConfigurationException(prefix, problems.toList())
-        return Configuration(prefix, resolved)
+        return resolved to problems.toList()
     }
 }
