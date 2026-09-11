@@ -156,7 +156,9 @@ silently absorbed.
 | Service | Code |
 |---|---|
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` — the stage machine and the recorded transitions |
-| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/Participant.kt` — the contract a consumer implements |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/ShutdownParticipant.kt` — the contract a consumer implements |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/AnnounceNotReady.kt` — **built (B-09)**, the flip; the wait is the stage around it |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/ReadinessGate.kt` — **built (B-09)**, where readiness lives |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatch.kt` — the contract, and why kore never calls `addShutdownHook` |
 | kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `signal()`, and a handler that writes one integer |
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/signal/` — the hook thread that must not return until the sequence is done |
