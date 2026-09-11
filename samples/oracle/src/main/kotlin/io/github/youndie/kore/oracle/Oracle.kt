@@ -11,11 +11,14 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     val options = Options.parse(args)
 
-    println("oracle: image=${options.image} work=${options.workMillis}ms connections=${options.connections} grace=${options.graceMillis}ms")
+    println(
+        "oracle: image=${options.image} work=${options.workMillis}ms connections=${options.connections} " +
+            "grace=${options.graceMillis}ms subject-args=${options.subjectArgs}",
+    )
 
     val observations =
         OracleRun(
-            container = Container(options.image),
+            container = Container(options.image, options.subjectArgs),
             workMillis = options.workMillis,
             connections = options.connections,
             readTimeoutMillis = options.readTimeoutMillis,
@@ -54,6 +57,8 @@ class Options(
     val graceMillis: Long,
     val readTimeoutMillis: Int,
     val preDrainWaitMillis: Long?,
+    /** Passed to the container's entry point, so one image can be run in several configurations. */
+    val subjectArgs: List<String>,
 ) {
     companion object {
         fun parse(args: Array<String>): Options {
@@ -70,6 +75,11 @@ class Options(
                 graceMillis = map["grace"]?.toLong() ?: 30_000,
                 readTimeoutMillis = map["read-timeout"]?.toInt() ?: 60_000,
                 preDrainWaitMillis = map["pre-drain"]?.toLong(),
+                // COMMA-separated, not space-separated. Gradle's `--args` splits on spaces, so a
+                // space here means the second subject argument is parsed as one of the ORACLE's —
+                // silently, and the run then measures a subject that was never configured. That
+                // happened once and produced a cell of four green results about nothing.
+                subjectArgs = map["subject-args"]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
             )
         }
     }

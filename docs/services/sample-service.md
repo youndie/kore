@@ -37,7 +37,17 @@ It therefore owns exactly what the oracle needs to observe and nothing else:
 * one shutdown participant standing in for a message consumer, so the *flush-then-close* of research
   §1.8 is exercised rather than described;
 * a configuration schema with a required field, an optional one with a default, and a secret — so
-  `--print-config` and the unknown-variable refusal have something to be right about.
+  `--print-config` and the unknown-variable refusal have something to be right about;
+* **a resource the stop subscriber closes**, switched on by `--close-on-stop=true`. This is the whole
+  of research §1.1 made observable, and without it the control demonstrates nothing about the
+  ordering: a subscriber that closes nothing has no consequence whichever side of the drain it runs
+  on. Stand-in for a connection pool, which is what services actually close there.
+
+**The sample takes arguments, not environment variables** — `--port`, `--grace`, `--close-on-stop`.
+Reading the environment on Kotlin/Native needs an `expect`/`actual` pair, which is
+[feature-typed-config](../features/feature-typed-config.md)'s job and does not exist yet; `main(args)`
+exists on both targets and needs nothing. When `--grace` is absent the server is left at Ktor's own
+default, which is what makes it the control.
 
 What it deliberately does **not** have: a domain, a database schema worth the name, a client, or a
 second route that does anything interesting. Every line in the sample is there because an assertion
@@ -49,7 +59,7 @@ Everything kore mounts — [endpoint-kore-admin](../api/endpoint-kore-admin.md) 
 
 | Method and path | Purpose |
 |---|---|
-| `GET /work?ms=<n>` | the slow route. `n` defaults to the configured handler delay; the oracle sets it explicitly and prints it with the result. |
+| `GET /work?ms=<n>` | the slow route. `n` defaults to the configured handler delay; the oracle sets it explicitly and prints it with the result. It touches the fragile resource **after** its delay, so the request is still in flight when a stop subscriber runs. |
 
 ## 2a. Code anchors
 

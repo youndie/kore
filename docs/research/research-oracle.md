@@ -49,6 +49,19 @@ result is written into research-architecture §1.1 as a correction if it contrad
 there now. A negative result is a finding; a negative result that is quietly dropped is how a
 document starts lying.
 
+**Run on 2026-09-11. The premise holds, in its corrected form** —
+[the matrix](measurements-2026-09-11/negative-control.md). Two things it settled and one it nearly
+got wrong:
+
+* with a stop subscriber that closes something the in-flight request needs, the JVM is fine and
+  Kotlin/Native returns **48 responses in 5xx on every run**. §1.1's ordering, producing a real
+  defect;
+* at Ktor's **default** grace period of 1000 ms, both platforms drop in-flight work for a reason that
+  has nothing to do with ordering — which alone justifies a library that sets those numbers;
+* and the first version of the control had a subscriber that closed **nothing**. Twelve consistent
+  runs that demonstrated nothing about §1.1, and they would have read as "the ordering makes no
+  difference in practice". A control has to be able to fail for the reason it is testing.
+
 ---
 
 ## 2. The end-to-end oracle: `kill -TERM` under load

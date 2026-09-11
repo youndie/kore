@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
  * signal must land on PID 1 the way a kubelet sends it. Anything the harness could learn by being
  * inside the process is something it would be trusting the subject to tell it.
  */
-class Container(private val image: String) {
+class Container(private val image: String, private val subjectArgs: List<String> = emptyList()) {
     private var id: String? = null
 
     /** The host port the container's 8080 was published on. */
@@ -17,7 +17,7 @@ class Container(private val image: String) {
         private set
 
     fun start() {
-        id = docker("run", "-d", "-p", "0:8080", image).trim()
+        id = docker(*(listOf("run", "-d", "-p", "0:8080", image) + subjectArgs).toTypedArray()).trim()
         val mapping = docker("port", requireId(), "8080").lineSequence().first().trim()
         port = mapping.substringAfterLast(':').toInt()
     }

@@ -54,6 +54,16 @@ JVM      stop accepting → drain in-flight → ApplicationStopping → cancel t
 Native   ApplicationStopping → cancel the application → ApplicationStopped → stop accepting → drain in-flight
 ```
 
+**Measured and confirmed on 2026-09-11 ([B-03](../backlog/B-03-negative-control.md)), and it is worth
+reading before the reasoning below.** Same source, same configuration, same load, three runs per
+cell: with a stop subscriber that closes a resource the in-flight request uses — the ordinary thing a
+service does there — the JVM is **fine** and Kotlin/Native returns **48 responses in 5xx, every
+run**. The full matrix is in
+[measurements-2026-09-11/negative-control.md](measurements-2026-09-11/negative-control.md).
+
+So the ordering below is not a curiosity read out of two source files; it is a defect that a designed
+experiment reproduces on demand.
+
 **Consequence 1 — this is why kore exists.** `ApplicationStopping` is the hook every Ktor example
 uses for "close the pool, stop the workers, close the broker connection". On JVM that runs after
 the drain, which is correct. On Kotlin/Native it runs *before* the drain, so a service that follows
