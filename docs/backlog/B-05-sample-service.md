@@ -1,7 +1,7 @@
 ---
 id: B-05
 title: "The sample service: one source, two binaries"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m1-oracle
