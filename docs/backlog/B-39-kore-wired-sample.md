@@ -1,7 +1,7 @@
 ---
 id: B-39
 title: "The sample wired with kore, and the oracle run that proves the stages"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m2-shutdown
@@ -10,6 +10,13 @@ blocked_by: [B-09, B-10, B-11, B-17]
 ---
 
 # B-39 — The sample wired with kore, and the oracle run that proves the stages
+
+> **Taken out of numeric order on 2026-09-12, ahead of B-21, and the reason is recorded here rather
+> than left to look like a whim.** B-09, B-10 and B-11 were each closed on acceptance that was
+> deliberately *narrowed*, with their end-to-end halves moved here — so three merged items currently
+> have unexercised acceptance and this item owns the debt. Everything it needs now exists. Going on to
+> M4 first would mean building the configuration feature on top of a shutdown sequence that has never
+> been run end to end against a real signal.
 
 Found while picking the next item on 2026-09-12. **B-09, B-10 and B-11 each state acceptance that
 none of them can meet**: assertions A1–A5 of research-oracle §2.3, against a running container. Those
