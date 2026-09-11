@@ -58,7 +58,7 @@ research hypothesis was confirmed or refuted. None has closed yet.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-03](docs/backlog/B-03-negative-control.md) `[ ]` | The negative control: run the oracle against the unfixed shape | P0 | M | B-05, B-06 |
-| [B-04](docs/backlog/B-04-stage-machine.md) `[ ]` | The stage machine and its recorded transitions | P0 | M | - |
+| [B-04](docs/backlog/B-04-stage-machine.md) `[~]` | The stage machine and its recorded transitions | P0 | M | - |
 | [B-05](docs/backlog/B-05-sample-service.md) `[ ]` | The sample service: one source, two binaries | P0 | M | B-01 |
 | [B-06](docs/backlog/B-06-oracle-harness.md) `[ ]` | The oracle harness: load, signal, assertions | P0 | L | B-05 |
 | [B-08](docs/backlog/B-08-signal-handling.md) `[ ]` | Signal handling: a handler that only sets a flag | P0 | M | B-04 |

@@ -1,7 +1,7 @@
 ---
 id: B-04
 title: "The stage machine and its recorded transitions"
-status: open
+status: wip
 priority: P0
 size: M
 stage: m1-oracle
