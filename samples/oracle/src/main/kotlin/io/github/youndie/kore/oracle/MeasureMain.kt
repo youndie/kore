@@ -28,7 +28,7 @@ fun main(args: Array<String>) {
         // One warm-up per cell, discarded, and SAID so rather than silently dropped. The first run
         // after a restart measures the page cache and the image layers, not the subject.
         for (arm in ARMS) {
-            print("warm-up $image/${arm.first}: ")
+            print("warm-up $image/${arm.name}: ")
             val warm = runCatching { run(image, arm, work, connections, grace) }
             println(warm.map { "discarded (first=${it.firstHealthMillis}ms stop=${it.stopMillis}ms)" }
                 .getOrElse { "discarded (failed: ${it.message})" })
@@ -38,9 +38,9 @@ fun main(args: Array<String>) {
         repeat(repeats) { round ->
             for (arm in ARMS) {
                 val measurement = run(image, arm, work, connections, grace)
-                taken.getOrPut(image to arm.first) { mutableListOf() } += measurement
+                taken.getOrPut(image to arm.name) { mutableListOf() } += measurement
                 println(
-                    "round ${round + 1} $image/${arm.first}: " +
+                    "round ${round + 1} $image/${arm.name}: " +
                         "first /health ${measurement.firstHealthMillis}ms" +
                         (measurement.firstStartupMillis?.let { " first /health/startup ${it}ms" } ?: "") +
                         " rss ${measurement.rssKbAtReady ?: "?"}kB" +
@@ -80,7 +80,7 @@ fun main(args: Array<String>) {
     println("| image | arm | spanning the signal | finished | dropped |")
     println("|---|---|---|---|---|")
     for (image in images) {
-        for (arm in ARMS.map { it.first }) {
+        for (arm in ARMS.map { it.name }) {
             val runs = taken[image to arm].orEmpty().filter { it.inFlightAtSignal > 0 }
             if (runs.isEmpty()) continue
             val finished = runs.sumOf { it.finishedAtSignal }
@@ -99,14 +99,30 @@ fun main(args: Array<String>) {
     }
 }
 
-private val ARMS = listOf("control" to emptyList<String>(), "kore" to listOf("--kore=true"))
+/**
+ * The two arms, each with what it needs to start.
+ *
+ * The kore arm carries an environment because it reads a declared schema whose `POOL_DSN` is
+ * required (B-50); the control carries none because a service written without kore has nowhere to
+ * read one from. **That asymmetry is the subject of the comparison, not a flaw in it** — the
+ * question is what a service costs wired each way, and reading a typed configuration is part of one
+ * of the two ways.
+ */
+private class Arm(val name: String, val args: List<String>, val env: Map<String, String> = emptyMap())
 
-private fun run(image: String, arm: Pair<String, List<String>>, work: Long, connections: Int, grace: Long) =
+private val ARMS =
+    listOf(
+        Arm("control", emptyList()),
+        Arm("kore", listOf("--kore=true"), mapOf("SAMPLE_POOL_DSN" to "postgres://oracle/sample")),
+    )
+
+private fun run(image: String, arm: Arm, work: Long, connections: Int, grace: Long) =
     MeasureRun(
         image = image,
-        arm = arm.first,
-        koreArm = arm.first == "kore",
-        subjectArgs = arm.second,
+        arm = arm.name,
+        koreArm = arm.name == "kore",
+        subjectArgs = arm.args,
+        subjectEnv = arm.env,
         workMillis = work,
         connections = connections,
         readTimeoutMillis = 30_000,

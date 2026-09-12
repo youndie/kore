@@ -90,20 +90,21 @@ library's.
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` — `System.getenv()` |
 | kore-library | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` — enumeration through `__environ` |
 | kore-library | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` — lookup only; see §7 |
-| sample-service | **nothing** — see the gap below |
+| sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleConfig.kt` — the schema: a required key, two defaults, a secret, a pair |
+| sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleMain.kt` — `--print-config` before anything, then read once, then serve |
+| sample-oracle | `samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/ConfigRefusal.kt` — the refusals, against the built image |
 
-**The sample does not use this feature, and the row above used to say it did.** It named a file that
-has never existed — `samples/service/.../commonMain/.../Main.kt`, described as carrying "a schema
-with a required field, a default, a secret and a near-miss name" — while the sample reads its port
-from a constant under a comment saying it will do this once B-21 lands. B-21 landed. The schema, the
-reader, `--print-config` and the unknown-variable refusal are all built and covered by
-`kore-core`'s own suites; what is **not** covered is the one thing a sample is for — the feature used
-the way a service would use it, in a binary that runs. Address: [B-50](../backlog/B-50-sample-uses-the-config-schema.md).
+**This row said something untrue for weeks, and how it survived is worth more than the correction.**
+It named `samples/service/.../commonMain/.../Main.kt` as carrying "a schema with a required field, a
+default, a secret and a near-miss name". That file had never existed, and neither had the claim: the
+sample read its port from a constant, under a comment promising to do better once B-21 landed. B-21
+landed; the comment stayed; the row went on asserting the opposite of the code.
 
-Worth saying why it survived: every other row in this table points at code that exists, so the table
-looked uniformly authoritative. A row naming a path that was never written is indistinguishable from
-one naming a path that moved — which is what the anchors report is for, and why a report nobody
-gates on still has to be read.
+Every other row here pointed at code that exists, so the table looked uniformly authoritative — and a
+row naming a path that was never written is indistinguishable, to a reader, from one naming a path
+that moved. The anchors report had been printing it the whole time, which is the argument for reading
+a report nothing gates on. Repaired in [B-50](../backlog/B-50-sample-uses-the-config-schema.md), by
+writing the sample rather than by deleting the sentence.
 
 ## 6. Scenarios (BDD)
 
@@ -117,7 +118,9 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **When:** the process starts
 * **Then:** it refuses to start
 * **And:** the message names `SAMPLE_STORE_URL`
-* **Automated:** `ConfigSchemaTest`
+* **Automated:** `ConfigSchemaTest`, and end to end against the built image by
+  `samples/oracle` `configRefusal` — "the required key is missing", which asserts the refusal reaches
+  PID 1 as a non-zero exit rather than being caught and served anyway
 
 ### Scenario: a value that does not parse stops the process
 * **Given:** `SAMPLE_TIMEOUT_MS` declared as an integer and set to `soon`
@@ -131,7 +134,9 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **Then:** it refuses to start
 * **And:** the message names both spellings
 * **And:** this is the scenario an implementation that checks only *required* variables passes
-* **Automated:** `UnknownVariableTest`
+* **Automated:** `UnknownVariableTest`, and end to end by `samples/oracle` `configRefusal` — "a near
+  miss under the prefix", which sets `SAMPLE_WORK_MSEC` on the real container and requires
+  `did you mean SAMPLE_WORK_MS?` in its output
 
 ### Scenario: a variable outside the prefix is not the schema's business
 * **Given:** the environment carries `PATH`, `HOSTNAME` and a dozen `*_PORT` variables the kubelet
@@ -160,14 +165,14 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **Then:** it prints each key with its value and one of `default`, `env` or `code`
 * **And:** the secret's value does not appear anywhere in the output
 * **And:** the process exits without binding a port
-* **Automated:** `PrintConfigTest`
+* **Automated:** `PrintConfigTest`, and end to end by `samples/oracle` `configRefusal` — "--print-config on a usable configuration", which requires the masked `••••••` to appear beside `SAMPLE_TRACY_KEY` in the real container's output
 
 ### Scenario: --print-config works on a configuration that cannot start
 * **Given:** a required variable is missing
 * **When:** the binary is run with `--print-config`
 * **Then:** it exits non-zero with the same message the start would give
 * **And:** it still prints what it did resolve
-* **Automated:** `PrintConfigTest`
+* **Automated:** `PrintConfigTest`, and end to end by `samples/oracle` `configRefusal` — "--print-config on a configuration that will not start", which asserts both the text and the non-zero exit from the image
 
 ### Scenario: the unknown-variable check reports its own absence
 * **Given:** a build for `macosArm64`

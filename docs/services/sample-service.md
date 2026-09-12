@@ -21,8 +21,8 @@ publishes: []
 > images, both taking `SIGTERM` at PID 1. What is there is the service wired the **ordinary** way —
 > one `/health`, one `ApplicationStopping` subscriber — because that is what the negative control of
 > [research-oracle](../research/research-oracle.md) §1 has to run first. The load driver and the
-> assertions are [B-06](../backlog/B-06-oracle-harness.md); the pooled dependency and the
-> configuration schema are not there yet and are named in §4 and §7.
+> assertions are [B-06](../backlog/B-06-oracle-harness.md); the pooled dependency is not there yet
+> and is named in §4. The configuration schema arrived in B-50 and is §7.
 
 ## 1. Responsibility
 
@@ -40,18 +40,24 @@ It therefore owns exactly what the oracle needs to observe and nothing else:
   check has something real to ask;
 * one shutdown participant standing in for a message consumer, so the *flush-then-close* of research
   §1.8 is exercised rather than described;
-* a configuration schema with a required field, an optional one with a default, and a secret — so
-  `--print-config` and the unknown-variable refusal have something to be right about;
+* a configuration schema with a required field, two defaults, a secret and a pair — so
+  `--print-config` and the unknown-variable refusal have something to be right about (**built,
+  B-50**, and every key in it is read by something: see §7);
 * **a resource the stop subscriber closes**, switched on by `--close-on-stop=true`. This is the whole
   of research §1.1 made observable, and without it the control demonstrates nothing about the
   ordering: a subscriber that closes nothing has no consequence whichever side of the drain it runs
   on. Stand-in for a connection pool, which is what services actually close there.
 
-**The sample takes arguments, not environment variables** — `--port`, `--grace`, `--close-on-stop`.
-Reading the environment on Kotlin/Native needs an `expect`/`actual` pair, which is
-[feature-typed-config](../features/feature-typed-config.md)'s job and does not exist yet; `main(args)`
-exists on both targets and needs nothing. When `--grace` is absent the server is left at Ktor's own
-default, which is what makes it the control.
+**The harness's knobs are arguments; the service's configuration is the environment.** `--kore`,
+`--grace` and `--close-on-stop` say which experiment this run is, and a deployment sets none of them.
+What a deployment sets — the port, the work default, the pool, the observability pair — is the
+`SAMPLE_` schema of §7, read by the kore arm only. When `--grace` is absent the server is left at
+Ktor's own default, which is what makes it the control.
+
+That split replaced a paragraph claiming the sample could not read the environment at all, "which is
+feature-typed-config's job and does not exist yet". It did exist; the sentence outlived it by weeks,
+and so did a code-anchors row asserting a schema file nobody had written
+([B-50](../backlog/B-50-sample-uses-the-config-schema.md)).
 
 What it deliberately does **not** have: a domain, a database schema worth the name, a client, or a
 second route that does anything interesting. Every line in the sample is there because an assertion
@@ -75,6 +81,9 @@ Everything kore mounts — [endpoint-kore-admin](../api/endpoint-kore-admin.md) 
 | `samples/service/build.gradle.kts` | **built** — two targets, and the fat jar assembled by hand because `application` does not apply to a multiplatform module |
 | `samples/service/Dockerfile` | **built** — two stages, `--target jvm` and `--target native`, both exec form |
 | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/KoreWiring.kt` | **built (B-39)** — the treatment arm, and the current answer to "does kore own the entry point" |
+| `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleConfig.kt` | **built (B-50)** — the `SAMPLE_` schema and the settings the rest of the service reads |
+| `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleMain.kt` | **built (B-50)** — `--print-config` first, then read once, then serve; shared by both entry points |
+| `samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/ConfigRefusal.kt` | **built (B-50)** — six cases against the built image, including the positive control that it starts when configured |
 | `samples/oracle/` | **built (B-06)** — the load driver and the assertions |
 | `samples/oracle/negative-control.sh` | **built (B-03, B-39)** — the four-cell matrix both arms are measured by |
 
@@ -137,10 +146,29 @@ that must not be attached to `check` by accident (research Risk 5).
 
 ## 7. Configuration
 
-The sample's own prefix is `SAMPLE_`. Its schema is deliberately small and deliberately awkward: one
-required string, one integer with a default, one secret, and one field whose name is a near-miss of a
-kore key — so the unknown-variable check has a case where being wrong is plausible rather than
-obvious.
+Prefix `SAMPLE_`, read by the **kore arm only** — the control is a service written without kore, and
+a service written without kore has its values wherever it happened to put them.
+
+| Variable | Shape | Read by |
+|---|---|---|
+| `SAMPLE_POOL_DSN` | **required** | printed at startup; the pool `FragileResource` stands in for |
+| `SAMPLE_PORT` | int, default `8080` | the engine's connector |
+| `SAMPLE_WORK_MS` | duration, default `2000` | `/work`'s delay when the request does not say |
+| `SAMPLE_TRACY_ENDPOINT` | optional | half of the pair; decides `observability=on/off` |
+| `SAMPLE_TRACY_KEY` | optional, **secret** | the other half; masked by `--print-config` |
+
+The schema is small and deliberately awkward: the required key has no sensible default, the pair must
+be set together or not at all, and `SAMPLE_WORK_MS` is four edits from `SAMPLE_WORK_MSEC` — a case
+where being wrong is plausible rather than obvious.
+
+**Every key is read by something in the table's right-hand column, and that is a rule rather than an
+observation.** A schema whose values nothing consumes satisfies a document and demonstrates nothing,
+which is exactly the state this service was in until B-50.
+
+```bash
+docker run --rm -e SAMPLE_POOL_DSN=postgres://x/y kore-sample:native --print-config
+./gradlew :samples:oracle:configRefusal   # the four refusals and both --print-config verdicts
+```
 
 ## 8. Quirks
 

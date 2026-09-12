@@ -44,6 +44,13 @@ val driverBehaviour by tasks.registering(JavaExec::class) {
 }
 
 // Invoked by name: it needs a container and it answers the same question every time (B-45).
+val configRefusal by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "B-50: does the sample refuse a bad configuration in the image, naming the variable?"
+    mainClass.set("io.github.youndie.kore.oracle.ConfigRefusalKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 val brokerFlush by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Run kore's booblik participant against a real broker — feature-ordered-shutdown §5"

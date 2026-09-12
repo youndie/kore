@@ -28,7 +28,15 @@ import kotlin.time.Duration.Companion.seconds
  */
 public const val DEFAULT_WORK_MILLIS: Long = 2_000
 
-/** The port. A constant until there is a configuration schema to read one with — that is B-21. */
+/**
+ * The port the **control** serves on.
+ *
+ * A constant here and a declared key in [SampleConfig] there, and the asymmetry is the point: the
+ * control is a service written without kore, and a service written without kore has its values
+ * wherever it happened to put them. This used to read "a constant until there is a configuration
+ * schema to read one with — that is B-21"; B-21 shipped, the comment stayed, and the feature
+ * document went on claiming the sample used a schema it did not (B-50).
+ */
 public const val SAMPLE_PORT: Int = 8080
 
 /**
@@ -73,10 +81,14 @@ public class FragileResource {
  * Shared so the control and the kore-wired variant answer the same `/work` — a comparison where the
  * two arms served different routes would be comparing two programs.
  */
-public fun Application.workRoutes(resource: FragileResource = FragileResource()) {
+public fun Application.workRoutes(
+    resource: FragileResource = FragileResource(),
+    /** From `SAMPLE_WORK_MS` in the kore arm, which is what makes that key a value something reads. */
+    defaultWorkMillis: Long = DEFAULT_WORK_MILLIS,
+) {
     routing {
         get("/work") {
-            val millis = call.request.queryParameters["ms"]?.toLongOrNull() ?: DEFAULT_WORK_MILLIS
+            val millis = call.request.queryParameters["ms"]?.toLongOrNull() ?: defaultWorkMillis
             delay(millis)
             // AFTER the delay, on purpose: the request has to still be in flight when a stop
             // subscriber runs, or the experiment measures nothing.
@@ -127,9 +139,14 @@ public fun Application.sampleModule(
 /**
  * How this run of the control is configured.
  *
- * Arguments rather than environment variables, and that is not a preference: reading the environment
- * on Kotlin/Native needs an `expect`/`actual` pair, which is what [feature-typed-config] is for and
- * does not exist yet. `main(args)` exists on both targets and needs nothing.
+ * **Arguments, and they stay arguments — these are the harness's knobs, not the service's
+ * configuration.** Which arm to be, how long a grace to ask Ktor for, whether the stop subscriber
+ * closes the resource: a deployment sets none of these, a measurement sets all of them, and putting
+ * them in the environment beside [SampleConfig] would blur the one line this sample exists to draw.
+ *
+ * What a *deployment* configures moved to [SampleConfig] in B-50 — the port, the work default, the
+ * pool, the observability pair. This KDoc used to say the environment could not be read on
+ * Kotlin/Native at all, "which is what feature-typed-config is for and does not exist yet". It does.
  */
 public class SampleOptions(
     public val port: Int = SAMPLE_PORT,

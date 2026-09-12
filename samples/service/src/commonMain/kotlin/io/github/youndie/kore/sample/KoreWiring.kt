@@ -37,7 +37,7 @@ import kotlin.time.Duration.Companion.seconds
  * the shape open question 2 of the research is about. Read it as the current answer to "does kore own
  * the entry point": it does not, and this is what that costs in lines.
  */
-public fun startKoreSample(options: SampleOptions) {
+public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
     val readiness = ReadinessGate()
     val startup = StartupGate()
     val liveness = LivenessGate()
@@ -60,7 +60,9 @@ public fun startKoreSample(options: SampleOptions) {
             configure = {
                 connectors.add(
                     EngineConnectorBuilder().apply {
-                        port = options.port
+                        // FROM THE SCHEMA, not from a flag — this arm has kore, so this arm has a
+                        // declared configuration and the control does not (B-50).
+                        port = settings.port
                         host = "0.0.0.0"
                     },
                 )
@@ -71,7 +73,7 @@ public fun startKoreSample(options: SampleOptions) {
                 shutdownTimeout = options.deadlines.drain.inWholeMilliseconds + 5_000
             },
             module = {
-                koreSampleModule(readiness, startup, liveness, resource)
+                koreSampleModule(readiness, startup, liveness, resource, settings.workMillis)
             },
         )
 
@@ -118,6 +120,8 @@ public fun Application.koreSampleModule(
     startup: StartupGate,
     liveness: LivenessGate,
     resource: FragileResource = FragileResource(),
+    /** `SAMPLE_WORK_MS`, resolved. Passed in rather than read here so the module stays testable. */
+    defaultWorkMillis: Long = DEFAULT_WORK_MILLIS,
 ) {
     // BEFORE the probes and the routes: an interceptor installed later would let calls through that
     // arrived first, and the one thing this must never miss is the first request after the announce.
@@ -128,5 +132,5 @@ public fun Application.koreSampleModule(
     // no RELEASE, so this reports the compiled `version+commit` — which is what a public deployment
     // should report, and what the oracle's container can be asked for.
     installKoreVersion(KoreBuildIdentity)
-    workRoutes(resource)
+    workRoutes(resource, defaultWorkMillis)
 }
