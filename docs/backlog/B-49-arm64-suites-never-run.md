@@ -1,7 +1,7 @@
 ---
 id: B-49
 title: "The priority target has never run a test"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m6-release
@@ -68,9 +68,20 @@ a second Linux architecture to the same key would have had the two poisoning eac
 silently, because a restored cache for the wrong architecture looks like a slow first build rather
 than an error. The key carries `runner.arch` now.
 
+## Done — 2026-09-12
+
+Both jobs are on `main` and green on every pull request since. The first runs:
+
+| Job | Host | What ran |
+|---|---|---|
+| `macos-arm64-suite` | `macos-14` | `macosArm64Test` — the first time that suite has ever executed |
+| `linux-arm64-suite` | `ubuntu-24.04-arm` | the three cross-linked `test.kexe` — 113 + 28 + 17 = **158 tests on aarch64** |
+
 - AC: `macosArm64Test` runs on every pull request on a host where it is not disabled, and its result
   files are read rather than its exit code trusted.
 - AC: every `linuxArm64` test binary the build produces is executed on an arm64 machine on every
   pull request, and the job fails if none was produced or if they ran zero tests.
-- AC: a suite that ran zero tests fails the job.
+- AC: a suite that ran zero tests fails the job. **Met**, and the first version of this job proved it
+  by failing exactly that way — `linuxArm64Test produced no result files - it was skipped` — which is
+  how the missing task was found rather than assumed.
 - Anchors: `.github/workflows/check.yaml`
