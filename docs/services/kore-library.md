@@ -76,6 +76,7 @@ Where each concern will live. One module per reason to depend on something.
 
 | File | What is there |
 |---|---|
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/RunUntilSignal.kt` | **built (B-46)** — `runUntilSignal`: the three steps between a running server and an exited process that are kore's own. `suspend`, so the caller keeps `runBlocking` and its thread; the pieces stay public for a service that has its own signal handling |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04, B-11)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript`, and `shutdownSequence { }` with `ShutdownDeadlines` (the assembly a consumer touches) |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | **built (B-16, B-09)** — `HealthCheck`, `HealthRegistry`, `HealthStatus.UNKNOWN` as a first-class answer, `ReadinessGate` — the two inputs a probe must not collapse — and `StartupGate` / `LivenessGate` (B-17) |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/BrokerCheck.kt` | **built (B-19)** — the metadata-shaped broker check. A shape rather than a client: research §1.15 has why a connect answers the kernel and not the broker |
