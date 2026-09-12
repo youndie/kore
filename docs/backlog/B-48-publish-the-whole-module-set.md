@@ -61,6 +61,28 @@ name. A floor on the count would have passed that, which is why there is no floo
   if any coordinate it produced is not served back. **Met**, and the failure is checked rather than
   assumed.
 - AC: no module name appears in `.github/workflows/publish.yaml`. **Met.**
+## What the first real publish found — 2026-09-12
+
+This workflow had **never run**: `0.1.0` was published by hand from the build host, so the read-back
+above went into its first execution untested. Two things came out of it.
+
+**The token is scoped to artifact paths, and `kore-booblik` was not among them.** Reposilite matches a
+route with `toPath.startsWith(route.path)` and a required trailing slash, so `…/kore-core/` does not
+cover `…/kore-core-jvm/` — each per-target coordinate is its own route. The token was issued for the
+15 coordinates of three modules; the fourth module's four were refused with `403`. The comment above
+the read-back step had predicted exactly this and it still took a failed publish to notice, because
+nothing checked it. Re-issued through `vedutsya-raboty/infra`'s `reposilite-token` workflow with all
+**19** coordinates, and the list was derived from `build/published` rather than typed.
+
+**A failed publish poisons its own version number.** The `403` stopped the run after three jars were
+already up, and `snapshots` refuses an overwrite — so the second attempt failed with three `409`s
+that said nothing about the `403` that caused them, and `0.1.1` can never be completed under that
+number. It is now debris: four `-jvm` jars and no root coordinate, so nothing resolves it.
+
+A pre-flight step now produces the publication locally, checks every artefact it is about to write,
+and **refuses a version that already has any of them** — before the first `PUT`. Seen both ways
+against the live repository: `0.1.1` is refused by name, `0.1.2` reports free.
+
 - **Left open on purpose:** `0.1.0` on the repository stays incomplete. Re-publishing a released
   version to fix it would make the same coordinate mean two things; the fix ships as the next
   version, and [konekt#35](https://github.com/youndie/konekt/issues/35) is told which one to take.
