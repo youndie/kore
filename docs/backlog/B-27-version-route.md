@@ -1,7 +1,7 @@
 ---
 id: B-27
 title: "GET /version and its reduction switch"
-status: open
+status: wip
 priority: P2
 size: XS
 stage: m5-wiring

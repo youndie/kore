@@ -105,7 +105,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-36](docs/backlog/B-36-booblik-adapter-targets.md) `[?]` | Decide kore-booblik's target set — D5's premise is gone | P1 | S | - |
 | [B-37](docs/backlog/B-37-agents-not-on-central.md) `[?]` | Decide how a public kore resolves the three agents | P1 | S | - |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
-| [B-27](docs/backlog/B-27-version-route.md) `[ ]` | GET /version and its reduction switch | P2 | XS | B-26 |
+| [B-27](docs/backlog/B-27-version-route.md) `[~]` | GET /version and its reduction switch | P2 | XS | B-26 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-31](docs/backlog/B-31-first-consumer-findings.md) `[ ]` | Findings against the first consumer, found by reading | P2 | S | - |
 | [B-32](docs/backlog/B-32-file-upstream.md) `[ ]` | File the upstream proposals that are ready; ask before Ktor | P2 | S | B-03 |
