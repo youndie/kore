@@ -4,6 +4,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -51,6 +52,61 @@ class HealthRegistryTest {
         // "we asked and it said no".
         assertEquals(HealthStatus.UNKNOWN, result.status)
         assertFalse(registry.allHealthy())
+    }
+
+    /**
+     * The forgotten call, at the registry. A service that registers its checks and never starts the
+     * loop is `503` for the life of the process, and the body used to describe a startup race — the
+     * one reading that would wait for it to pass. B-41.
+     */
+    @Test
+    fun `a registry nobody started says that nothing will ever run its checks`() = runTest {
+        val registry = HealthRegistry(listOf(Scripted("store")), timeSource = testScheduler.timeSource)
+
+        val result = registry.snapshot().single()
+
+        assertEquals(HealthStatus.UNKNOWN, result.status)
+        assertTrue(
+            result.message!!.contains("HealthRegistry.start"),
+            "the message did not name the call that was missing: ${result.message}",
+        )
+    }
+
+    /**
+     * The other half, and the reason this is not simply a better sentence: a registry that *was*
+     * started and has not finished its first pass is a real startup race, and must not be reported as
+     * a missing call.
+     */
+    @Test
+    fun `a started registry that has not finished its first pass says so instead`() = runTest {
+        val registry =
+            HealthRegistry(
+                listOf(Scripted("store", hang = true)),
+                timeSource = testScheduler.timeSource,
+            )
+        registry.start(this, EmptyCoroutineContext)
+
+        val result = registry.snapshot().single()
+
+        registry.stop()
+        assertEquals(HealthStatus.UNKNOWN, result.status)
+        assertEquals("has not run yet", result.message)
+    }
+
+    /** Stopping is not un-starting: a registry stopped during a shutdown was started. */
+    @Test
+    fun `a registry that was started and then stopped does not claim it was never started`() = runTest {
+        val registry =
+            HealthRegistry(
+                listOf(Scripted("store", hang = true)),
+                timeSource = testScheduler.timeSource,
+            )
+        registry.start(this, EmptyCoroutineContext)
+        registry.stop()
+
+        val result = registry.snapshot().single()
+
+        assertEquals("has not run yet", result.message)
     }
 
     @Test

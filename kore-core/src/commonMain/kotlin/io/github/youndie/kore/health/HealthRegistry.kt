@@ -46,6 +46,16 @@ public class HealthRegistry(
     private var loop: Job? = null
 
     /**
+     * Set by [start] and never cleared, including by [stop].
+     *
+     * It answers a different question from `loop != null`: not "is a refresh running now" but "was
+     * this registry ever given something to run it". A registry stopped mid-shutdown has been
+     * started; a registry nobody remembered to start has not, and those two produce the same absent
+     * result with entirely different causes — B-41.
+     */
+    private var everStarted: Boolean = false
+
+    /**
      * Starts the refresh loop. Idempotent; a second call is ignored rather than starting a second loop.
      *
      * The loop runs on [KoreDispatchers.checks] and **not** on whatever the caller was on, because a
@@ -55,6 +65,7 @@ public class HealthRegistry(
      */
     public fun start(scope: CoroutineScope, context: CoroutineContext = KoreDispatchers.checks) {
         if (loop != null) return
+        everStarted = true
         loop = scope.launch(context) { refreshForever() }
     }
 
@@ -69,6 +80,23 @@ public class HealthRegistry(
             checks.map { check ->
                 val last = remembered[check.name]
                 when {
+                    // States the fact rather than predicting the future: a later `start` would make
+                    // "will never run" false, and the cause on its own already stops an operator
+                    // waiting for a race to resolve.
+                    //
+                    // Two different absences, and they used to read identically. A probe body saying
+                    // "has not run yet" on a registry nobody started describes a startup race that
+                    // will never end — and readiness is `503` for as long as the process lives. The
+                    // operator reading it during a stalled rollout is the person who needs the
+                    // difference most. See B-41.
+                    last == null && !everStarted ->
+                        HealthResult(
+                            check.name,
+                            HealthStatus.UNKNOWN,
+                            "nothing is refreshing this registry — HealthRegistry.start(scope) has not been called",
+                            null,
+                        )
+
                     last == null -> HealthResult(check.name, HealthStatus.UNKNOWN, "has not run yet", null)
                     last.at.elapsedNow() > staleAfter ->
                         HealthResult(
