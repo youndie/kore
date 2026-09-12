@@ -1,7 +1,7 @@
 ---
 id: B-34
 title: "The three numbers, measured as comparisons"
-status: open
+status: wip
 priority: P2
 size: S
 stage: m6-release

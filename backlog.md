@@ -108,7 +108,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-31](docs/backlog/B-31-first-consumer-findings.md) `[?]` | Findings against the first consumer, found by reading | P2 | S | - |
 | [B-32](docs/backlog/B-32-file-upstream.md) `[?]` | File the upstream proposals that are ready; ask before Ktor | P2 | S | B-03 |
-| [B-34](docs/backlog/B-34-the-three-numbers.md) `[ ]` | The three numbers, measured as comparisons | P2 | S | B-06 |
+| [B-34](docs/backlog/B-34-the-three-numbers.md) `[~]` | The three numbers, measured as comparisons | P2 | S | B-06 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
 | [B-29](docs/backlog/B-29-profiler-hook.md) `[?]` | Decide the shape of the profiler hook, or drop it | P3 | S | - |
 | [B-02](docs/backlog/B-02-documentation-gate.md) `[ ]` | The documentation gate in CI | infra | S | - |
