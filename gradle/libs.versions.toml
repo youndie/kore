@@ -44,6 +44,13 @@ coroutines = "1.11.0"
 # it is a build change and a re-run of the suite, not a redesign.
 jvmToolchain = "25"
 
+# THE ORACLE MODULE ONLY, and only for a check that is invoked by name (B-47). kore takes no driver
+# dependency: what it ships is the *shape* of a store check, and which pool a service uses is the
+# service's choice. This is here to verify one behaviour of one driver — that a pool hands out a
+# connection whose far end is gone — because everything kore says about store checks rests on it and
+# research §1.9 derived it rather than observed it.
+sqlx4k = "1.13.0"
+
 # THE THREE AGENTS, from the portfolio's own repository (B-37). The versions are the ones the first
 # consumer resolves today, deliberately: kore is adopted BY that service (B-33), and a library that
 # drags its consumer's agents to different versions as a side effect of being adopted is a library
@@ -95,6 +102,8 @@ booblik-client = { module = "io.github.youndie.booblik:booblik-client", version.
 booblik-native = { module = "io.github.youndie.booblik:booblik-native", version.ref = "booblikNative" }
 metrik-agent = { module = "io.github.youndie.metrik:agent", version.ref = "metrikAgent" }
 katcher-client = { module = "io.github.youndie.katcher:client", version.ref = "katcherClient" }
+
+sqlx4k-postgres = { module = "io.github.smyrgeorge:sqlx4k-postgres", version.ref = "sqlx4k" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

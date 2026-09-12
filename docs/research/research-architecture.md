@@ -353,6 +353,32 @@ and bound it*, not *ask the pool whether it is fine*. `acquire()` on its own pro
 object was handed out, which a pool can do from its idle set without the server on the far end being
 alive — that is the check that reports healthy through an outage.
 
+> **Observed 2026-09-12 ([B-47](../backlog/B-47-driver-behaviour-check.md)), and it needed a
+> distinction this paragraph did not make.** The sentence above was a derivation; it is now a
+> measurement, against a real Postgres with `sqlx4k-postgres` 1.13.0 —
+> [raw output](measurements-2026-09-12/raw-driver-behaviour.txt).
+>
+> | how the server went away | `acquire()` | a statement |
+> |---|---|---|
+> | a clean `stop` — the peer closes the connections | **fails** | fails |
+> | **paused** — the process frozen, sockets open, nothing answering | **succeeds** | **hangs**, cut off at a 10 s bound |
+>
+> So the consequence holds **only for the silent case**, and that is the case it is about: a network
+> partition, a wedged server, a node that went away. A server that shuts down cleanly tells its
+> clients, and the pool then fails `acquire` too — which nobody doubted and which this paragraph
+> never claimed, but also never excluded.
+>
+> **The half worth more than the confirmation:** in the silent case the statement does not *fail*, it
+> **hangs**. `PooledStoreCheckTest`'s double throws, which is faithful about the asymmetry and not
+> about its shape — and the shape is the reason `HealthCheck` carries a timeout at all, and the
+> reason Risk 3 exists. A check written against "the statement throws" and deployed against "the
+> statement hangs" is a probe that stops answering rather than answering `503`.
+>
+> The first version of this run measured only the clean `stop` and would have reported the
+> consequence **refuted** — a wrong verdict from an experiment testing a different question. The
+> container helper's own comment said a clean shutdown is "the case a pool is least likely to
+> notice"; it is the case it notices most easily, because the peer sends `FIN`.
+
 **Consequence 2.** `close()` being `suspend` and returning a `Result` is convenient: the pool stage
 composes with the rest of the sequence without a thread hand-off, and a close that fails is a value
 rather than an exception thrown from a shutdown path.

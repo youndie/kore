@@ -59,6 +59,14 @@ restarted by a liveness probe rather than waited for.
 7. **A dependency check proves the dependency answered, not that a handle was produced.** For a pool
    this means running a trivial statement, because `acquire()` can hand out an idle connection whose
    far end is gone — and sqlx4k's pool has no `ping` to ask instead (research §1.9).
+
+   **Measured rather than derived, and the measurement narrowed it.** Against a real Postgres:
+   when the server is *paused* — frozen, sockets open, nothing answering — `acquire()` **succeeds**
+   and the statement **hangs**; when it shuts down *cleanly*, the peer says so and `acquire()` fails
+   too. The rule is about the first case, which is what a partition or a wedged server looks like.
+   And the statement **hangs rather than throws**, which is why rule 4's per-check timeout is
+   load-bearing rather than defensive: a check written against "it throws" and deployed against "it
+   hangs" is a probe that stops answering instead of answering `503`.
 8. **Readiness goes false the moment the shutdown sequence begins**, before anything else happens —
    rule 1 of [feature-ordered-shutdown](feature-ordered-shutdown.md) §2.
 9. **A failing readiness body names the check and the age of its result.** A `503` with no
