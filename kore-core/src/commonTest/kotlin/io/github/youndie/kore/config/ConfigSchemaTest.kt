@@ -191,6 +191,24 @@ class UnknownVariableTest {
         val problem = failure.problems.single()
         assertEquals("SAMPLE_WORKER", problem.variable)
         assertTrue(problem.message.contains("not declared"), "the message did not say why: ${problem.message}")
+        // BOTH spellings, which is what the scenario promises: a message naming only the unknown
+        // half leaves the reader to find the other one.
+        assertTrue(
+            problem.message.contains("SAMPLE_WORKERS"),
+            "the message did not name the declared variable it is a near miss of: ${problem.message}",
+        )
+    }
+
+    @Test
+    fun `an unknown that resembles nothing declared gets no suggestion`() {
+        val failure = assertFailsWith<ConfigurationException> { schema.read(env(*minimal, "SAMPLE_ZZZZZZZZZZ" to "x")) }
+
+        // A suggestion far enough away stops being a help and becomes a guess that sends the reader
+        // to the wrong variable.
+        assertTrue(
+            !failure.problems.single { it.variable == "SAMPLE_ZZZZZZZZZZ" }.message.contains("did you mean"),
+            "an unrelated name was offered as the thing that was meant",
+        )
     }
 
     @Test

@@ -152,11 +152,20 @@ public class ConfigSchema(
                 .filter { it.startsWith("${prefix}_") && it !in declared }
                 .sorted()
                 .forEach { unknown ->
+                    // Naming the DECLARED name it is probably a misspelling of, because that is the
+                    // whole failure: `SAMPLE_TIMEOUT_MSEC` beside a declared `SAMPLE_TIMEOUT_MS` is a
+                    // setting somebody wrote and the process is ignoring, and a message that names
+                    // only the unknown half leaves the reader to find the other one.
+                    val nearest = declared.minByOrNull { distance(unknown, it) }
+                    val suggestion =
+                        nearest
+                            ?.takeIf { distance(unknown, it) <= MAX_SUGGESTION_DISTANCE }
+                            ?.let { " — did you mean $it?" }
+                            ?: ""
                     problems +=
                         ConfigProblem(
                             unknown,
-                            "is set under the ${prefix}_ prefix and is not declared — a near miss of " +
-                                "a declared name reads as a setting that is being ignored",
+                            "is set under the ${prefix}_ prefix and is not declared$suggestion",
                         )
                 }
         }
@@ -177,5 +186,31 @@ public class ConfigSchema(
         }
 
         return resolved to problems.toList()
+    }
+
+    private companion object {
+        /**
+         * How different a declared name may be and still be offered as the thing that was meant.
+         *
+         * Four edits is about a plural, a suffix, or a transposition — `_MSEC` for `_MS`, `WORKER`
+         * for `WORKERS`. Beyond that a suggestion stops being a help and starts being a guess that
+         * sends the reader to the wrong variable, which is worse than no suggestion.
+         */
+        const val MAX_SUGGESTION_DISTANCE = 4
+
+        /** Levenshtein. Small enough to write, and the alternative is a dependency for one message. */
+        fun distance(a: String, b: String): Int {
+            var previous = IntArray(b.length + 1) { it }
+            for (i in 1..a.length) {
+                val current = IntArray(b.length + 1)
+                current[0] = i
+                for (j in 1..b.length) {
+                    val substitution = previous[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1
+                    current[j] = minOf(previous[j] + 1, current[j - 1] + 1, substitution)
+                }
+                previous = current
+            }
+            return previous[b.length]
+        }
     }
 }
