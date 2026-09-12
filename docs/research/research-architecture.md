@@ -753,33 +753,48 @@ so masking is a property of the declaration rather than a list of names somebody
 ---
 
 
-### D9. kore's background work runs in two lanes, and on Kotlin/Native that costs two threads
+### D9. kore's background work runs in two named lanes, and kore owns no threads *(rewritten 2026-09-12)*
 
-Brief: unstated. Forced by §1.14.
+Brief: unstated.
+
+> **This decision was written on 2026-09-12 and rewritten the same day.** Its first version said kore
+> owns one thread per lane on Kotlin/Native, because §1.14 said the platform offers nowhere to put
+> work that may block. §1.14 was wrong. The measurement that justified *two* lanes survived; the
+> argument for *owning threads* did not, and is withdrawn below rather than quietly edited —
+> [B-42](../backlog/B-42-dispatchers-io-exists-on-native.md).
 
 **The decision.** kore names two dispatchers — `KoreDispatchers.lifecycle` and
 `KoreDispatchers.checks`. The stage machine and the signal watch use the first; dependency checks use
-the second. On Kotlin/Native each is a single thread kore owns, created on first use, never closed.
-On the JVM both are `Dispatchers.IO`.
+the second. Both are `Dispatchers.IO` on every target, and **kore owns no threads**.
 
-**The cost, stated as a number.** Native: **two threads** for the life of the process, and one of
-them only if a health loop is ever started. JVM: **none of its own**.
+**The cost, stated as a number.** **Zero threads**, on both platforms.
 
-**Why two rather than one.** A dependency check can block its thread — that is Risk 3, and
-`withTimeoutOrNull` stops *waiting* for a blocked call without freeing the thread it holds. One
-shared lane would let a check against a dead database hold the thread the shutdown sequence needs,
-and `SIGTERM` would then be answered whenever the socket happened to time out. The ordered shutdown
-is the thing this library promises; it gets a lane nothing else can occupy. Measured, not assumed:
-with both on one lane the sequence takes 2.001 s against a check holding a thread for 2 s
-(`SharedLaneControlTest`, Kotlin/Native), and with two lanes it returns in milliseconds
-(`BlockingCheckTest`, both platforms).
+**Why two names for one dispatcher.** Because the reason they are separable outlives the fact that
+they are currently equal. The separation is what stops a check blocked on a dead database from
+holding the thread the shutdown needs; `Dispatchers.IO` provides it for free by being elastic. The
+names remain as the seam a consumer overrides — and pointing `checks` at a dispatcher that cannot
+grow is exactly how the hang comes back, which is what `SharedLaneControlTest` now measures.
+
+~~**The cost, stated as a number.** Native: two threads for the life of the process…~~ Withdrawn.
+`Dispatchers.IO` is available on Kotlin/Native and is elastic there: with **128 threads blocked for
+three seconds, a trivial task was scheduled in 107 µs** (`linuxX64`, coroutines 1.11.0). Two owned
+threads would have bought a named entry in a thread dump, at the price of a `close` contract kore
+could never honour — a lane outlives every shutdown that might close it.
+
+**Why two rather than one — and this half survived.** A dependency check can block its thread — that
+is Risk 3, and `withTimeoutOrNull` stops *waiting* for a blocked call without freeing the thread it
+holds. Measured, not assumed: on **one thread**, the sequence takes 2.001 s against a check holding
+it for 2 s (`SharedLaneControlTest`, now on both platforms), and on an elastic dispatcher it returns
+in milliseconds (`BlockingCheckTest`). What changed is only *who* provides the elasticity.
 
 **Rejected: one lane per check.** It buys freshness for the checks that are not blocked and costs a
 thread per dependency. It buys nothing for shutdown, which is already protected. A check stalled
 behind another is reported as a stale answer *with its age*, which the registry already does — a
 degradation the design states rather than hides.
 
-**Rejected: `Dispatchers.Default`.** §1.14, consequence 2.
+**Rejected: `Dispatchers.Default`.** It is sized to the core count and meant for work that does not
+block; a check blocking one of its threads takes a fraction of the process's whole compute capacity.
+This was §1.14's consequence 2 and it is the one part of that section that was never in doubt.
 
 **Rejected: letting the caller decide and documenting nothing.** That is what the code did before,
 and the sentence in `ShutdownSequence`'s contract — "returns no later than the sum of the stage

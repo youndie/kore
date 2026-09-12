@@ -62,10 +62,11 @@ restarted by a liveness probe rather than waited for.
 9. **A failing readiness body names the check and the age of its result.** A `503` with no
    attribution is one an operator has to reproduce by hand; having already done that is the point of
    a dependency check.
-10. **The refresh loop runs in a lane of its own**, `KoreDispatchers.checks`, and never on the thread
-   the shutdown sequence uses. The cache keeps a blocking check off the *probe's* thread; it does
-   nothing about the thread the check itself is holding, and on Kotlin/Native that is a thread kore
-   owns. Research D9 has the decision and what it costs.
+10. **The refresh loop runs in a lane of its own**, `KoreDispatchers.checks`, and never on the one the
+   shutdown sequence uses. The cache keeps a blocking check off the *probe's* thread; it does nothing
+   about the thread the check itself is holding. Both lanes are `Dispatchers.IO`, which is elastic on
+   every target kore builds for, so the separation is free — but a consumer that points `checks` at a
+   dispatcher which cannot grow gets the hang back. Research D9.
 
 ## 3. What a check is
 
