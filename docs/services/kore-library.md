@@ -155,10 +155,13 @@ before it is written down, not recalled. kore's own catalogue carries the reason
 
 kore is a library. It publishes artefacts; it deploys nothing.
 
-* **Artefacts:** `io.github.youndie:kore-*`, targets `jvm`, `linuxX64`, `linuxArm64`, `macosArm64`
-  (research D1). Verified by building them on 2026-09-11: all three native klibs and the JVM jar are
-  produced, and the `macosArm64` klib cross-compiles on a Linux host. `kore-booblik`'s targets are
-  [B-36](../backlog/B-36-booblik-adapter-targets.md).
+* **Artefacts:** `io.github.youndie:kore-core`, `-ktor`, `-observability` — targets `jvm`,
+  `linuxX64`, `linuxArm64`, `macosArm64` (research D1), 15 artefacts with the metadata modules.
+  Publishable since [B-43](../backlog/B-43-publishing-setup.md): `maven-publish` configured in the
+  root build rather than by the portfolio's convention plugin, because that one is fetched in
+  `pluginManagement` and would make kore unconfigurable without the portfolio's repository. Version
+  from `-PVERSION`, defaulting to `0.1.0-SNAPSHOT`. `samples/*` publishes nothing.
+  `kore-booblik`'s targets are [B-36](../backlog/B-36-booblik-adapter-targets.md).
 * **Resolvable by whom — three modules by anyone, one by the portfolio.** `kore-core`, `kore-ktor`
   and the Gradle plugin resolve from Maven Central alone. **`kore-observability` does not**: the three
   agents it wires are published only to `https://reposilite.kotlin.website/snapshots`, which
