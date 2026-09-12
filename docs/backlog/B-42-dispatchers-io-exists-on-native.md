@@ -1,7 +1,7 @@
 ---
 id: B-42
 title: "D9 lost its premise: Dispatchers.IO exists on Kotlin/Native"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m2-shutdown
