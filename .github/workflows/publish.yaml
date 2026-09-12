@@ -50,14 +50,16 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
 
-      # The three library modules. `samples/*` publishes nothing — an artefact nothing should resolve
-      # is one somebody eventually will.
+      # NO MODULE NAMES HERE, DELIBERATELY (B-48). `maven-publish` is applied by one rule in the root
+      # build to every `:kore-*` module, so the root task already means all of them; `samples/*` has
+      # no publication and cannot acquire one by accident. The list that used to stand here named
+      # three modules, was written when there were three, and went on naming three after
+      # `kore-booblik` arrived — so 0.1.0 shipped without the module its first consumer needed.
       - name: Publish
         run: |
           ./gradlew --no-daemon \
-            :kore-core:publishAllPublicationsToWipRepository \
-            :kore-ktor:publishAllPublicationsToWipRepository \
-            :kore-observability:publishAllPublicationsToWipRepository
+            publishAllPublicationsToWipRepository \
+            publishAllPublicationsToLocalCopyRepository
         env:
           ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
           ORG_GRADLE_PROJECT_REPOSILITE_USER: ${{ secrets.REPOSILITE_USER }}
@@ -66,14 +68,32 @@ jobs:
       # READ IT BACK. A green publish task is not a published artefact: the repository can accept the
       # PUT and serve nothing, and the token here is scoped to artifact paths rather than to the
       # group, so a new coordinate can be refused while its neighbour succeeds.
+      #
+      # What is looked up is what the build just produced — the local copy from the step above — and
+      # not a list. A list verifies the coordinates somebody remembered; this verifies the set.
       - name: Verify the artefacts are actually served
         run: |
           v="${{ steps.ver.outputs.version }}"
+          poms=$(find build/published -name "*-$v.pom" | sort)
+          [ -n "$poms" ] || { echo "::error::the publish produced no local copy to verify"; exit 1; }
+          echo "verifying $(echo "$poms" | wc -l) coordinates"
+
+          # EVERY MODULE THE BUILD HAS, not a count. A floor on the number is vacuous in the way that
+          # matters: nineteen coordinates minus one whole module is still comfortably above any floor
+          # worth writing. The rule is that a `:kore-*` module publishes, so the rule is what is
+          # checked — against the only list that cannot drift from the build, which is the build's own.
+          missing=0
+          for m in $(grep -o 'include(":kore-[a-z-]*")' settings.gradle.kts | sed 's/.*":\(.*\)")/\1/'); do
+            [ -d "build/published/io/github/youndie/$m/$v" ] || {
+              echo "::error::$m is in the build and published nothing"; missing=1; }
+          done
+          [ "$missing" = 0 ] || exit 1
           fail=0
-          for m in kore-core kore-ktor kore-observability kore-core-jvm kore-core-linuxx64; do
-            url="https://reposilite.kotlin.website/snapshots/io/github/youndie/$m/$v/$m-$v.pom"
+          for pom in $poms; do
+            path=${pom#build/published/}
+            url="https://reposilite.kotlin.website/snapshots/$path"
             code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
-            echo "$code $m"
+            echo "$code $path"
             [ "$code" = "200" ] || fail=1
           done
-          [ "$fail" = 0 ] || { echo "::error::a module was not served after publishing"; exit 1; }
+          [ "$fail" = 0 ] || { echo "::error::a coordinate was not served after publishing"; exit 1; }

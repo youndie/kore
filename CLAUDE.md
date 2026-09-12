@@ -5,10 +5,14 @@ shutdown, three probes, a typed configuration from the environment, one-call obs
 and `/version`. **Native-first** — `linuxX64` and `linuxArm64` decide the design; `jvm` and
 `macosArm64` follow.
 
-**Almost no code yet.** Three modules exist (`kore-core`, `kore-ktor`, `kore-observability`); only
-`kore-core` carries source, and only its `lifecycle/` package. Everything else is research, a backlog
-and the layer documents: treat a path under `kore-*/src/` or `samples/` named in a document as *where
-the code will live* unless it is in that list.
+**All five features are built.** Four modules carry source — `kore-core`, `kore-ktor`,
+`kore-booblik`, `kore-observability` — plus `samples/service` and `samples/oracle`, and `0.1.0` is
+published. A path under `kore-*/src/` or `samples/` named in a document is a path that exists unless
+the document says otherwise.
+
+This paragraph said *"almost no code yet, treat every path as where the code will live"* for a week
+after that stopped being true, and the README's status line was wrong twice the same way. A sentence
+about the state of the project has no way to fail; `backlog.md` and the build do. Prefer them.
 
 ## How to start a session
 
