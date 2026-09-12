@@ -46,6 +46,10 @@ restarted by a liveness probe rather than waited for.
 4. **Readiness answers from a cached result**, refreshed by a background loop with per-check
    timeouts. A check on the request path can hang, and a probe that hangs has its answer decided by
    `timeoutSeconds`, whose default is 1 (research §1.10). This is Risk 3 of the research.
+9. **The refresh loop runs in a lane of its own**, `KoreDispatchers.checks`, and never on the thread
+   the shutdown sequence uses. The cache keeps a blocking check off the *probe's* thread; it does
+   nothing about the thread the check itself is holding, and on Kotlin/Native that is a thread kore
+   owns. Research D9 has the decision and what it costs.
 5. **A stale result is not a healthy result.** If a check has not answered within its refresh budget,
    readiness is `503` and the body says how old the last answer is. A cache that keeps returning the
    last good value is a probe that reports health through an outage.

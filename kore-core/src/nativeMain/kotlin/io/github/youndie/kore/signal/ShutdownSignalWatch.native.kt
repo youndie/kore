@@ -44,8 +44,9 @@ public actual fun installShutdownSignalWatch(
  * Polling rather than the self-pipe trick, which is the textbook answer: a pipe needs a thread parked
  * in a blocking `read`, and on Kotlin/Native that means `newSingleThreadContext` — a thread kore
  * would own for the life of the process to save at most one poll interval of a thirty-second grace
- * period. Which dispatcher kore's background work should use at all is B-38, and this is deliberately
- * not the place that answers it.
+ * period. B-38 has since answered which dispatcher kore's background work uses —
+ * `KoreDispatchers.lifecycle`, one thread on this platform — and polling still wins: a self-pipe
+ * would need a *second* thread parked in `read`, for the same at-most-one-poll-interval.
  */
 private class PosixShutdownSignalWatch(private val pollInterval: Duration) : ShutdownSignalWatch {
     override suspend fun awaitSignal(): ShutdownSignal {
