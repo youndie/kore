@@ -23,6 +23,22 @@ Three defects in [konekt](https://github.com/youndie/konekt), found while verify
    sends `startupProbe`, `livenessProbe` and `readinessProbe` to `/health`, which is
    `call.respondText("ok")`. A pod whose database is unreachable reports itself ready.
 
+## Re-checked 2026-09-12 while doing [B-19](B-19-broker-check.md)
+
+Finding (2)'s address has moved and the finding has grown. `BrokerConnection` was rewritten for
+konekt's own `B-107` — it now holds a generation and a `reconnect(seen)` guarded by it, with tests
+(`server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt`). The unflushed close survived the
+rewrite as `closeQuietly`, which calls `producer.close()` with no `flush()` before it — and there is
+no `flush` anywhere under `server/src/main/kotlin/io/konekt/events/`.
+
+**`closeQuietly` is called from `reconnect` as well as from `close`.** So the loss is no longer once
+per deployment: it is once per deployment *and once per broker reconnect*, which is exactly when the
+broker was replaced and the records explaining it matter. Finding (2) is live, and its blast radius
+is larger than this item said.
+
+Findings (1) and (3) were not re-read; (3)'s route is unchanged (`Application.kt:185-189` is still
+`respondText("ok")`).
+
 - **The decision and its reason.** These are reported to konekt, not fixed from here, and they are
   kept in kore's backlog because they are the evidence that the library is worth building: nothing is
   wrong with any library involved, and the wiring between them was written once and never revisited.

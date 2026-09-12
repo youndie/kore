@@ -73,6 +73,7 @@ Where each concern will live. One module per reason to depend on something.
 |---|---|
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/` | **built (B-04, B-11)** — `KoreStage` (the specified order), `ShutdownSequence` (the machine), `ShutdownParticipant`, `StagePlan`, `ShutdownTranscript`, and `shutdownSequence { }` with `ShutdownDeadlines` (the assembly a consumer touches) |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` | **built (B-16, B-09)** — `HealthCheck`, `HealthRegistry`, `HealthStatus.UNKNOWN` as a first-class answer, `ReadinessGate` — the two inputs a probe must not collapse — and `StartupGate` / `LivenessGate` (B-17) |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/BrokerCheck.kt` | **built (B-19)** — the metadata-shaped broker check. A shape rather than a client: research §1.15 has why a connect answers the kernel and not the broker |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` | **built (B-21–B-24)** — `ConfigKey`, `ConfigSchema`, `ConfigPair`, `Environment`, `EnvironmentNames`, `printConfig`, and the unknown-variable refusal |
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | **built (B-22)** — the `__environ` walk, checked against `/proc/self/environ` |
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | **built (B-22)** — the declared gap of research §1.5. Compiles on a Linux host; its tests do not run there, so this branch is unexercised in CI |
