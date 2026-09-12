@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "The portfolio's configuration, extended by name rather than copied — see `github>youndie/sborka`, whose own description makes the argument: ten repositories had written the same file, and the five that had not are where the defects were.",
+    "The harness preset is extended SECOND on purpose: package rules are concatenated in the order the presets are named, and its automerge rule has to come after the base preset's `a major of anything that ships gets a human`.",
+    "ITS PRECONDITION WAS CHECKED, NOT ASSUMED. `automerge-harness` is only safe where a pull request actually runs the build, and mongkn is the counter-example it names. Here `.github/workflows/check.yaml` runs on `pull_request`, and every pull request today ran four jobs: `check`, `build`, `linux-arm64-suite` and `macos-arm64-suite`. The last two execute the arm64 and Apple-silicon suites the x86 build cannot, so a harness bump that breaks anything breaks them.",
+    "Nothing repository-specific is added yet, and that is the preset's own rule rather than laziness: what kore needs beyond it will be found by the preset failing to cover something, not by guessing now. The two candidates one would guess are already covered — `kotlin` and `kotlinx` each move as one release train and the base preset groups both."
+  ],
+  "extends": [
+    "github>youndie/sborka",
+    "github>youndie/sborka:automerge-harness"
+  ]
+}
