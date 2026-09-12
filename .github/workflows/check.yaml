@@ -77,19 +77,17 @@ jobs:
 
       - run: make check
 
-      # Default branch only. `status: draft` is legal in a pull request, where it means "this
-      # branch will make it true", and a defect the moment it merges.
-      # OFF, WITH AN ADDRESS, AND NOT RELAXED. This step makes `status: draft` an error on the
-      # default branch, which is the mechanical half of "`main` describes what exists". It cannot
-      # pass today: there is no code, so every feature document is honestly a draft and `main`
-      # carries a plan. Turning it on is B-35, blocked on the work that makes it passable — so it
-      # switches on when the library arrives rather than when somebody remembers.
+      # Default branch only. `status: draft` is legal in a pull request, where it means "this branch
+      # will make it true", and a defect the moment it merges. This is the mechanical half of
+      # "`main` describes what exists".
       #
-      # Do not delete this block to make the workflow tidy. A guard whose reason is written down is
-      # one the next reader can act on; a guard that was quietly removed is one nobody knows existed.
-      #
-      # - if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      #   run: python3 scripts/docs_check.py --on-main
+      # ON since B-35. It was off with an address rather than relaxed for exactly as long as it could
+      # not pass — every feature was honestly a draft because there was no code — and it turned on
+      # when the work that makes it passable landed rather than when somebody remembered. The first
+      # thing it caught was an endpoint document still claiming two response types that were never
+      # built.
+      - if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: python3 scripts/docs_check.py --on-main
 
   # THE CODE GATE, and it exists because the job above does not compile anything. `make check` reads
   # the documents; a repository whose only required check reads documents is one where a pull request

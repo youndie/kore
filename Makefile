@@ -38,9 +38,10 @@ check: gate report
 # defect in the documentation rather than a matter of opinion.
 #
 # NOT here: `docs_check.py --on-main`, which makes `status: draft` an error on the default branch.
-# It cannot pass while there is no code and every feature is honestly a draft. It is off with an
-# address — B-35 — rather than relaxed, so it turns on by itself when the work that makes it
-# passable lands.
+# It is **on in CI** since B-35, and it stays out of this target because it is branch-specific rather
+# than optional: a draft is legal in a pull request, where it means "this branch will make it true",
+# and a defect the moment it merges. Running it locally would fail a contributor for writing the
+# draft the process asks them to write.
 gate:
 	$(PY) scripts/backlog_index.py --check --docs $(DOCS) --backlog $(BACKLOG)
 	$(PY) scripts/docs_check.py --docs $(DOCS) --backlog $(BACKLOG)
