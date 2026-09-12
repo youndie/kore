@@ -7,10 +7,12 @@
 [![jvm](https://img.shields.io/badge/JVM-25-orange?logoColor=white)](https://openjdk.org/projects/jdk/25/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**One library that gives a Kotlin server binary what a Go one gets from the standard library and
-from habit:** stop in a defined order, answer three different health questions, read its
-configuration from the environment against a typed schema, wire its telemetry in one call, and say
-which commit it was built from.
+**One library that owns the process lifecycle of a Kotlin server binary:** stop in a defined order,
+answer three different health questions, read its configuration from the environment against a typed
+schema, wire its telemetry in one call, and say which commit it was built from.
+
+Every service ends up writing those five, slightly differently, and getting one of them subtly wrong
+— usually the shutdown, and usually invisibly, because a shutdown is the thing nobody watches.
 
 **Kotlin Multiplatform, native-first.** `jvm`, `linuxX64`, `linuxArm64`, `macosArm64` — and the
 native targets decide the design, because every fact that makes this library necessary is invisible
