@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -38,6 +39,15 @@ import kotlin.time.Duration.Companion.seconds
  * nothing signals it again, so from that moment the report moves only if something asks — and the
  * only thing that asks is the telemetry stage.
  *
+ * ## And the queue is pointed out of the source tree
+ *
+ * katcher's default cache directory is `.katcher_cache` beside the working directory, which under
+ * Gradle is the module directory — inside the mutagen replica. The sync is one-way, so a file the
+ * build box creates and the Mac does not have is **deleted while the test is still running**: the
+ * first version of this test watched the uploader fail three times and then found an empty queue,
+ * with `flush` answering `true` because there was genuinely nothing left. That is the same reason a
+ * deployment needs `katcherCacheDir` — a directory somebody else can empty is not a queue.
+ *
  * Shaped like [TracyFlushTest] otherwise, and for the same reason: two real engines and no test host.
  * A `testApplication { }` nested in `runTest { }` hung on Kotlin/Native for over thirty minutes, and
  * a virtual clock has no business in a test whose subject is a network round trip.
@@ -58,6 +68,7 @@ class KatcherFlushTest {
     @Test
     fun `a crash the uploader could not deliver is flushed out by the telemetry stage`() = runTest {
         val receiver = Receiver()
+        val cacheDir = temporaryCacheDir()
         withContext(Dispatchers.Default) {
             val collector =
                 embeddedServer(CIO, port = 0) {
@@ -88,6 +99,7 @@ class KatcherFlushTest {
                                 release = "1.4.0+abc123",
                                 instance = "pod-1",
                                 katcher = AgentEndpoint("http://127.0.0.1:$port", "key"),
+                                katcherCacheDir = cacheDir,
                             ),
                             flushGrace = 5.seconds,
                         )
@@ -107,12 +119,10 @@ class KatcherFlushTest {
                 "katcher never tried at all — the client was not started, or not with this endpoint",
             )
             receiver.refuse = false
-            val beforeStop = receiver.attempts
 
             // The telemetry stage's job, called directly. What the stage adds is the deadline, and
             // that is asserted separately in ObservabilityInstallTest.
             wired.stop()
-            println("[probe] attempts before stop=$beforeStop after=${receiver.attempts} flush=${Katcher.flush(5.seconds)}")
 
             subject.stop(0, 0)
             collector.stop(0, 0)
@@ -140,6 +150,16 @@ class KatcherFlushTest {
             delay(QUIET.inWholeMilliseconds)
         }
     }
+
+    /**
+     * A path **outside the source tree**, unique per run. `/tmp` rather than a platform temp-directory
+     * lookup: that would be an `expect`/`actual` pair in a test source set for one string, and every
+     * target this module builds for — `jvm`, `linuxX64`, `linuxArm64`, `macosArm64` — has it.
+     *
+     * Not cleaned up. A passing run leaves the directory empty, because the flush is what empties it,
+     * and a failing one leaves the report in it, which is the evidence.
+     */
+    private fun temporaryCacheDir(): String = "/tmp/kore-katcher-${Random.nextULong().toString(16)}"
 
     private companion object {
         /**
