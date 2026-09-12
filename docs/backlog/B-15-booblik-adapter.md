@@ -1,7 +1,7 @@
 ---
 id: B-15
 title: "The booblik participant: flush, then close"
-status: wip
+status: done
 priority: P1
 size: S
 stage: m2-shutdown
@@ -57,3 +57,38 @@ The module is **not in the build yet**; adding it is this item.
   that is the case the scenario names.
 - Anchors: `kore-booblik/src/commonMain/kotlin/io/github/youndie/kore/booblik/`,
   `kore-booblik/src/jvmMain/`, `kore-booblik/src/nativeMain/`
+
+## Findings — two of them changed the module's shape
+
+* **`booblik-native` has no `linuxArm64`.** Central publishes `linuxx64` and `macosarm64` and nothing
+  else, so `kore-booblik` cannot declare the target research D1 names as one of the two a server
+  binary in this portfolio actually is. The root build excludes it **for this module only** —
+  declaring it and letting the dependency fail would turn a missing artefact into a resolution error
+  in somebody else's build. Verified by reading the Central listing, and raised as §7.1 of the
+  upstream proposals.
+* **Central's booblik carries the package the portfolio abandoned.** `booblik-client` 0.3.3 on Central
+  is `ru.workinprogress.booblik.…`; the rename to `io.github.youndie` landed in 0.3.4, which exists
+  only in the portfolio's repository. Compiling the adapter against Central's 0.3.3 would reference
+  classes the version a real consumer resolves does not have — a `NoClassDefFoundError` at runtime
+  rather than a failure at build time. **Found by the compiler**, after pinning 0.3.3 from Central on
+  the assumption that the package matched the working tree. It does not; the working tree is ahead of
+  both.
+
+  So `kore-booblik` pins 0.3.4 and joins `kore-observability` in the portfolio-only half.
+  [B-37](B-37-agents-not-on-central.md)'s "the cost is one module, not the library" is amended where
+  it stands.
+* **Two version lines, not one.** `booblik-client` and `booblik-native` are separate artefacts with
+  separate histories, so the catalogue names two versions. One `booblik = …` would be wrong about
+  one of them the first time they diverge.
+
+## What is asserted, and what is not
+
+Five tests on both platforms cover **kore's half — the order**: flush first, the close never first, a
+flush that never returns bounded with the producer still closed, a flush that throws still closing
+while the failure reaches the stage machine, and the name carried through.
+
+They do **not** assert that a flush puts records on a socket. That is booblik's promise, it differs
+between the two clients, and a double reproducing the loss would be asserting the thing it was written
+to reproduce. The end-to-end run against a real broker is
+[B-45](B-45-booblik-against-a-real-broker.md), with a control arm that closes without flushing —
+because a run where nothing is lost in either arm has measured nothing.

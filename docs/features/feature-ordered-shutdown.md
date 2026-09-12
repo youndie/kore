@@ -238,11 +238,15 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **When:** the sequence reaches the release stage
 * **Then:** those records are sent before `close()` is called
 * **And:** no record is completed with `ConnectionClosedException` as a result of the shutdown
-* ***Target*** — and the only one left in this document. kore's stage machine already orders
-  consumers before pools and a service can register a flushing participant today; what does not exist
-  is **kore's own booblik participant**, which is [B-15](../backlog/B-15-booblik-adapter.md), blocked
-  on [B-36](../backlog/B-36-booblik-adapter-targets.md). Until then the flush is the consumer's code
-  and this scenario describes an adapter rather than the machine
+* **Automated:** `BooblikParticipantTest` (jvm and linuxX64) — five cases over kore's half of this,
+  which is the **order**: the flush happens first, the close never comes first, a flush that never
+  returns is bounded and the producer is still closed, and a flush that throws still closes while the
+  failure reaches the stage machine.
+* **What those tests do not assert, and nobody should read them as asserting:** that a flush puts
+  records on a socket. That is booblik's promise, and it is the one that *differs between the two
+  clients* — which is why this adapter exists rather than a reason to test somebody else's client
+  here. The scenario's "those records are sent" is covered end to end only by a run against a real
+  broker, which is [B-45](../backlog/B-45-booblik-against-a-real-broker.md)
 
 ### Scenario: two signals run the sequence once
 * **Given:** the sequence has begun
