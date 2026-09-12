@@ -1,7 +1,7 @@
 ---
 id: B-31
 title: "Findings against the first consumer, found by reading"
-status: open
+status: wip
 priority: P2
 size: S
 stage: m6-release
