@@ -2,7 +2,7 @@
 id: feature-observability-wiring
 title: The three agents, wired in one call
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - kore-library
@@ -14,7 +14,7 @@ tags: [tracy, metrik, katcher, observability]
 
 # The three agents, wired in one call
 
-> **`status: draft`** — designed, not built. What each agent actually does at shutdown is verified
+> **`status: active`** — designed, not built. What each agent actually does at shutdown is verified
 > and sourced in [research-architecture](../research/research-architecture.md) §1.6.
 
 ## 1. Overview
@@ -77,39 +77,55 @@ never revisited. That is the failure class this feature exists for, and it is ca
 |---|---|
 | kore-library | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` — the one call, and the three contracts above |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/config/` — the schema the agent settings are declared in |
-| sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/Main.kt` — the call site |
+| sample-service | **no call site.** The sample is the shutdown experiment, and its container must not depend on three agents being reachable; wiring it with every agent off would exercise the branch that does nothing. The end-to-end call site arrives with the first consumer — [B-33](../backlog/B-33-publish-and-adopt.md) |
 
 ## 5. Scenarios (BDD)
 
-**All *target*** — no implementation, no automated check.
+All five are automated. The tracy delivery scenario runs against a **real receiver on a real socket**
+rather than a double, because the thing being proved is that records leave the process — and the
+mutation that survived the double-free version of this suite was exactly "install the buffer and not
+the thing that empties it".
 
 ### Scenario: an endpoint without its key refuses the start
 * **Given:** `TRACY_ENDPOINT` is set and `TRACY_KEY` is not
 * **When:** the process starts
 * **Then:** it refuses to start and names both variables
+* **Automated:** `ObservabilityKeysTest.an endpoint without its key refuses the start and names both
+  variables` — the refusal is the schema's pair rule, so kore declares the pairs rather than
+  re-checking them at the call
 
 ### Scenario: no agent configured is a valid deployment
 * **Given:** none of the three agents has any variable set
 * **When:** the process starts
 * **Then:** it starts and serves, with observability off
 * **And:** `--print-config` says so explicitly
+* **Automated:** `ObservabilityKeysTest.no agent configured is a valid configuration` and
+  `ObservabilityInstallTest.no agent configured installs and has nothing to stop`
 
 ### Scenario: tracy's last records are delivered
 * **Given:** tracy is configured and records have been produced since the last flush
 * **When:** the process receives `SIGTERM`
 * **Then:** a flush is attempted before the process exits
 * **And:** it is bounded by kore's telemetry deadline rather than by tracy's flush interval
+* **Automated:** `TracyFlushTest.a record written before the stop is delivered by the telemetry stage`
+  — a record is written through the agent kore hands back, and the assertion is that a request
+  arrived at another process
 
 ### Scenario: a tracy endpoint that is unreachable does not delay the exit
 * **Given:** tracy is configured to an address that does not answer
 * **When:** the process receives `SIGTERM`
 * **Then:** the telemetry group ends at its deadline
 * **And:** the process still exits inside the grace period
+* **Automated:** `ObservabilityInstallTest.an unreachable tracy endpoint does not delay the exit past
+  the telemetry deadline`
 
 ### Scenario: the release identifier is required once an agent is on
 * **Given:** katcher is configured and no release identifier is set
 * **When:** the process starts
 * **Then:** it refuses to start
+* **And:** the refusal says what katcher would otherwise have called the crash group
+* **Automated:** `ObservabilityInstallTest.an agent without a release refuses the start and says what
+  the default would be`
 
 ## 6. Out of scope
 

@@ -1,7 +1,7 @@
 ---
 id: B-28
 title: "The three agents in one call, with three shutdown contracts"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m5-wiring
@@ -34,3 +34,53 @@ treatment each actually needs.
 - AC: the scenarios of feature-observability-wiring §5 hold, including that an unreachable tracy
   endpoint does not delay the exit past the telemetry deadline.
 - Anchors: `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/`
+
+## Where it was verified, and where it was not
+
+The build host went offline part-way through this item — the tunnel stopped answering and the
+machine behind it does not respond on port 22. So the split is worth stating rather than implying:
+
+* **JVM: locally**, 13 tests across three suites, read from the result files.
+* **Kotlin/Native: by CI**, not locally. `ObservabilityKeysTest` and `ObservabilityInstallTest` were
+  green on `linuxX64` before the host went away; `TracyFlushTest` — the one that matters most, since
+  it is the test a mutation escaped without — was still linking when the connection dropped and has
+  never run there locally.
+
+CI builds all four targets on its own runners and resolves the agents from the portfolio repository
+(proved by [B-37](B-37-agents-not-on-central.md)'s own pull request), so it is an independent check
+rather than a weaker one — a clean checkout, which the local box is not. What it is not is *this*
+machine, and the difference is worth a line because a native link of three new klibs is exactly where
+a target-set problem would appear.
+
+## Findings
+
+* **A surviving mutation found the rule the feature is named after.** Installing tracy's *plugin*
+  without its *delivery* passed every test in the module: the plugin is visible from outside and the
+  delivery is not, so asserting the plugin proves only that a buffer was installed. That is exactly
+  rule 7's failure and exactly what the portfolio's most complete service does. The fix is
+  `TracyFlushTest`, which points tracy at a **real receiver on a real socket** and asserts a request
+  arrived at another process — nothing in it is a double.
+* **kore was about to hand back a wiring a service could not log through.** `installKoreObservability`
+  kept the `TracyAgent` to itself, which leaves a consumer with the plugin's sampled request spans
+  and no way to write a line. Found while writing the test above — the test needed a logger and there
+  was no way to get one. The agent is now returned, which makes tracy part of this module's API
+  surface rather than an implementation detail, and that is honest for a module named after three
+  agents.
+* **The keys are handed to the consumer's schema rather than kept in one of kore's.** A
+  `ConfigSchema` owns a prefix and the unknown-variable refusal is scoped to it; two schemas would
+  mean a variable that is unknown to one and declared by the other. So `ObservabilityKeys.all` and
+  `.pairs` splice into the service's single schema, and every variable is prefixed like everything
+  else — `APP_RELEASE`, not `RELEASE`.
+* **Which corrects a claim B-27 made.** Its `KoreKeys.RELEASE` comment said kore reads the
+  portfolio's existing unprefixed `RELEASE`. It cannot: `ConfigSchema.variableOf` is
+  `"${prefix}_${name}"` and there is no escape. An unprefixed key would also sit outside the typo
+  check by construction, and that check is the config feature's whole point. The cost is one line in
+  a chart, paid once at adoption.
+* **What kore still cannot do, confirmed rather than assumed.** `MetrikConfig` has no way to opt out
+  of the plugin's own `ApplicationStopping` subscription — only `enabled = false`, which turns metrik
+  off entirely — and the plugin constructs its agent internally, publishing only the counters. So
+  kore has no handle to stop and no way to move the moment. On Kotlin/Native that moment is *before*
+  the drain. `MetrikAgent` and `UdpSender` are public, so kore *could* construct the agent and
+  reimplement the plugin's measurement hooks — and will not: "not an observability library, it wires
+  three agents and reimplements none of them" is a stated non-goal, and a fork of somebody else's
+  plugin is the most expensive way to break it.
