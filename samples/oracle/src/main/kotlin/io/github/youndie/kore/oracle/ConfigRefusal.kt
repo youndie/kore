@@ -34,6 +34,8 @@ private class Case(
     val args: List<String> = listOf("--kore=true"),
     val wantExit: Int,
     val wantText: List<String>,
+    /** Text that must NOT be there. A masked line for a secret nobody set is the case this exists for. */
+    val wantAbsent: List<String> = emptyList(),
 )
 
 fun main() {
@@ -73,6 +75,16 @@ fun main() {
                 wantText = listOf("SAMPLE_TRACY_KEY", "••••••", "unknown SAMPLE_ variables: none"),
             ),
             Case(
+                // kore#62. The pair's two halves must render the same when neither is set, or the
+                // print answers "I am not showing you" to a question about existence.
+                "--print-config tells an absent secret from a set one",
+                mapOf("SAMPLE_POOL_DSN" to DSN),
+                args = listOf("--print-config"),
+                wantExit = 0,
+                wantText = listOf("SAMPLE_TRACY_ENDPOINT", "SAMPLE_TRACY_KEY"),
+                wantAbsent = listOf("••••••"),
+            ),
+            Case(
                 "--print-config on a configuration that will not start",
                 emptyMap(),
                 args = listOf("--print-config"),
@@ -86,12 +98,14 @@ fun main() {
         val outcome = runCase(image, case)
         val exitOk = if (case.wantExit == -1) outcome.running else outcome.exit == case.wantExit
         val missing = case.wantText.filterNot { outcome.output.contains(it) }
-        val ok = exitOk && missing.isEmpty()
+        val present = case.wantAbsent.filter { outcome.output.contains(it) }
+        val ok = exitOk && missing.isEmpty() && present.isEmpty()
         if (!ok) failures++
         println("${if (ok) "ok  " else "FAIL"}  ${case.name}")
         if (!ok) {
             println("      wanted exit ${if (case.wantExit == -1) "(still running)" else case.wantExit}, got ${if (outcome.running) "(still running)" else outcome.exit.toString()}")
             missing.forEach { println("      missing from the output: $it") }
+            present.forEach { println("      should not be in the output: $it") }
             println(outcome.output.lines().joinToString("\n") { "      | $it" })
         }
     }

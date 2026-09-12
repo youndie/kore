@@ -55,7 +55,10 @@ starts.
    false — and an unset switch always means the closed position. A security switch that opens on a
    misspelling is the switch that ships open.
 7. **A secret is declared as a secret and is masked wherever the configuration is rendered.** Masking
-   is a property of the field, not a list of names somebody keeps in sync with the schema.
+   is a property of the field, not a list of names somebody keeps in sync with the schema. **Absence
+   comes first**: an unset secret renders `null`, because there is nothing to hide and because
+   masking it would answer a question about existence with a refusal to answer — see the scenario in
+   §6 and [#62](https://github.com/youndie/kore/issues/62).
 8. **Where a value came from is part of the answer.** `--print-config` prints `default`, `env` or
    `code` beside every value. "The default was used" and "the environment said the same thing as the
    default" are different facts, and the difference is what a rename looks like.
@@ -166,6 +169,19 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **And:** the secret's value does not appear anywhere in the output
 * **And:** the process exits without binding a port
 * **Automated:** `PrintConfigTest`, and end to end by `samples/oracle` `configRefusal` — "--print-config on a usable configuration", which requires the masked `••••••` to appear beside `SAMPLE_TRACY_KEY` in the real container's output
+
+### Scenario: an unset secret is absent, not masked
+* **Given:** an optional secret and its pair's other half, with neither set
+* **When:** the binary is run with `--print-config`
+* **Then:** both halves render `null`
+* **And:** `••••••` appears nowhere, because there is no secret to hide
+* **Automated:** `ConfigSchemaTest.an unset optional secret renders as absent rather than masked`, and
+  end to end by `samples/oracle` `configRefusal` — "--print-config tells an absent secret from a set
+  one", which requires `••••••` to be **absent** from the real container's output
+* **Why it is its own scenario:** masking checked secrecy before absence, so an unset secret and a set
+  one printed identically — and for a pair, *does an agent exist here* is the exact question being
+  asked. The two halves of one decision rendered differently, and only the endpoint was honest
+  ([#62](https://github.com/youndie/kore/issues/62), found adopting kore in konekt)
 
 ### Scenario: --print-config works on a configuration that cannot start
 * **Given:** a required variable is missing
