@@ -1,7 +1,7 @@
 ---
 id: B-31
 title: "Findings against the first consumer, found by reading"
-status: question
+status: done
 priority: P2
 size: S
 stage: m6-release
@@ -64,16 +64,36 @@ Findings (1) and (3) were not re-read; (3)'s route is unchanged (`Application.kt
 - AC: the three are reported in konekt's own backlog with the paths above; this item records where.
   **The recording half is done. The filing half is the question below.**
 
-## The question — filing these needs a person
+## Filed 2026-09-12 — as issues, which is what was asked for
 
-The acceptance ends in **another repository**. konekt uses the same file-per-item backlog form
-(`docs/backlog/B-NN-*.md` plus a generated index), its next free number is **B-125**, and filing means
-three new item files, a regenerated index, a branch and a pull request there.
+The owner chose konekt's **issue tracker** rather than its backlog, so the three went there directly
+and no pull request against konekt was needed.
 
-The loop that produced this was pointed at kore's backlog and authorised to merge kore's pull
-requests. Opening one against a second repository is outside that, so it stops here rather than
-deciding for itself. The three items are written below ready to file; what is wanted is a yes, or a
-different destination (konekt issues rather than its backlog, or one item rather than three).
+| # | Finding | Issue |
+|---|---|---|
+| 1 | the final tracy flush is unreachable | [youndie/konekt#30](https://github.com/youndie/konekt/issues/30) |
+| 2 | the broker producer is closed without a flush, on every reconnect | [youndie/konekt#31](https://github.com/youndie/konekt/issues/31) |
+| 3 | all three probes point at `/health`, which reads nothing | [youndie/konekt#32](https://github.com/youndie/konekt/issues/32) |
+
+Written in English, matching konekt's own documentation, and each carrying the addresses re-verified
+against `1b67eec` rather than the ones this item was written with. (1) and (3) name the kore adoption
+that would remove them and say that adoption has no date, so neither reads as a reason to wait; (2)
+says plainly that it does **not** disappear with adoption, because it is a booblik call konekt makes
+itself.
+
+Each also links the corresponding upstream issue where there is one — (1) to
+[youndie/tracy#32](https://github.com/youndie/tracy/issues/32), (2) to
+[youndie/booblik#68](https://github.com/youndie/booblik/issues/68) — so the reader can see whether
+the cheaper fix is the one in somebody else's repository.
+
+## What the question was, before it was answered
+
+The acceptance ended in **another repository**, and the loop that produced this was pointed at kore's
+backlog. Opening a pull request against a second repository was outside that, so it stopped and asked
+— offering konekt's issues as an alternative destination, which is the one that was chosen.
+
+The three drafts below are what was prepared while waiting. They are kept because the filed issues
+are longer and differently shaped, and the short form is what a reader of this backlog wants.
 
 ### Ready to file — konekt B-125
 
