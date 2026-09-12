@@ -1,50 +1,31 @@
 # kore
 
-One library that does, in every Kotlin server binary, what a Go service gets from its standard
-library and from habit: stop in a defined order, answer three different health questions, read its
+[![kore-core](https://reposilite.kotlin.website/api/badge/latest/snapshots/io/github/youndie/kore-core?name=kore-core&color=40c14a&prefix=v)](https://reposilite.kotlin.website/#/snapshots/io/github/youndie/kore-core)
+[![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
+[![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![native](https://img.shields.io/badge/Native-blue?logoColor=white)](https://kotlinlang.org)
+[![jvm](https://img.shields.io/badge/JVM-25-orange?logoColor=white)](https://openjdk.org/projects/jdk/25/)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+**One library that gives a Kotlin server binary what a Go one gets from the standard library and
+from habit:** stop in a defined order, answer three different health questions, read its
 configuration from the environment against a typed schema, wire its telemetry in one call, and say
 which commit it was built from.
 
 **Kotlin Multiplatform, native-first.** `jvm`, `linuxX64`, `linuxArm64`, `macosArm64` — and the
-native targets are the ones that decide the design, because every fact that makes this library
-necessary is invisible from the JVM.
+native targets decide the design, because every fact that makes this library necessary is invisible
+from the JVM.
 
-## Status: all five features are built, and `0.1.0` is published
-
-The ordered shutdown, the three probes, the typed configuration, `/version` and the observability
-wiring all exist and are exercised on both the JVM and Kotlin/Native, as is the booblik participant.
-
-This paragraph has now been wrong twice — it read *"documentation, no code"* after the code arrived,
-and *"the observability wiring is not built"* after that was built too. Both were true when written
-and stopped being true with nobody editing them, which is the failure mode a README has and a
-generated index does not. Read [backlog.md](backlog.md) for the current count rather than this
-sentence.
-
-What was established before any of it, and is worth reading before assuming any of this is obvious:
-
-- **Ktor's `EmbeddedServer.stop` runs its steps in the opposite order on JVM and on Kotlin/Native.**
-  On JVM it drains the engine and then destroys the application; on Native it destroys the
-  application first. So `ApplicationStopping` — where every example tells you to close your pool and
-  your broker connection — runs *after* the drain on one platform and *before* it on the other, from
-  identical source, with nothing saying so.
-- **On Kotlin/Native the shutdown hook is a single global slot**, the last registration wins, and the
-  callback runs on the POSIX signal-handler stack, `runBlocking` and all.
-- **`Connection: close` on a response does not close a CIO connection** — the engine reads keep-alive
-  from the *request's* header. So kore promises the header and not the socket, and says so.
-- **There is no `System.getenv()` on Kotlin/Native**, and enumerating the environment — which "fail
-  on an unknown variable" needs — exists on Linux as `__environ`, and not at all on macOS.
-- **Flipping readiness to false is not what removes a pod from a load balancer**; the control plane
-  has already done that. What stops traffic arriving after `SIGTERM` is the interval between the two.
-
-Each of these is sourced to a file and a line in
-[docs/research/research-architecture.md](docs/research/research-architecture.md).
-
-## What it does not do
-
-Not a DI container. Not a router. Not a configuration framework with seven sources. Not an
-observability library — it wires [tracy](https://github.com/youndie/tracy),
-[metrik](https://github.com/youndie/metrik) and [katcher](https://github.com/youndie/katcher) and
-reimplements none of them.
+> **Status: all five features built, `0.1.3` published, first consumer mid-adoption.**
+>
+> 51 backlog items closed, 158 tests on `aarch64` and a suite on Apple silicon per pull request, an
+> end-to-end oracle that sends a real `SIGTERM` to a real container under load.
+>
+> What that does not cover, said out loud because a status line that only lists wins is not a status
+> line: **nothing is on Maven Central yet**, so an outside consumer resolves from the portfolio's
+> repository; the pre-drain default of five seconds is a hypothesis carrying the item that will
+> settle it; and the first real adoption found four defects in a day that none of the above caught —
+> a published example that cannot run on one platform among them.
 
 ## The shape of the promise
 
@@ -56,16 +37,84 @@ SIGTERM
   → exit       inside the grace period, on its own
 ```
 
-The order is the product, and it is asserted twice: by a property test over the stage machine, and by
-an end-to-end run that sends a real `SIGTERM` to a real binary under load. Both are written in
-[docs/research/research-oracle.md](docs/research/research-oracle.md) — **before** the implementation,
+**The order is the product.** It is asserted twice: by a property test over the stage machine, and by
+an end-to-end run that signals a real binary under load. Both were written in
+[docs/research/research-oracle.md](docs/research/research-oracle.md) **before** the implementation,
 so that the implementation is answerable to something it did not shape.
+
+## What a consumer writes
+
+```kotlin
+server.start(wait = false)     // not `wait = true` — the main thread has to reach the await
+startup.markStarted()
+
+runBlocking {
+    runUntilSignal(
+        deadlines,
+        // Inside, not after: on the JVM this call returning means the shutdown hook has
+        // returned and the process is already on its way out.
+        onFinished = { run -> println(run.transcript) },
+    ) {
+        announce(AnnounceNotReady(readiness))
+        drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
+        consumer(booblikParticipant("events", producer))
+        pool(myPool)
+    }
+}
+```
+
+Both snippets are compiled by
+[`samples/readme`](samples/readme/src/main/kotlin/io/github/youndie/kore/readme/ReadmeExamples.kt), so
+`./gradlew build` fails when one of them stops typing. That is narrower than "the example works" — it
+catches a signature that moved, not a placement that races — and it exists because this project
+published an example that could not run on one of its two platforms, and a consumer found it rather
+than a test.
+
+kore does **not** own `main`. A real entry point runs migrations, chooses its engine and composes its
+own DI before any route exists; owning that would make this a framework. What it owns is the stretch
+from the signal to the exit — and each of those three steps is one a consumer gets wrong in a way
+that looks like it works.
+
+The probes, the schema and `/version` are one call each:
+
+```kotlin
+installKoreProbes(startup, readiness, liveness)   // /health/startup, /health/ready, /health/live
+installKoreVersion(KoreBuildIdentity)             // /version, compiled in by the Gradle plugin
+installKoreObservability(settings)                // tracy, metrik, katcher — or none, which is valid
+
+val config = ConfigSchema("MYAPP", keys = myKeys + ObservabilityKeys.all).read(systemEnvironment())
+```
+
+## What it does not do
+
+Not a DI container. Not a router. Not a configuration framework with seven sources. Not an
+observability library — it wires [tracy](https://github.com/youndie/tracy),
+[metrik](https://github.com/youndie/metrik) and [katcher](https://github.com/youndie/katcher) and
+reimplements none of them.
+
+## Five facts that decided the design
+
+Each carries a file and a line in
+[docs/research/research-architecture.md](docs/research/research-architecture.md), and each
+contradicts what a Ktor example would lead you to write.
+
+- **`EmbeddedServer.stop` runs its steps in the opposite order on JVM and on Kotlin/Native.** So
+  `ApplicationStopping` — where every example tells you to close your pool and your broker
+  connection — runs *after* the drain on one platform and *before* it on the other, from identical
+  source, with nothing saying so. This is why the library exists.
+- **On Kotlin/Native the shutdown hook is a single global slot**, last registration wins, and the
+  callback runs on the POSIX signal-handler stack, `runBlocking` and all.
+- **`Connection: close` on a response does not close a CIO connection** — the engine reads keep-alive
+  from the *request's* header. kore promises the header and not the socket, and says so.
+- **There is no `System.getenv()` on Kotlin/Native**, and enumerating the environment — which "fail
+  on an unknown variable" needs — exists on Linux as `__environ`, and not at all on macOS.
+- **Flipping readiness to false is not what removes a pod from a load balancer**; the control plane
+  has already done that. What stops traffic arriving after `SIGTERM` is the interval between the two.
 
 ## What it costs
 
-Measured on 2026-09-12, not estimated: `samples/service` as one binary with two arms selected by
-`--kore=true`, alternating, fifteen repetitions per cell plus a warm-up that is discarded and printed
-as discarded. Median.
+Measured 2026-09-12, not estimated: `samples/service` as one binary with two arms selected by
+`--kore=true`, alternating, fifteen repetitions per cell plus a discarded warm-up. Median.
 
 | | time to first `/health` | RSS at ready | stop under load |
 |---|---|---|---|
@@ -86,34 +135,24 @@ measured cost and was an artefact of which afternoon the run happened on.
 
 So the only cost that survives more samples is **RSS: +1.6 MB on native, +5.6 MB on the JVM** — a
 band a few hundred kilobytes wide across all three runs, holding its sign while the startup column
-changed sign twice. Both the megabytes and the percentage are here because neither decides anything
-alone.
+changed sign twice.
 
-And the thing the release stage exists for, measured against a real broker: a producer closed and torn
-down in the same breath reads back **1 of 51** records, the same producer through kore's participant
-**51 of 51**.
+And the thing the release stage exists for, measured against a real broker: a producer closed and
+torn down in the same breath reads back **1 of 51** records, the same producer through kore's
+participant **51 of 51**.
 
 Re-measure rather than trust the table — a number in a README has no way to go stale visibly:
 
 ```bash
-./gradlew :samples:oracle:measure --args="--repeats=5 --work=3000 --connections=8"
+./gradlew :samples:oracle:measure --args="--repeats=15 --work=3000 --connections=8"
 ./gradlew :samples:oracle:brokerFlush
 ```
 
-Method, raw output and the three things this harness got wrong first:
+Method, raw output and the four things this harness got wrong first:
 [three-numbers.md](docs/research/measurements-2026-09-12/three-numbers.md),
 [broker-flush.md](docs/research/measurements-2026-09-12/broker-flush.md).
 
-## What resolves from where
-
-**Everything resolves from [the portfolio's repository](https://reposilite.kotlin.website/snapshots)
-today, and nothing is on Maven Central yet.** This section used to say that `kore-core`, `kore-ktor`
-and the Gradle plugin resolved from Central. They do not, and had not when it was written — a
-sentence about a plan, in the tense of a fact, in the one place a stranger reads to find out whether
-they can use this. Reported from the first consumer as
-[#58](https://github.com/youndie/kore/issues/58). Central is still where the three
-dependency-free modules belong, and it is [B-37](docs/backlog/B-37-agents-not-on-central.md) that
-says which ones can go.
+## Install
 
 ```kotlin
 repositories {
@@ -121,21 +160,29 @@ repositories {
         content { includeGroupByRegex("io\\.github\\.youndie.*") }
     }
 }
+
+dependencies {
+    implementation("io.github.youndie:kore-core:0.1.3")
+    implementation("io.github.youndie:kore-ktor:0.1.3")        // probes, /version, drain, 503 refusal
+    implementation("io.github.youndie:kore-booblik:0.1.3")     // flush-then-close for a booblik producer
+    implementation("io.github.youndie:kore-observability:0.1.3")
+}
+
+plugins {
+    id("io.github.youndie.kore.build") version "0.1.3"          // what /version reports
+}
 ```
 
-| | |
-|---|---|
-| `kore-core`, `kore-ktor`, `kore-booblik` | depend on nothing outside Kotlin, Ktor and coroutines |
-| `kore-build` — the Gradle plugin `/version` needs | published since #58; the identity it compiles in cannot be produced any other way |
-| `kore-observability` | **portfolio-only by construction** — see below |
+**Nothing is on Maven Central yet**, and this section used to say that three of these resolved from
+there. They do not, and had not when it was written — a sentence about a plan in the tense of a fact,
+in the one place a stranger reads to decide whether they can use this. Central is still where the
+dependency-free modules belong; [B-37](docs/backlog/B-37-agents-not-on-central.md) says which.
 
-**`kore-observability` is portfolio-only.** The three agents it wires are not published to Maven
-Central, so that one module resolves against
-[a private repository](https://reposilite.kotlin.website/snapshots) declared with a group filter in
-[settings.gradle.kts](settings.gradle.kts). If you are outside this portfolio you get the ordered
-shutdown, the probes, the configuration schema and `/version`, and you cannot build the one module
-that wires three agents you do not run either. That is a deliberate boundary rather than an oversight
-— the reasoning is [B-37](docs/backlog/B-37-agents-not-on-central.md).
+**`kore-observability` is portfolio-only by construction.** The three agents it wires are not on
+Central either, so that one module cannot resolve outside this portfolio. If you are outside it you
+get the ordered shutdown, the probes, the configuration schema and `/version`, and you cannot build
+the one module that wires three agents you do not run. That is a deliberate boundary rather than an
+oversight.
 
 ## Documentation
 

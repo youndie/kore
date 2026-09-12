@@ -65,6 +65,13 @@ include(":samples:service")
 // multiplatform — and every reason not to be, since it has to keep working when the subject does not.
 include(":samples:oracle")
 
+// THE README'S SNIPPETS, COMPILED. Nothing here runs and nothing is published — it exists so that
+// `./gradlew build` fails when an example in README.md stops typing. A module of its own rather than
+// a file in `:samples:service`, because that sample is the measurement subject and does not depend
+// on `:kore-booblik`: adding a dependency to it so an example compiles would change the binary the
+// published numbers were taken from.
+include(":samples:readme")
+
 // NOT HERE YET: `:kore-booblik`. `docs/services/kore-library.md` §2a names it as a `jvm()`-only
 // module, on a decision (research D5) whose premise turned out to be gone — `booblik-native` is
 // published for linuxX64 and macosArm64. Its target set is B-36, a question, and a module built to
