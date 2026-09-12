@@ -80,6 +80,10 @@ public class HealthRegistry(
             checks.map { check ->
                 val last = remembered[check.name]
                 when {
+                    // States the fact rather than predicting the future: a later `start` would make
+                    // "will never run" false, and the cause on its own already stops an operator
+                    // waiting for a race to resolve.
+                    //
                     // Two different absences, and they used to read identically. A probe body saying
                     // "has not run yet" on a registry nobody started describes a startup race that
                     // will never end — and readiness is `503` for as long as the process lives. The
@@ -89,7 +93,7 @@ public class HealthRegistry(
                         HealthResult(
                             check.name,
                             HealthStatus.UNKNOWN,
-                            "will never run: nothing is refreshing this registry — HealthRegistry.start(scope) was not called",
+                            "nothing is refreshing this registry — HealthRegistry.start(scope) has not been called",
                             null,
                         )
 

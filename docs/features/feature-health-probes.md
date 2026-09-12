@@ -46,21 +46,26 @@ restarted by a liveness probe rather than waited for.
 4. **Readiness answers from a cached result**, refreshed by a background loop with per-check
    timeouts. A check on the request path can hang, and a probe that hangs has its answer decided by
    `timeoutSeconds`, whose default is 1 (research §1.10). This is Risk 3 of the research.
-9. **The refresh loop runs in a lane of its own**, `KoreDispatchers.checks`, and never on the thread
+5. **An absence says which absence it is.** A check with no result is `UNKNOWN` either way, but the
+   reason is not the same fact: a registry whose first pass has not finished is a startup race that
+   resolves, and a registry nobody started is a `503` for the life of the process. The body names the
+   missing call in the second case, because every other signal there agrees with the wrong reading —
+   the pod is running, the process is alive, liveness is `200` ([B-41](../backlog/B-41-nothing-starts-the-health-loop.md)).
+6. **A stale result is not a healthy result.** If a check has not answered within its refresh budget,
+   readiness is `503` and the body says how old the last answer is. A cache that keeps returning the
+   last good value is a probe that reports health through an outage.
+7. **A dependency check proves the dependency answered, not that a handle was produced.** For a pool
+   this means running a trivial statement, because `acquire()` can hand out an idle connection whose
+   far end is gone — and sqlx4k's pool has no `ping` to ask instead (research §1.9).
+8. **Readiness goes false the moment the shutdown sequence begins**, before anything else happens —
+   rule 1 of [feature-ordered-shutdown](feature-ordered-shutdown.md) §2.
+9. **A failing readiness body names the check and the age of its result.** A `503` with no
+   attribution is one an operator has to reproduce by hand; having already done that is the point of
+   a dependency check.
+10. **The refresh loop runs in a lane of its own**, `KoreDispatchers.checks`, and never on the thread
    the shutdown sequence uses. The cache keeps a blocking check off the *probe's* thread; it does
    nothing about the thread the check itself is holding, and on Kotlin/Native that is a thread kore
    owns. Research D9 has the decision and what it costs.
-5. **A stale result is not a healthy result.** If a check has not answered within its refresh budget,
-   readiness is `503` and the body says how old the last answer is. A cache that keeps returning the
-   last good value is a probe that reports health through an outage.
-6. **A dependency check proves the dependency answered, not that a handle was produced.** For a pool
-   this means running a trivial statement, because `acquire()` can hand out an idle connection whose
-   far end is gone — and sqlx4k's pool has no `ping` to ask instead (research §1.9).
-7. **Readiness goes false the moment the shutdown sequence begins**, before anything else happens —
-   rule 1 of [feature-ordered-shutdown](feature-ordered-shutdown.md) §2.
-8. **A failing readiness body names the check and the age of its result.** A `503` with no
-   attribution is one an operator has to reproduce by hand; having already done that is the point of
-   a dependency check.
 
 ## 3. What a check is
 
@@ -133,11 +138,21 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 
 ## 7. Scenarios (BDD)
 
-**All six are automated as of B-18.** The last one runs against a double that reproduces the
+**All seven are automated (six as of B-18, the seventh with B-41).** The last one runs against a double that reproduces the
 documented failure rather than a real driver — that distinction is on the scenario itself, and a real
 store in the sample is [B-40](../backlog/B-40-sample-pooled-store.md). A scenario gains its line when a test covers **all** of
 it; where a clause is a consequence rather than a second observable, the scenario says so instead of
 quietly counting it.
+
+### Scenario: a registry nobody started says so rather than looking like a startup race
+* **Given:** a service that registers dependency checks and never starts the refresh loop
+* **When:** `GET /health/ready` is called
+* **Then:** the response is `503`
+* **And:** the body names `HealthRegistry.start` as the call that is missing, rather than reporting a
+  first pass that has not finished — a state that would resolve, and this one does not
+* **Automated:** `ProbeRoutesTest` (jvm and linuxX64), with `HealthRegistryTest` covering the
+  distinction that makes it worth saying: a registry that *was* started and has not finished its
+  first pass still reports a startup race, and stopping one is not un-starting it
 
 ### Scenario: the process is up but its store is unreachable
 * **Given:** the service has started and its pooled store is unreachable
