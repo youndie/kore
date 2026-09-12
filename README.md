@@ -9,16 +9,16 @@ which commit it was built from.
 native targets are the ones that decide the design, because every fact that makes this library
 necessary is invisible from the JVM.
 
-## Status: the sequence, the probes, the config and `/version` are built
+## Status: all five features are built, and `0.1.0` is published
 
-The ordered shutdown, the three probes, the typed configuration and `/version` exist and are
-exercised on both the JVM and Kotlin/Native. What is **not** built is the observability wiring and
-the booblik participant; the documents that describe them say so, and the backlog says what each
-waits on.
+The ordered shutdown, the three probes, the typed configuration, `/version` and the observability
+wiring all exist and are exercised on both the JVM and Kotlin/Native, as is the booblik participant.
 
-This paragraph used to read *"documentation, no code"*. It was true when it was written and stopped
-being true without anyone editing it — which is the failure mode a README has that a generated index
-does not. Read [backlog.md](backlog.md) for the current count rather than this sentence.
+This paragraph has now been wrong twice — it read *"documentation, no code"* after the code arrived,
+and *"the observability wiring is not built"* after that was built too. Both were true when written
+and stopped being true with nobody editing them, which is the failure mode a README has and a
+generated index does not. Read [backlog.md](backlog.md) for the current count rather than this
+sentence.
 
 What was established before any of it, and is worth reading before assuming any of this is obvious:
 
@@ -60,6 +60,42 @@ The order is the product, and it is asserted twice: by a property test over the 
 an end-to-end run that sends a real `SIGTERM` to a real binary under load. Both are written in
 [docs/research/research-oracle.md](docs/research/research-oracle.md) — **before** the implementation,
 so that the implementation is answerable to something it did not shape.
+
+## What it costs
+
+Measured on 2026-09-12, not estimated: `samples/service` as one binary with two arms selected by
+`--kore=true`, alternating, five repetitions per cell plus a warm-up that is discarded and printed as
+discarded. Median (min–max in the write-up).
+
+| | time to first `/health` | RSS at ready | stop under load |
+|---|---|---|---|
+| JVM, without kore | 1177 ms | 109 920 kB | 1475 ms |
+| JVM, with kore | 1189 ms (**+1 %**) | 115 680 kB (**+5 %**) | 3503 ms (**+137 %**) |
+| native, without kore | 719 ms | 26 080 kB | 1483 ms |
+| native, with kore | 724 ms (**+1 %**) | 28 000 kB (**+7 %**) | 3483 ms (**+135 %**) |
+
+**The third column is not a cost.** In those same runs, of the 40 requests in flight when the signal
+arrived, the arm without kore finished **0 and dropped all 40** — both platforms, every run — and the
+arm with kore finished all 40. The two seconds are what the work costs when it is not thrown away,
+and a reader shown only that column would read the sign backwards.
+
+Startup does not separate from the noise. RSS costs 1.9 MB on native and 5.8 MB on the JVM; both the
+megabytes and the percentage are here because neither decides anything alone.
+
+And the thing the release stage exists for, measured against a real broker: a producer closed and torn
+down in the same breath reads back **1 of 51** records, the same producer through kore's participant
+**51 of 51**.
+
+Re-measure rather than trust the table — a number in a README has no way to go stale visibly:
+
+```bash
+./gradlew :samples:oracle:measure --args="--repeats=5 --work=3000 --connections=8"
+./gradlew :samples:oracle:brokerFlush
+```
+
+Method, raw output and the three things this harness got wrong first:
+[three-numbers.md](docs/research/measurements-2026-09-12/three-numbers.md),
+[broker-flush.md](docs/research/measurements-2026-09-12/broker-flush.md).
 
 ## What resolves from where
 
