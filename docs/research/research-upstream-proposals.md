@@ -26,18 +26,33 @@ verified against, and what kore does meanwhile.
 
 ---
 
-## 1. Ktor — **not filed; the evidence is now in, the permission is not**
+## 1. Ktor — **deliberately not filed** (decided 2026-09-12)
 
-Both entries were waiting on two different things. **The evidence arrived**: the negative control
-([B-03](../backlog/B-03-negative-control.md), `measurements-2026-09-11/negative-control.md`) turned
-§1.1 from a reading of the source into a result — same source, same configuration, same load, and on
-Kotlin/Native the idiomatic `ApplicationStopping` subscriber breaks **48 requests with 5xx on every
-one of three runs**, while the JVM breaks none. That is the thing a reporter has to be able to defend.
+**The evidence is in.** The negative control ([B-03](../backlog/B-03-negative-control.md),
+`measurements-2026-09-11/negative-control.md`) turned §1.1 from a reading of the source into a
+result: same source, same configuration, same load, and on Kotlin/Native the idiomatic
+`ApplicationStopping` subscriber breaks **48 requests with 5xx on every one of three runs**, while the
+JVM breaks none. Both entries below could be defended by whoever filed them.
 
-**The permission has not.** Ktor is somebody else's tracker: an issue costs a maintainer time and
-cannot be quietly withdrawn, and a claim about their design is a public statement made in the
-repository owner's name. So these two stay here until the owner of this repository says to file them.
-See [B-32](../backlog/B-32-file-upstream.md).
+**They are not being filed.** The owner of this repository decided on 2026-09-12 not to approach
+Ktor's tracker ([B-32](../backlog/B-32-file-upstream.md)). That is a decision about where this
+portfolio spends its attention, not a doubt about the finding.
+
+**So the entries stay here, and this is now their permanent state rather than a queue.** Section 6
+below describes how a proposal is *closed* — by reading the fix in the source and in the published
+artefact. These two will not close that way, because nothing has been asked of anyone. What they are
+instead is the written record of a difference kore is built around, and it is a public one: this
+repository, its research and its measurements are readable by anyone who meets the same behaviour and
+searches for it. A finding published in one's own repository is weaker than one in the maintainer's
+tracker, and it is not nothing.
+
+**What kore does about it is unchanged and is the point:** it never puts work in
+`ApplicationStopping`, and its release stage runs after `EmbeddedServer.stop` has returned, on both
+platforms. The workaround does not depend on Ktor agreeing that this is a defect.
+
+**What would reopen it:** somebody else reporting the same thing, or kore being published and its
+users meeting it — at which point the question is no longer whether to spend a maintainer's time on
+one portfolio's finding.
 
 ### 1.1 `EmbeddedServer.stop` runs its steps in the opposite order on JVM and on Kotlin/Native
 
@@ -60,10 +75,15 @@ hold a request open across the stop.
 after `EmbeddedServer.stop` has returned, on both platforms
 ([feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §3).
 
-**Open.** Whether this is a defect or a deliberate difference. The honest first step is a question,
-not a bug report — and it needs the measurement of [research-oracle](research-oracle.md) §2 attached,
-because "the order differs" is a reading of the source and "a request is dropped because of it" is a
-result. Ask the owner before filing; do not file a claim the negative control has not supported.
+~~**Open.**~~ **Settled, in both halves.** This used to say: whether it is a defect or a deliberate
+difference is unknown, the first step is a question rather than a bug report, it needs the
+measurement attached because "the order differs" is a reading of the source while "a request is
+dropped because of it" is a result — and do not file a claim the negative control has not supported.
+
+The measurement arrived and supports it: 48 requests lost on Kotlin/Native, none on the JVM, three
+runs each ([B-03](../backlog/B-03-negative-control.md)). **The owner was asked and said not to file**
+(2026-09-12). Whether Ktor considers it a defect is therefore a question nobody here will ask, and
+the entry stays as the record — see the head of this section.
 
 ### 1.2 On Kotlin/Native the shutdown hook is a single global slot, and it runs on the signal stack
 
@@ -90,10 +110,12 @@ with `signal()`, and that handler does nothing but set a flag and wake a parked 
 > about Ktor is unaffected — but this sentence was one paragraph away from being pasted into
 > somebody else's tracker.
 
-**Open.** Same as §1.1 — ask first. A proposal that the slot become a list would *worsen* kore's
-position rather than improve it, because a co-resident hook calling `stop()` directly reintroduces
-the unordered path; so if this is raised at all, it is raised as "the callback should not run on the
-signal stack", not as "there should be more than one".
+~~**Open.**~~ **Settled with §1.1: not filed** (2026-09-12). The shape it would have taken is kept
+because it is the part that was hard to get right — *"the callback should not run on the signal
+stack"*, and explicitly **not** *"the slot should be a list"*. A list would worsen kore's position
+rather than improve it: a co-resident hook calling `stop()` directly reintroduces the unordered path
+kore exists to remove. Anyone reopening this should start from that distinction rather than rederive
+it.
 
 ---
 
