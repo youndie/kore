@@ -76,7 +76,8 @@ public interface ShutdownSignalWatch : AutoCloseable {
  * @param pollInterval how often the coroutine looks at the flag the handler writes. It bounds the
  *   latency between the signal and the sequence starting, and 20 ms of a 30-second grace period is
  *   not worth a self-pipe and a dedicated thread — which on Kotlin/Native is
- *   `newSingleThreadContext`, and an open question of its own (B-38).
+ *   a thread of its own — which B-38 asked about and B-42 answered: `Dispatchers.IO` is available
+ *   and elastic on Kotlin/Native, so kore owns no threads.
  * @param releaseTimeout how long the JVM's shutdown hook waits for [releaseProcess] before letting
  *   the runtime go. Ignored on Native.
  */

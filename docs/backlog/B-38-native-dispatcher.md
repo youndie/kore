@@ -10,6 +10,13 @@ blocked_by: [B-04]
 
 # B-38 — Decide where kore's background work runs on Kotlin/Native
 
+> **Its premise was false, and [B-42](B-42-dispatchers-io-exists-on-native.md) corrected it the same
+> day.** Everything below about `Dispatchers.IO` being `internal` on Kotlin/Native is **wrong**: it is
+> an extension property needing `import kotlinx.coroutines.IO`, it is available, and it is elastic
+> there. The decision this item reached — two named lanes — survived; *kore owning a thread per lane*
+> did not, and kore now owns none. The text is left as written because how the mistake was made is
+> the useful part: see B-42's last section.
+
 Picked up while verifying §1.8 during [B-01](B-01-repository-skeleton.md). booblik's native module
 records, from compiling against coroutines 1.11.0 rather than from the documentation "which says
 otherwise", that **`Dispatchers.IO` is `internal` on Kotlin/Native**. It uses

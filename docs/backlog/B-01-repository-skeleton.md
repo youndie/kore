@@ -56,7 +56,7 @@ reading `BUILD SUCCESSFUL` through a pipe:
    `kore-observability` therefore ships with no agent dependencies; a public library that declares a
    repository outsiders cannot reach fails to resolve for them as a missing version, which reads as a
    broken release. New research §1.12.
-3. **[B-38](B-38-native-dispatcher.md)** — `Dispatchers.IO` is `internal` on Kotlin/Native, recorded
+3. **[B-38](B-38-native-dispatcher.md)** — ~~`Dispatchers.IO` is `internal` on Kotlin/Native~~ (false; see [B-42](B-42-dispatchers-io-exists-on-native.md)), recorded
    in booblik's native module from a compile rather than from the documentation. kore's health loop
    and its parked coroutine both need an answer to that. Noted in §1.8.
 
