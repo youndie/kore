@@ -715,7 +715,7 @@ Why:
 `/health` stays as an alias of `/health/live`, because every chart in the portfolio names it today
 and a migration that breaks a running deployment to gain a nicer URL is not worth it.
 
-### D5. The shutdown participant is an interface kore owns *(half of this decision was withdrawn on 2026-09-11)*
+### D5. The shutdown participant is an interface kore owns *(half withdrawn 2026-09-11, replaced 2026-09-12)*
 
 Decision, and it stands: `kore-core` declares the participant contract and the ordering, and depends
 on no broker client at all. A participant is "something that holds a socket and a position and must
@@ -726,11 +726,24 @@ cannot be a dependency of native common code. §1.7 carries the correction — `
 is published for `linuxX64` and `macosArm64`. The premise was a recorded decision in booblik's
 research that a later milestone superseded without amending.
 
-What replaces it is a question, not a new decision, because the choice has a price and an owner:
-one JVM adapter now, two adapters over two different client APIs, or nothing until a native service
-actually publishes to the broker. [B-36](../backlog/B-36-booblik-adapter-targets.md). Until it is
-answered `kore-booblik` **does not exist in the build** — a module written to a decision known to be
-superseded is worse than a module that is not there yet.
+**What replaced it, decided 2026-09-12 ([B-36](../backlog/B-36-booblik-adapter-targets.md)): two
+adapters, one per client.** `kore-booblik` is multiplatform with a per-platform actual — the JVM one
+over `io.github.youndie.booblik.net.client`, the native one over `io.github.youndie.booblik.native` —
+and the common surface is the participant contract above: *flush with a deadline, then close*.
+
+It costs twice the code for a stage no native service uses yet. It is chosen anyway because the one
+ordering defect this repository **measured** is native-only — `ApplicationStopping` breaking 48
+requests on Kotlin/Native and none on the JVM — so a JVM-only adapter would leave the stage that
+matters most untested on the platform where the library's premise was demonstrated. The cheaper
+option is cheaper exactly where kore cannot afford it.
+
+And the two clients disagree about the thing the adapter exists for: the JVM `close()` discards the
+accumulated batch, the native one sends it first (§1.8). One adapter written against either would be
+right on the other platform by accident. Two actuals make the difference explicit, and flush-then-close
+makes kore independent of how the disagreement is resolved upstream.
+
+`kore-booblik` is still not in the build: the decision is recorded, the module arrives with
+[B-15](../backlog/B-15-booblik-adapter.md).
 
 The one argument that survives intact: not an optional dependency resolved by reflection. Reflection
 is not available on Kotlin/Native, and an API whose shape differs per platform is an API whose
