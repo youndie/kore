@@ -872,9 +872,14 @@ number kore ships — the pre-drain wait, the drain deadline, the release deadli
 real deployment behaves. Mitigation: each default is derived in a document from the Kubernetes floor
 in §1.10 rather than chosen, `--print-config` prints the effective value beside its origin
 (`default`, `env`, `code`), and kore refuses at startup when the sum exceeds the grace period it was
-told about. Open: what kore should do when it is *not* told about the grace period, which is the
-common case outside Kubernetes. Leading hypothesis: assume the Kubernetes default of 30 s and say so
-in `--print-config`; settle in M3.
+told about. **Settled 2026-09-12 ([B-25](../backlog/B-25-undeclared-grace-period.md)):** assume the Kubernetes
+default of 30 s, print that it was assumed, and let a service override it — with the direction of the
+error named, because it is optimistic. 30 s is the *largest* common budget, so where the real one is
+smaller the fit check passes a plan that will be killed: `docker stop` defaults to **10 s**
+(measured), against kore's own default deadlines of **29 s**. kore cannot discover the real budget on
+any platform it targets, and assuming the smallest would refuse kore's own defaults in the
+environment it is aimed at. So the guard is honest about being an assumption, and anyone outside
+Kubernetes declares the number.
 
 **Risk 5. Native binaries are the target and the CI that builds them is not free.** Everything in
 §1.1, §1.3 and §1.5 is only observable on a native binary under a real signal, which means the gate

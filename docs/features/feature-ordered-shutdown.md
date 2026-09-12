@@ -78,6 +78,13 @@ Each rule is checkable, and each has a reason that is not "it seems tidier".
 9. **The sum of the stage deadlines must fit inside the grace period**, and kore refuses at startup
    when it does not. A grace period shorter than the sequence is a `SIGKILL` in the middle of a
    drain, which in a log looks exactly like a crash.
+10. **Undeclared, the grace period is assumed to be Kubernetes' 30 s — and the assumption is
+    optimistic.** It is printed as an assumption wherever it is used, but rule 9's guard can only
+    compare against the number it has. Where the real budget is smaller the guard passes a plan that
+    will be killed: `docker stop` defaults to **10 s** (measured) against kore's own default deadlines
+    of **29 s**. kore cannot discover the real budget on any platform it targets, so **outside
+    Kubernetes, declare it** — [B-25](../backlog/B-25-undeclared-grace-period.md) has why the
+    assumption stays rather than becoming a refusal.
 
 ## 3. The sequence
 

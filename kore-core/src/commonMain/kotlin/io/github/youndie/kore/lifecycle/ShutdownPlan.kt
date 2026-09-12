@@ -32,10 +32,19 @@ public class ShutdownDeadlines(
     /**
      * How long the process will be given before it is killed.
      *
-     * **`null` means kore was not told**, and it then assumes the Kubernetes default. That assumption
-     * is currently a *hypothesis* rather than a settled decision — B-25 is open and belongs to the
-     * owner. What **is** settled is that the assumption is printed rather than hidden: an assumption
-     * somebody can contradict is not the same thing as a constant.
+     * **`null` means kore was not told**, and it then assumes the Kubernetes default — decided in
+     * B-25, not merely the hypothesis it started as.
+     *
+     * **The assumption errs optimistically, and that is the part to know.** 30 s is the largest
+     * common budget, so where the real one is smaller kore's fit check passes a plan that will be
+     * killed. `docker stop` defaults to **10 s** — measured, 11 s wall clock against a container that
+     * ignores `SIGTERM` — while kore's own default deadlines add up to **29 s**. A service on kore's
+     * defaults under plain `docker stop` is therefore `SIGKILL`ed in the middle of its drain, and
+     * this check says nothing, because it was comparing against a number nobody gave it.
+     *
+     * kore cannot discover the real budget: nothing tells a process what it is, on any of the
+     * platforms kore targets. So the assumption stays, it is **printed as an assumption** everywhere
+     * it is used, and the answer for anyone outside Kubernetes is one line: declare it.
      */
     gracePeriod: Duration? = null,
 ) {
