@@ -110,7 +110,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-32](docs/backlog/B-32-file-upstream.md) `[?]` | File the upstream proposals that are ready; ask before Ktor | P2 | S | B-03 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
 | [B-29](docs/backlog/B-29-profiler-hook.md) `[?]` | Decide the shape of the profiler hook, or drop it | P3 | S | - |
-| [B-02](docs/backlog/B-02-documentation-gate.md) `[ ]` | The documentation gate in CI | infra | S | - |
+| [B-02](docs/backlog/B-02-documentation-gate.md) `[~]` | The documentation gate in CI | infra | S | - |
 | [B-35](docs/backlog/B-35-draft-gate.md) `[ ]` | Turn on the draft gate on the default branch | infra | XS | B-13, B-17, B-23, B-27, B-28 |
 
 ## Closed (28)

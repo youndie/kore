@@ -1,7 +1,7 @@
 ---
 id: B-02
 title: "The documentation gate in CI"
-status: open
+status: wip
 priority: infra
 size: S
 stage: m0-shape
