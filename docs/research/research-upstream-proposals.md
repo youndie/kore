@@ -215,6 +215,46 @@ and `KATCHER_CACHE_DIR` points the queue at a volume —
 [feature-observability-wiring](../features/feature-observability-wiring.md) §3 and rule 8. The
 workaround this entry justified — "nothing to call" in §7 — is deleted in the same change, per §6.
 
+## 7. booblik — `youndie/booblik`, two smaller things found while adapting to it
+
+Neither is a defect in the sense §4 is. Both are things that make an adapter harder to write honestly,
+found by writing one ([B-15](../backlog/B-15-booblik-adapter.md)).
+
+### 7.1 `booblik-native` is not published for `linuxArm64`
+
+**Claim.** Central carries `booblik-native-linuxx64` and `booblik-native-macosarm64` and nothing for
+`linuxarm64`.
+
+**Verified against** the Central listing of `io/github/youndie/booblik/`, read 2026-09-12.
+
+**Why it matters here.** Research D1 names `linuxX64` **and** `linuxArm64` as the two targets a
+server binary in this portfolio actually is. So `kore-booblik` cannot have the second one: the target
+is excluded in kore's root build rather than declared and left to fail in somebody's resolution. A
+service on arm64 gets the ordered shutdown and not the booblik participant.
+
+**Proposed shape.** Add `linuxArm64` to `booblik-native`'s target set. It is a target addition rather
+than a code change — the source is already common.
+
+### 7.2 Central's booblik still carries the pre-migration package
+
+**Claim.** `booblik-client` 0.3.3 on Central contains `ru/workinprogress/booblik/net/client/…`. The
+portfolio's move to `io.github.youndie` landed in 0.3.4, which is published to the portfolio's own
+repository and **not** to Central.
+
+**Verified against** the published jar in the Gradle cache, 2026-09-12 — not the working tree, which
+is ahead of both.
+
+**Why it matters here.** An adapter compiled against Central's 0.3.3 would reference classes the
+version a real consumer resolves does not have: a `NoClassDefFoundError` at runtime rather than a
+resolution failure at build time. That is what moved `kore-booblik` into the portfolio-only half
+(§1.12's amendment).
+
+**Proposed shape.** Publish 0.3.4 to Central. Until then the last version a stranger can use is one
+whose package name the project has abandoned.
+
+**What kore does meanwhile.** Pins 0.3.4 from the portfolio's repository and says so where a consumer
+meets it.
+
 ---
 
 ## 6. How a proposal here is closed

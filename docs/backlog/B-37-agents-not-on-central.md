@@ -43,9 +43,17 @@ failure isolation, not speed: an unfiltered repository takes part in resolving e
 the day the host is unreachable Gradle disables it and fails artefacts it never served, naming the
 victim instead of the cause.
 
-**The cost is one module, not the library.** `kore-core`, `kore-ktor` and the Gradle plugin resolve
-from Maven Central alone. Someone outside the portfolio gets four of kore's five features and cannot
-build the fifth, which wires three agents they do not run either.
+**The cost was one module, and is now two** — amended 2026-09-12 while doing
+[B-15](B-15-booblik-adapter.md). `kore-core`, `kore-ktor` and the Gradle plugin resolve from Maven
+Central alone. `kore-observability` needs the portfolio's repository for the three agents, and
+`kore-booblik` needs it for a different reason worth stating: booblik *is* on Central, at 0.3.3 —
+but that version still carries the pre-migration `ru.workinprogress` package, while every consumer
+resolves 0.3.4 with `io.github.youndie`. An adapter compiled against Central's 0.3.3 would reference
+classes the version a real consumer resolves does not have, which fails at runtime rather than at
+resolution. So the honest pin is 0.3.4, and the module joins the portfolio-only half.
+
+Someone outside the portfolio gets the ordered shutdown, the probes, the configuration schema and
+`/version`, and cannot build the two modules that adapt to software they do not run either.
 
 ### Verified before it was written down
 

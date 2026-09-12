@@ -55,6 +55,14 @@ jvmToolchain = "25"
 # 0.7.47 is the exception to "the first consumer's version" above, and deliberately: it is the release
 # that answers youndie/katcher#50, and `kore-observability` calls `Katcher.flush` — which 0.7.44 does
 # not have. Moving back loses the call, not just a patch level.
+# TWO LINES THAT MOVE INDEPENDENTLY, and naming one version for both would be wrong about one of
+# them. `booblik-client` and `booblik-native` are separate artefacts with separate release histories;
+# Central carries 0.3.3 of each. The first consumer is ahead on the client line (0.3.4, from the
+# portfolio's own repository) — kore pins what Central serves, because `kore-booblik` is not one of
+# the portfolio-only modules.
+booblikClient = "0.3.4"
+booblikNative = "0.3.4"
+
 tracyAgent = "0.2.15"
 metrikAgent = "0.2.18"
 katcherClient = "0.7.47"
@@ -81,6 +89,10 @@ ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref 
 # declares, because a `-jvm` coordinate silently satisfying a common source set is the shape of bug
 # that only appears for the consumer who is not on the JVM.
 tracy-agent = { module = "io.github.youndie.tracy:agent", version.ref = "tracyAgent" }
+# `kore-booblik` only, and one per platform: the two clients have different package names and
+# different APIs, which is why there are two adapters rather than one (research D5, B-36).
+booblik-client = { module = "io.github.youndie.booblik:booblik-client", version.ref = "booblikClient" }
+booblik-native = { module = "io.github.youndie.booblik:booblik-native", version.ref = "booblikNative" }
 metrik-agent = { module = "io.github.youndie.metrik:agent", version.ref = "metrikAgent" }
 katcher-client = { module = "io.github.youndie.katcher:client", version.ref = "katcherClient" }
 

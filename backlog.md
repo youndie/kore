@@ -98,14 +98,14 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11 |
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[?]` | Measure and settle the pre-drain default | P1 | S | B-09, B-33 |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
+| [B-45](docs/backlog/B-45-booblik-against-a-real-broker.md) `[ ]` | The booblik participant against a real broker | P2 | M | - |
 | [B-29](docs/backlog/B-29-profiler-hook.md) `[?]` | Decide the shape of the profiler hook, or drop it | P3 | S | - |
 
-## Closed (38)
+## Closed (39)
 
 **Shape**
 
@@ -129,6 +129,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-12](docs/backlog/B-12-deadlines-must-fit.md) `[x]` - Refuse at startup a sequence that cannot fit the grace period
 - [B-13](docs/backlog/B-13-property-test.md) `[x]` - The property test over the stop order, proved by mutation
 - [B-14](docs/backlog/B-14-inflight-hypothesis.md) `[x]` - Settle what disposeAndJoin does to an in-flight call on Native
+- [B-15](docs/backlog/B-15-booblik-adapter.md) `[x]` - The booblik participant: flush, then close
 - [B-36](docs/backlog/B-36-booblik-adapter-targets.md) `[x]` - Decide kore-booblik's target set — D5's premise is gone
 - [B-38](docs/backlog/B-38-native-dispatcher.md) `[x]` - Decide where kore's background work runs on Kotlin/Native
 - [B-39](docs/backlog/B-39-kore-wired-sample.md) `[x]` - The sample wired with kore, and the oracle run that proves the stages
