@@ -75,8 +75,16 @@ adapters in the box:
 
 * **a pooled store** — run a trivial statement, bounded. Not `acquire()` (rule 6);
 * **a message broker** — ask for metadata on a topic the service actually uses, bounded. Not "the
-  socket is open": research §1.8's neighbour finding is that a broker pod being replaced leaves a
-  client dialling nothing while every object involved still looks alive.
+  socket is open", which answers the kernel: it cannot tell a broker that has finished starting from
+  one that has not, one that knows this topic from one that does not, or a session still usable by
+  this client from one the peer has closed. Research §1.15 has the verified version — neither booblik
+  client reconnects, so a replaced broker pod is survived by the *consumer's* own code and detected by
+  nobody.
+
+  > This paragraph used to cite "research §1.8's neighbour finding" for a client left dialling
+  > nothing forever. §1.8 contains no such finding, and the behaviour it described had already been
+  > fixed in the first consumer. The design survived being checked; the reason for it did not, and
+  > §1.15 replaces it.
 
 A check that has never run is not healthy. The registry's initial state is "unknown", which readiness
 reports as `503` — so a process that came up before its first refresh does not get a free `200`.
