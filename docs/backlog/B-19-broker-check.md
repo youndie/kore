@@ -1,7 +1,7 @@
 ---
 id: B-19
 title: "The broker check asks for metadata, not for a socket"
-status: open
+status: wip
 priority: P2
 size: S
 stage: m3-probes
