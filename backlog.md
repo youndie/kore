@@ -99,12 +99,12 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[?]` | Measure and settle the pre-drain default | P1 | S | B-09, B-33 |
-| [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
 | [B-45](docs/backlog/B-45-booblik-against-a-real-broker.md) `[ ]` | The booblik participant against a real broker | P2 | M | - |
+| [B-46](docs/backlog/B-46-run-until-signal.md) `[ ]` | Collapse signal-to-sequence into one call | P2 | S | - |
 | [B-29](docs/backlog/B-29-profiler-hook.md) `[?]` | Decide the shape of the profiler hook, or drop it | P3 | S | - |
 
-## Closed (40)
+## Closed (41)
 
 **Shape**
 
@@ -155,6 +155,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-26](docs/backlog/B-26-build-identity-plugin.md) `[x]` - The Gradle plugin that generates the build identity
 - [B-27](docs/backlog/B-27-version-route.md) `[x]` - GET /version and its reduction switch
 - [B-28](docs/backlog/B-28-observability-wiring.md) `[x]` - The three agents in one call, with three shutdown contracts
+- [B-30](docs/backlog/B-30-entry-point-question.md) `[x]` - Decide whether kore owns the entry point
 - [B-37](docs/backlog/B-37-agents-not-on-central.md) `[x]` - Decide how a public kore resolves the three agents
 - [B-44](docs/backlog/B-44-katcher-flush.md) `[x]` - katcher can be flushed now — call it
 

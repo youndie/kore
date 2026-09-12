@@ -53,6 +53,11 @@ What it deliberately does **not** do:
 
 ## 2. API contracts
 
+**kore is not an entry point** — decided in [B-30](../backlog/B-30-entry-point-question.md) on the
+shape of the one real service it targets, whose `main` runs migrations and exits without serving,
+picks its own engine, and composes its own DI before any route exists. kore mounts routes into an
+application it is handed and wraps an `EmbeddedServer` it is handed.
+
 kore's public surface is three things, and every one of them is part of the contract rather than an
 implementation detail:
 

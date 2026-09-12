@@ -903,9 +903,22 @@ one most likely to be dropped rather than built.
 kore *is* the entry point: `koreMain { }` builds the server, installs the routes, reads the config
 and runs the sequence. That is more opinionated, removes a class of wiring mistakes, and is closer
 to what the brief describes as "one line". It is also how a library stops being a library.
-Hypothesis: both, with the wrapper as the supported path and the pieces public, which is what the
-two samples in [services/sample-service](../services/sample-service.md) exist to test. Settle in
-M2, when there is a second sample to disagree with the first.
+**Settled 2026-09-12 ([B-30](../backlog/B-30-entry-point-question.md)): kore does not own the entry
+point.** The hypothesis — the wrapper supported, the pieces public — stands, and the evidence is not
+a sample but the shape of the one real service kore targets. konekt's `main()` reads its config, then
+**runs migrations and exits without serving**; it chooses its own engine, port and host; and it
+installs Koin inside the module before the routes. An entry point owned by kore would need a mode
+that starts nothing, a way to be handed a config it knows nothing about, and an ordering hook for
+somebody else's DI container — which is "not a config framework", "not a router" and "not DI", in
+that order.
+
+The cost is stated rather than hidden: about **eight lines of ceremony** in every consumer around
+registrations no API can remove. The answer is not to own `main` but to collapse the stretch kore
+*does* own — signal to sequence to release —
+[B-46](../backlog/B-46-run-until-signal.md).
+
+What this is short of is the second consumer's *experience*, as opposed to its shape; the item says
+what would reopen it.
 
 ---
 
