@@ -9,6 +9,8 @@ import io.github.youndie.tracy.agent.TracyAgent
 import io.github.youndie.tracy.agent.TracyDelivery
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -43,25 +45,35 @@ public class KoreObservability internal constructor(
     override val name: String = "observability"
 
     /**
-     * Flushes what can be flushed, which is **tracy and only tracy**.
+     * Flushes what can be flushed: **tracy and katcher**. metrik still cannot be, and that reason is
+     * its own — the plugin constructs the agent internally and publishes only the counters, so there
+     * is no handle to stop even if stopping helped; `MetrikAgent.stop()` does not flush, so the open
+     * aggregation window is lost regardless of when it is called; and the plugin subscribes itself to
+     * `ApplicationStopping`, which on Kotlin/Native fires *before* the drain, so on a native binary
+     * the requests served during shutdown are not measured at all. None of that is fixable from here;
+     * it is `feature-observability-wiring` §7 and metrik's own issue.
      *
-     * The other two are not omissions and the reasons differ:
+     * katcher used to be in that paragraph — `start` was its only lifecycle function — and that is
+     * what [youndie/katcher#50](https://github.com/youndie/katcher/issues/50) asked about. Since
+     * client 0.7.47 there is `flush(grace)`, so the crash report a service files while it is shutting
+     * down leaves the process instead of waiting on disk for a next launch the container may not get.
      *
-     * * **metrik** — its plugin constructs the agent internally and publishes only the counters, so
-     *   there is no handle to stop even if stopping helped; and `MetrikAgent.stop()` does not flush,
-     *   so the open aggregation window is lost regardless of when it is called. The plugin also
-     *   subscribes itself to `ApplicationStopping`, which on Kotlin/Native fires *before* the drain —
-     *   so on a native binary the requests served during shutdown are not measured at all. None of
-     *   that is fixable from here; it is `feature-observability-wiring` §7 and metrik's own issue.
-     * * **katcher** — `start` is its only lifecycle function. There is no `stop` and no `flush`.
+     * **The two run concurrently, each bounded by [flushGrace].** Sequentially, tracy's last flush
+     * could spend the whole budget and katcher would be handed a deadline that had already passed —
+     * a stage deadline is not a queue. Concurrently the stage still pays [flushGrace] once.
      *
-     * The bound is kore's, not tracy's. `stop(grace)` defaults to the agent's flush interval, which
-     * is a number chosen for steady state; a shutdown gets the telemetry stage's deadline instead,
-     * and the stage cancels it if it overruns.
+     * The bound is kore's, not the agents'. tracy's `stop(grace)` defaults to the agent's flush
+     * interval, which is a number chosen for steady state; a shutdown gets the telemetry stage's
+     * deadline instead, and the stage cancels it if it overruns.
      */
-    override suspend fun stop() {
-        tracyDelivery?.stop(flushGrace)
-    }
+    override suspend fun stop(): Unit =
+        coroutineScope {
+            launch { tracyDelivery?.stop(flushGrace) }
+            // Unconditional, unlike tracy's: `Katcher` is a global object with no handle to hold, so
+            // there is nothing here to be null. Before `start` it answers `true` — nothing to hand
+            // over — which is the right answer for a service that never configured katcher.
+            launch { Katcher.flush(flushGrace) }
+        }
 }
 
 /**
@@ -74,8 +86,9 @@ public class KoreObservability internal constructor(
  * and a server with only the plugin logs into memory and reports nothing — the failure the toolkit's
  * own README example exists to prevent, and the one the portfolio's most complete service has.
  *
- * @param flushGrace how long the telemetry stage gives tracy's last flush. Defaults to kore's own
- *   release-group deadline rather than tracy's flush interval.
+ * @param flushGrace how long the telemetry stage gives the last flush of tracy and of katcher — each,
+ *   because they run concurrently. Defaults to kore's own release-group deadline rather than tracy's
+ *   flush interval.
  * @param clock injected, because an agent stamping records off the wall clock is the one place a
  *   test cannot move time.
  */
@@ -137,6 +150,9 @@ public fun Application.installKoreObservability(
             // `release` is non-null here: `anyAgentOn` is true and the refusal above has run.
             this.release = release ?: ""
             environment = settings.environment
+            // Unset, katcher writes beside the working directory — the container's writable layer.
+            // A report that could not be delivered waits there for a next launch the pod may not get.
+            cacheDir = settings.katcherCacheDir
         }
     }
 

@@ -72,6 +72,23 @@ subprojects {
             apply(plugin = "maven-publish")
             val moduleName = name
             extensions.configure<PublishingExtension> {
+                // REGISTERED UNCONDITIONALLY, even with no credentials, and that is the whole point
+                // of writing it this way. A sibling in this portfolio once guarded its repository
+                // block on the secret being set: with the secret unset the block registered no
+                // repository at all, `publishAllPublications…` had nothing to publish to, and the
+                // job went **green having done nothing**. A missing credential should fail a PUT
+                // loudly, not turn the publish into a no-op.
+                repositories {
+                    maven {
+                        name = "wip"
+                        url = uri("https://reposilite.kotlin.website/snapshots")
+                        credentials {
+                            username = (findProperty("REPOSILITE_USER") as String?).orEmpty()
+                            password = (findProperty("REPOSILITE_SECRET") as String?).orEmpty()
+                        }
+                    }
+                }
+
                 publications.withType(MavenPublication::class.java).configureEach {
                     pom.name.set(moduleName)
                     pom.description.set(
