@@ -38,7 +38,15 @@ subprojects {
                 // The targets that decide the design. A server binary in this portfolio is one of
                 // these two.
                 linuxX64()
-                linuxArm64()
+
+                // EVERY MODULE BUT ONE. `booblik-native` is published for `linuxx64` and
+                // `macosarm64` and **not** for `linuxarm64` — checked in the Central listing, not
+                // assumed — so `kore-booblik` cannot have a target whose dependency does not exist.
+                // The hole is real and is written down where a consumer meets it:
+                // `docs/services/kore-library.md` §2a and the upstream proposals. Declaring the
+                // target anyway would turn a missing artefact into a resolution failure in somebody
+                // else's build.
+                if (path != ":kore-booblik") linuxArm64()
 
                 // A development target, not a deployment one: it is here so the library builds and
                 // its tests run on a laptop. It also carries a documented hole — the environment

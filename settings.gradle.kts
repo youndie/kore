@@ -48,6 +48,10 @@ include(":kore-core")
 // `EmbeddedServer.stop` itself rather than through a shutdown hook.
 include(":kore-ktor")
 
+// flush-then-close for booblik, one adapter per client (research D5, decided in B-36). Separate so
+// that a service with no broker does not resolve a broker client to get an ordered shutdown.
+include(":kore-booblik")
+
 // tracy, metrik and katcher in one call. Separate so that a service wanting the ordered shutdown
 // does not resolve three agent artefacts to get it.
 include(":kore-observability")
