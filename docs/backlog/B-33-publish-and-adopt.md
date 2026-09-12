@@ -1,7 +1,7 @@
 ---
 id: B-33
 title: "Publish kore and adopt it in the first consumer"
-status: question
+status: wip
 priority: P1
 size: M
 stage: m6-release

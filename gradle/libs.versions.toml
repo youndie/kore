@@ -51,9 +51,13 @@ jvmToolchain = "25"
 #
 # katcher is TWO version lines that move independently — the client and the server are not released
 # together — so this names the client's line and nothing else.
+#
+# 0.7.47 is the exception to "the first consumer's version" above, and deliberately: it is the release
+# that answers youndie/katcher#50, and `kore-observability` calls `Katcher.flush` — which 0.7.44 does
+# not have. Moving back loses the call, not just a patch level.
 tracyAgent = "0.2.15"
 metrikAgent = "0.2.18"
-katcherClient = "0.7.44"
+katcherClient = "0.7.47"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
