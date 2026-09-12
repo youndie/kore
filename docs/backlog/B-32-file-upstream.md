@@ -1,7 +1,7 @@
 ---
 id: B-32
 title: "File the upstream proposals that are ready; ask before Ktor"
-status: open
+status: wip
 priority: P2
 size: S
 stage: m6-release
