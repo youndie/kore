@@ -228,13 +228,14 @@ in the agents, it is three different shutdown contracts.
 | Nothing subscribes that `stop` to anything. The first consumer constructs the delivery, calls `start(this)` and discards the reference, so `stop` cannot be called | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/observability/Observability.kt:73` |
 | metrik's agent **does** stop itself on `ApplicationStopping`, and its `stop()` cancels the job, cancels the scope, closes the sender and closes the dispatcher — with **no flush** of the open window | [metrik](https://github.com/youndie/metrik) `agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/Metrik.kt:89` and `MetrikAgent.kt:128-134` |
 | metrik's aggregation window defaults to 60 seconds | `metrik/shared/.../Protocol.kt`, `DEFAULT_WINDOW_MS`, and the comment recording it in konekt's `ObservabilityConfig.kt:22-30` |
-| katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** | [katcher](https://github.com/youndie/katcher) `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` — the only lifecycle function in the file |
+| katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** — read at `b9b953f`, and **no longer true since client 0.7.47** (amended 2026-09-12): `flush(grace)`, `cacheDir` and `crashUploadGrace` were added in answer to [katcher#50](https://github.com/youndie/katcher/issues/50), which this reading raised. Amended rather than rewritten: the row is what was read, and a superseded reading left standing is §1.7's own failure | [katcher](https://github.com/youndie/katcher) `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` then; `Katcher.flush` and `ReportUploader.kt` at `fbfedf1` now |
 | katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
 
 **Consequence 1.** "One line of wiring" is worth having precisely because these three do not agree.
 kore owns three different stages: *ask tracy to flush and wait, bounded*; *let metrik's own
-subscription run, and know that the open window is lost*; *do nothing for katcher, because there is
-nothing to call*.
+subscription run, and know that the open window is lost*; and — since 0.7.47 — *ask katcher to flush
+too, on the same deadline*. The third used to read "do nothing for katcher, because there is nothing
+to call", and the difference between then and now is an issue that got answered, not a re-reading.
 
 **Consequence 2 — a defect in the first consumer, found by reading rather than by an incident.**
 konekt loses the last flush interval of tracy records on every single shutdown, because the object
@@ -463,7 +464,9 @@ the one module that wires three agents it does not have either. Said in the READ
 
 **Verified on 2026-09-12, for all four targets rather than for the JVM:** `tracy:agent:0.2.15`,
 `metrik:agent:0.2.18` and `katcher:client:0.7.44` resolve with their transitive `shared` modules on
-`jvm`, `linuxX64`, `linuxArm64` and `macosArm64`. That check is the point of this entry rather than a
+`jvm`, `linuxX64`, `linuxArm64` and `macosArm64` — and the same for `katcher:client:0.7.47`, which is
+what kore resolves since §5 of the upstream proposals was answered; re-run the same way rather than
+assumed from the older row. That check is the point of this entry rather than a
 formality — an agent that published only a JVM variant would satisfy a common source set at
 resolution time and fail the thing kore is native-first for. [B-28](../backlog/B-28-observability-wiring.md)
 is unblocked.

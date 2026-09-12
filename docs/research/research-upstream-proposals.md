@@ -186,21 +186,34 @@ disagree ([feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §
 learning that a second implementation existed and asking whether it agreed. One implementation cannot
 tell you it is wrong; two can.
 
-## 5. katcher — **asked as [youndie/katcher#50](https://github.com/youndie/katcher/issues/50)**, 2026-09-12, a question rather than a defect
+## 5. katcher — **CLOSED 2026-09-12**, answered and shipped in client 0.7.47
 
-**Claim.** `Katcher` is a global object with `start(configure)` and no `stop` and no `flush`. A crash
-report produced during shutdown may not be uploaded before the process exits.
+Asked as [youndie/katcher#50](https://github.com/youndie/katcher/issues/50) and closed the same day.
+Kept here as a closed entry rather than deleted, because §6 is a rule about evidence and this is the
+first entry that has satisfied it.
 
-**Verified against** `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt` — `start` is
-the only lifecycle function in the file.
+**What was asked.** `Katcher` was a global object with `start(configure)` and no `stop` and no
+`flush`, so a crash report produced during shutdown might not be uploaded before the process exits.
+Whether that mattered depended on *where* katcher wrote and whether that path outlived the pod —
+which is a question for its owner rather than an assertion from here.
 
-**Why it is a question.** For a mobile client, surviving the process is the right design: the report
-is persisted and uploaded on the next launch. For a server binary in a container there may be no next
-launch on that filesystem. Whether that matters depends on where katcher writes and whether the
-volume outlives the pod, which is a question for its owner rather than an assertion from here.
+**The answer.** It is a server scenario: katcher publishes `linuxX64` and `linuxArm64` in every
+release, the default directory is `.katcher_cache` relative to the working directory, and nothing
+could repoint it. The larger half was that the fatal path had no window at all — the native hook
+terminates the process right after it returns, and the JVM handler slept 50 ms against a 3 s connect
+timeout. Client 0.7.47 adds three things: `KatcherConfig.cacheDir`, `Katcher.flush(grace)`, and
+`KatcherConfig.crashUploadGrace` for the fatal path.
 
-**What kore does meanwhile.** Nothing to call; the gap is recorded in
-[feature-observability-wiring](../features/feature-observability-wiring.md) §7.
+**Read in the source and in the published artefact**, which is what §6 requires: the source in
+katcher `fbfedf1`, and `flush`, `cacheDir` and `crashUploadGrace` read out of the jar of
+`io.github.youndie.katcher:client-jvm:0.7.47`, downloaded from the portfolio repository and unzipped
+— the artefact kore resolves, not a tag. `Duration` is a value class, so they carry mangled names
+there (`flush-VtjQ1oo`); a Kotlin consumer never sees that and a Java one cannot call them.
+
+**What kore does now.** `KoreObservability.stop()` calls `flush(flushGrace)` in the telemetry group,
+and `KATCHER_CACHE_DIR` points the queue at a volume —
+[feature-observability-wiring](../features/feature-observability-wiring.md) §3 and rule 8. The
+workaround this entry justified — "nothing to call" in §7 — is deleted in the same change, per §6.
 
 ---
 

@@ -58,6 +58,7 @@ fail exactly the platform kore exists for. So the coordinates were resolved rath
 | `io.github.youndie.tracy:agent:0.2.15` | ✓ | ✓ | ✓ | ✓ |
 | `io.github.youndie.metrik:agent:0.2.18` | ✓ | ✓ | ✓ | ✓ |
 | `io.github.youndie.katcher:client:0.7.44` | ✓ | ✓ | ✓ | ✓ |
+| `io.github.youndie.katcher:client:0.7.47` — the version kore resolves today, re-checked 2026-09-12 | ✓ | ✓ | ✓ | ✓ |
 
 Each with its transitive `shared` module, read out of `:kore-observability:dependencies` rather than
 inferred from a green compile of a module that references none of them yet.

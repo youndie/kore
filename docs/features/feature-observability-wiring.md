@@ -27,8 +27,8 @@ treatment it actually needs.
 
 The reason this is a feature and not a snippet is that *"delivered" keeps meaning "configured"*. The
 three agents do not agree on how they stop — one can flush and is never asked to, one stops itself
-without flushing, one cannot stop at all — and a service that wires them by copying an example gets
-whichever of those three behaviours the example happened to get right.
+without flushing, and one could not stop at all until kore asked for it — and a service that wires
+them by copying an example gets whichever of those behaviours the example happened to get right.
 
 ## 2. Business rules
 
@@ -53,6 +53,11 @@ whichever of those three behaviours the example happened to get right.
 7. **Installing an agent that fills a buffer without the thing that empties it is not possible
    through kore.** tracy's plugin and its delivery are two objects and installing only the first
    logs into memory and reports nothing. kore installs both or neither.
+8. **Where katcher queues an undelivered report is the deployment's to choose.** `KATCHER_CACHE_DIR`,
+   optional. Unset, katcher writes `.katcher_cache` beside the working directory — in a container,
+   the writable layer that dies with the pod, so a report that outlived its process is lost anyway.
+   Optional rather than required because it is only worth setting when there is a volume to set it
+   to; a service with none is better off with katcher's default than with a path that is not there.
 
 ## 3. The three shutdown contracts
 
@@ -62,7 +67,7 @@ Read in the agents, not assumed (research §1.6):
 |---|---|---|
 | **tracy** | `TracyDelivery.stop(grace)` — cancels the loop and makes one last bounded flush, written deliberately for exactly this moment | holds the delivery object and calls `stop` in the telemetry group of the release stage, with kore's own deadline |
 | **metrik** | `MetrikAgent.stop()` — cancels the job and the scope, closes the sender and the dispatcher. **No flush.** The plugin subscribes it to `ApplicationStopping` itself | nothing to call. kore records that the open aggregation window is lost, and §7 says what that costs |
-| **katcher** | `Katcher.start { }` and nothing else — no `stop`, no `flush` | nothing to call. A crash report in flight at exit may not be delivered; §7 |
+| **katcher** | `Katcher.flush(grace)` since client **0.7.47** — drains the on-disk queue and answers whether it is now empty. Before that, `start { }` was the only lifecycle function | calls it in the telemetry group, concurrently with tracy's and on the same deadline. The version is pinned for this reason: 0.7.44 has no `flush` |
 
 **The finding that made this table worth writing.** The portfolio's most complete service constructs
 tracy's delivery, calls `start`, and discards the reference — so `stop` cannot be called, and every
@@ -81,7 +86,7 @@ never revisited. That is the failure class this feature exists for, and it is ca
 
 ## 5. Scenarios (BDD)
 
-All five are automated. The tracy delivery scenario runs against a **real receiver on a real socket**
+All six are automated. The two delivery scenarios run against a **real receiver on a real socket**
 rather than a double, because the thing being proved is that records leave the process — and the
 mutation that survived the double-free version of this suite was exactly "install the buffer and not
 the thing that empties it".
@@ -119,6 +124,16 @@ the thing that empties it".
 * **Automated:** `ObservabilityInstallTest.an unreachable tracy endpoint does not delay the exit past
   the telemetry deadline`
 
+### Scenario: a crash filed during shutdown is delivered
+* **Given:** katcher is configured and a crash report is filed while the process is shutting down
+* **And:** katcher's own uploader has already tried and been refused, so the report is on disk
+* **When:** the telemetry group runs
+* **Then:** the report leaves the process before it exits
+* **Automated:** `KatcherFlushTest.a crash the uploader could not deliver is flushed out by the
+  telemetry stage` — the receiver **refuses first** on purpose. Against one that answers `200`
+  immediately, katcher's background uploader delivers within milliseconds and the scenario passes
+  with kore's `flush` call deleted; that mutation was run, and it is why the receiver refuses
+
 ### Scenario: the release identifier is required once an agent is on
 * **Given:** katcher is configured and no release identifier is set
 * **When:** the process starts
@@ -150,11 +165,15 @@ the thing that empties it".
   on the JVM and *before* it on Kotlin/Native. So on a native binary the requests served during the
   drain are not measured at all — which are exactly the requests an ordered shutdown exists to
   protect. Also §2 of the upstream proposals.
-* **katcher cannot be stopped and its scope outlives the application.** A crash during shutdown may
-  not be uploaded before the process exits. On Kotlin/Native its hook is
-  `setUnhandledExceptionHook`, chained onto the previous one, so at least it does not collide with
-  the signal handling of [feature-ordered-shutdown](feature-ordered-shutdown.md) §3 — that was
-  checked rather than assumed.
+* **katcher's crash hook is `setUnhandledExceptionHook`, chained onto the previous one**, so it does
+  not collide with the signal handling of [feature-ordered-shutdown](feature-ordered-shutdown.md) §3
+  — checked rather than assumed.
+* **A crash that kills the process is still not kore's to catch.** `flush` covers the report a
+  service *files* while it is shutting down, with a live process to run the flush in. The crash that
+  terminates the binary is answered inside katcher instead, by its own `crashUploadGrace`, and kore
+  does not set it: what that grace holds is the dying thread, and choosing how long a service takes
+  to die is the consumer's decision, not a library default. A deployment that wants it sets it
+  through katcher directly.
 * **A phantom service is the failure this wiring cannot detect.** Rule 3 validates the *shape* of the
   service name; it cannot know that `konket-server` was meant to be `konekt-server`. The only thing
   that catches that is somebody looking at the data, which is why `--print-config` prints the name

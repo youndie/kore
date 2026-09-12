@@ -1,7 +1,7 @@
 ---
 id: B-44
 title: "katcher can be flushed now — call it"
-status: open
+status: done
 priority: P1
 size: S
 stage: m5-wiring
@@ -40,3 +40,31 @@ with no next launch should be able to make its crash report leave the process. T
   quirk are corrected at the point of divergence; the upstream entry records that it was answered.
 - Anchors: `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/`,
   `docs/research/research-upstream-proposals.md`
+
+## Done — and the test is the part worth reading
+
+The pin moved to `0.7.47` by compiling against it. The telemetry group now flushes **tracy and
+katcher concurrently**, each bounded by the same `flushGrace`: sequentially tracy's last flush could
+spend the whole budget and hand katcher a deadline that had already passed, and a stage deadline is
+not a queue.
+
+`KatcherFlushTest` earns its place by refusing first. Against a receiver that answers `200`
+immediately, katcher's own background uploader delivers the report in milliseconds and the assertion
+**passes with the `flush` call deleted** — a test of katcher's worker wearing kore's name. That was
+checked rather than assumed. So the receiver refuses until the uploader has given up; from that
+moment the report moves only if something asks, and the only thing that asks is the telemetry stage.
+
+**The queue is pointed out of the source tree**, and that is not tidiness. katcher's default cache
+directory sits beside the working directory, which under Gradle is the module directory — inside the
+one-way sync to the build box. A file the box creates and the laptop does not have is deleted *while
+the test runs*: the first version watched the uploader fail three times and then found an empty
+queue, with `flush` answering `true` because there was genuinely nothing left. It is the same reason
+a deployment needs `cacheDir` on a volume: a directory somebody else can empty is not a queue.
+
+## What is deliberately not done
+
+**The `Boolean` is discarded.** `launch { Katcher.flush(flushGrace) }` does not read the answer, so
+`false` — the reports are still on disk, and the volume had better outlive the pod — reaches nobody.
+kore has no logger of its own and `KoreObservability.stop()` does not hold the application, so saying
+it costs plumbing rather than a line. Left as it stands; it is the one clause of this item's
+acceptance that is not met, and it is recorded here rather than quietly dropped from the criteria.

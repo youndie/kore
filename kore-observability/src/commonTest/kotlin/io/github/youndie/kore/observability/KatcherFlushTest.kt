@@ -159,7 +159,7 @@ class KatcherFlushTest {
      * Not cleaned up. A passing run leaves the directory empty, because the flush is what empties it,
      * and a failing one leaves the report in it, which is the evidence.
      */
-    private fun temporaryCacheDir(): String = "/tmp/kore-katcher-${Random.nextULong().toString(16)}"
+    private fun temporaryCacheDir(): String = "/tmp/kore-katcher-${Random.nextLong().toULong().toString(16)}"
 
     private companion object {
         /**

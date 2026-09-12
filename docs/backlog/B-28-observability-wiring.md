@@ -15,8 +15,12 @@ Install tracy, metrik and katcher from one call, configured through the schema, 
 treatment each actually needs.
 
 - **The decision and its reason.** Research §1.6, read in the agents: tracy can flush and is never
-  asked to, metrik stops itself without flushing, katcher cannot stop at all. A service that wires
+  asked to, metrik stops itself without flushing, katcher could not stop at all. A service that wires
   them by copying an example gets whichever of the three behaviours the example happened to get right.
+  *(2026-09-12: the third changed. katcher client 0.7.47 has `flush(grace)`, asked for as
+  [katcher#50](https://github.com/youndie/katcher/issues/50) out of this very reading, and kore calls
+  it. The item's shape is unchanged — three agents, three different contracts — one of them is just
+  no longer "nothing to call".)*
 - **A half-configured agent is a refusal at startup.** All three answer a missing value by doing
   nothing, in three different ways — "a deployment that believes it is observed and is not". The rule
   is taken from the one place in the portfolio that already gets it right, not invented.
@@ -26,10 +30,12 @@ treatment each actually needs.
 - **Blocked on [B-37](B-37-agents-not-on-central.md), found during B-01:** none of the three agents
   is on Maven Central, so there is no way to depend on them that a consumer outside the portfolio can
   resolve. That is a decision before it is a wiring job.
-- Does **not** cover: the losses kore cannot fix from outside — metrik's open window, katcher's
-  un-stoppable scope. Those are documented in
+- Does **not** cover: the losses kore cannot fix from outside — metrik's open window, and the crash
+  that terminates the binary, which katcher answers with its own `crashUploadGrace` and kore does not
+  set. Those are documented in
   [feature-observability-wiring](../features/feature-observability-wiring.md) §7 and filed in
-  [B-32](B-32-file-upstream.md).
+  [B-32](B-32-file-upstream.md). katcher's un-stoppable scope **was** on this list and is not any
+  more.
 
 - AC: the scenarios of feature-observability-wiring §5 hold, including that an unreachable tracy
   endpoint does not delay the exit past the telemetry deadline.

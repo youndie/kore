@@ -7,6 +7,7 @@ import io.github.youndie.kore.config.EnvironmentNames
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** An environment a test hands over, listing exactly what it was given. */
@@ -63,6 +64,50 @@ class ObservabilityKeysTest {
         assertEquals("https://tracy", settings.tracy?.endpoint)
         assertTrue(settings.anyAgentOn)
         assertEquals("1.4.0+abc123", settings.release)
+    }
+
+    /**
+     * Rule 8. A declared key that nothing reads is the shape a deployment cannot tell from a working
+     * one: the variable is accepted by the schema — so no refusal — and the queue stays wherever
+     * katcher's default puts it. So this asserts the value arrives in the settings, not that the key
+     * exists.
+     */
+    @Test
+    fun `the katcher cache directory is read out of the environment`() {
+        val configuration =
+            schema().read(
+                Given(
+                    mapOf(
+                        "APP_SERVICE" to "orders",
+                        "APP_RELEASE" to "1.4.0+abc123",
+                        "APP_KATCHER_ENDPOINT" to "https://katcher",
+                        "APP_KATCHER_KEY" to "secret",
+                        "APP_KATCHER_CACHE_DIR" to "/var/lib/orders/katcher",
+                    ),
+                ),
+            )
+
+        val settings = ObservabilitySettings.from(configuration, instanceFallback = "pod-1")
+
+        assertEquals("/var/lib/orders/katcher", settings.katcherCacheDir)
+    }
+
+    /** Unset is the ordinary case: a service with no volume is better off with katcher's default. */
+    @Test
+    fun `no katcher cache directory leaves katcher its own default`() {
+        val configuration =
+            schema().read(
+                Given(
+                    mapOf(
+                        "APP_SERVICE" to "orders",
+                        "APP_RELEASE" to "1.4.0+abc123",
+                        "APP_KATCHER_ENDPOINT" to "https://katcher",
+                        "APP_KATCHER_KEY" to "secret",
+                    ),
+                ),
+            )
+
+        assertNull(ObservabilitySettings.from(configuration, instanceFallback = "pod-1").katcherCacheDir)
     }
 
     /** Rule 5: the pod name unless the deployment says otherwise. */

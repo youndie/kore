@@ -38,7 +38,7 @@ trusted from this document — and that caught two things (below).
 | §2 metrik | [youndie/metrik#29](https://github.com/youndie/metrik/issues/29) | metrik `9b8af23` — `stop()` still cancels and closes without flushing; the plugin still subscribes `agent.stop()` to `ApplicationStopping` at `Metrik.kt:89` |
 | §3 tracy | [youndie/tracy#32](https://github.com/youndie/tracy/issues/32) | tracy HEAD — `stop(grace)` exists and is a bounded final flush; nothing calls it by default |
 | §4 booblik | [youndie/booblik#68](https://github.com/youndie/booblik/issues/68) | booblik `08c9bae` — JVM `drainPending()` fails the accumulated batches; native begins with `sendAll()` |
-| §5 katcher | [youndie/katcher#50](https://github.com/youndie/katcher/issues/50) | katcher `b9b953f` — `start` is still the only lifecycle function |
+| §5 katcher | [youndie/katcher#50](https://github.com/youndie/katcher/issues/50) — **answered and closed 2026-09-12** | katcher `fbfedf1` — `flush(grace)`, `cacheDir` and `crashUploadGrace` shipped in client 0.7.47, read in the published jar; kore calls the first and sets the second |
 
 Written in Russian, matching the prose of the repositories they were filed in.
 

@@ -144,7 +144,7 @@ a green build.
 |---|---|---|
 | Library | `io.ktor:ktor-server-core` | the application, the events, `EmbeddedServer` — `kore-ktor` only |
 | Library | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | the stage machine and the health refresh loop |
-| Library | `io.github.youndie.tracy:agent` 0.2.15, `io.github.youndie.metrik:agent` 0.2.18, `io.github.youndie.katcher:client` 0.7.44 | `kore-observability` only, and from the **portfolio's own repository** rather than Maven Central (research §1.12, B-37). `implementation`, not `api`: an agent is something kore calls, not something it hands back. The versions are the first consumer's, so adopting kore does not move them |
+| Library | `io.github.youndie.tracy:agent` 0.2.15, `io.github.youndie.metrik:agent` 0.2.18, `io.github.youndie.katcher:client` 0.7.47 | `kore-observability` only, and from the **portfolio's own repository** rather than Maven Central (research §1.12, B-37). `implementation`, not `api`: an agent is something kore calls, not something it hands back. The versions are the first consumer's, so adopting kore does not move them — **except katcher**, which is ahead of it on purpose: 0.7.47 is the release that added `flush(grace)`, and 0.7.44 has nothing to call |
 | Library | a booblik client | `kore-booblik` only — and there are two of them, one per platform ([B-36](../backlog/B-36-booblik-adapter-targets.md)) |
 | Toolchain | Kotlin 2.4.10 / Kotlin/Native | the platform klibs research §1.3 and §1.5 were read from |
 
