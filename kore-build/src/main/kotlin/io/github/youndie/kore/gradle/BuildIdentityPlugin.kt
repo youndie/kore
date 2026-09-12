@@ -12,15 +12,13 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * The package is `…kore.gradle` and **not** `…kore.build`, which is the obvious name.
- *
- * This repository is replicated to the build machine by a mutagen session that ignores any path
- * component named `build` — because every Gradle module has one. A Kotlin package called `build` is
- * such a component, so the source file was present on the laptop, absent on the build box, and the
- * compile task reported `NO-SOURCE`: a plugin jar with no plugin in it, and an error message about a
- * missing implementation class that says nothing about replication.
- *
  * Generates the object that answers `GET /version`.
+ *
+ * The package is `…kore.gradle` and **not** `…kore.build`, which is the obvious name: `build` is the
+ * directory name every Gradle module has, so tooling that filters build output by path component —
+ * sync tools, backup excludes, archive filters — drops a Kotlin package called `build` along with
+ * it. The symptom is `compileKotlin NO-SOURCE` and a jar with no plugin class in it, which says
+ * nothing about the path that was filtered.
  *
  * Kotlin/Native has no resources and no manifest, so the identity has to be **compiled in** — and the
  * generated file is wired in as a source directory of `commonMain`, which makes it an input of the
