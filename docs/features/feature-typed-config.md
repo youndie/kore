@@ -90,7 +90,20 @@ library's.
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` — `System.getenv()` |
 | kore-library | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` — enumeration through `__environ` |
 | kore-library | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` — lookup only; see §7 |
-| sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/Main.kt` — a schema with a required field, a default, a secret and a near-miss name |
+| sample-service | **nothing** — see the gap below |
+
+**The sample does not use this feature, and the row above used to say it did.** It named a file that
+has never existed — `samples/service/.../commonMain/.../Main.kt`, described as carrying "a schema
+with a required field, a default, a secret and a near-miss name" — while the sample reads its port
+from a constant under a comment saying it will do this once B-21 lands. B-21 landed. The schema, the
+reader, `--print-config` and the unknown-variable refusal are all built and covered by
+`kore-core`'s own suites; what is **not** covered is the one thing a sample is for — the feature used
+the way a service would use it, in a binary that runs. Address: [B-50](../backlog/B-50-sample-uses-the-config-schema.md).
+
+Worth saying why it survived: every other row in this table points at code that exists, so the table
+looked uniformly authoritative. A row naming a path that was never written is indistinguishable from
+one naming a path that moved — which is what the anchors report is for, and why a report nobody
+gates on still has to be read.
 
 ## 6. Scenarios (BDD)
 
