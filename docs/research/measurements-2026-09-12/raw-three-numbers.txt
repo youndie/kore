@@ -1,0 +1,50 @@
+warm-up kore-sample:jvm/control: discarded (first=1271ms stop=1480ms)
+warm-up kore-sample:jvm/kore: discarded (first=1092ms stop=3470ms)
+
+round 1 kore-sample:jvm/control: first /health 1141ms rss 109876kB stop 1475ms inFlight=8 dropped=8 finished=0 exit=143
+round 1 kore-sample:jvm/kore: first /health 1189ms first /health/startup 1194ms rss 111008kB stop 3503ms inFlight=8 dropped=0 finished=8 exit=143
+round 2 kore-sample:jvm/control: first /health 1216ms rss 109760kB stop 1440ms inFlight=8 dropped=8 finished=0 exit=143
+round 2 kore-sample:jvm/kore: first /health 1180ms first /health/startup 1185ms rss 115680kB stop 3509ms inFlight=8 dropped=0 finished=8 exit=143
+round 3 kore-sample:jvm/control: first /health 1238ms rss 109920kB stop 1513ms inFlight=8 dropped=8 finished=0 exit=143
+round 3 kore-sample:jvm/kore: first /health 1260ms first /health/startup 1267ms rss 116112kB stop 3522ms inFlight=8 dropped=0 finished=8 exit=143
+round 4 kore-sample:jvm/control: first /health 1129ms rss 110400kB stop 1453ms inFlight=8 dropped=8 finished=0 exit=143
+round 4 kore-sample:jvm/kore: first /health 1249ms first /health/startup 1255ms rss 116000kB stop 3488ms inFlight=8 dropped=0 finished=8 exit=143
+round 5 kore-sample:jvm/control: first /health 1177ms rss 111200kB stop 1502ms inFlight=8 dropped=8 finished=0 exit=143
+round 5 kore-sample:jvm/kore: first /health 1133ms first /health/startup 1137ms rss 111200kB stop 3502ms inFlight=8 dropped=0 finished=8 exit=143
+
+warm-up kore-sample:native/control: discarded (first=752ms stop=1627ms)
+warm-up kore-sample:native/kore: discarded (first=698ms stop=3503ms)
+
+round 1 kore-sample:native/control: first /health 744ms rss 25280kB stop 1577ms inFlight=8 dropped=8 finished=0 exit=0
+round 1 kore-sample:native/kore: first /health 725ms first /health/startup 727ms rss 28000kB stop 3485ms inFlight=8 dropped=0 finished=8 exit=0
+round 2 kore-sample:native/control: first /health 706ms rss 25440kB stop 1554ms inFlight=8 dropped=8 finished=0 exit=0
+round 2 kore-sample:native/kore: first /health 745ms first /health/startup 748ms rss 28000kB stop 3444ms inFlight=8 dropped=0 finished=8 exit=0
+round 3 kore-sample:native/control: first /health 719ms rss 26400kB stop 1482ms inFlight=8 dropped=8 finished=0 exit=0
+round 3 kore-sample:native/kore: first /health 706ms first /health/startup 708ms rss 26400kB stop 3474ms inFlight=8 dropped=0 finished=8 exit=0
+round 4 kore-sample:native/control: first /health 732ms rss 26240kB stop 1483ms inFlight=8 dropped=8 finished=0 exit=0
+round 4 kore-sample:native/kore: first /health 688ms first /health/startup 690ms rss 28160kB stop 3518ms inFlight=8 dropped=0 finished=8 exit=0
+round 5 kore-sample:native/control: first /health 719ms rss 26080kB stop 1447ms inFlight=8 dropped=8 finished=0 exit=0
+round 5 kore-sample:native/kore: first /health 724ms first /health/startup 726ms rss 27200kB stop 3483ms inFlight=8 dropped=0 finished=8 exit=0
+
+## summary — median (min–max), n=5 per cell
+
+| image | number | control | kore | difference |
+|---|---|---|---|---|
+| kore-sample:jvm | time to first /health | 1177 ms (1129–1238) | 1189 ms (1133–1260) | +12 ms (+1%) |
+| kore-sample:jvm | RSS at ready | 109920 kB (109760–111200) | 115680 kB (111008–116112) | +5760 kB (+5%) |
+| kore-sample:jvm | stop under load | 1475 ms (1440–1513) | 3503 ms (3488–3522) | +2028 ms (+137%) |
+| kore-sample:native | time to first /health | 719 ms (706–744) | 724 ms (688–745) | +5 ms (+1%) |
+| kore-sample:native | RSS at ready | 26080 kB (25280–26400) | 28000 kB (26400–28160) | +1920 kB (+7%) |
+| kore-sample:native | stop under load | 1483 ms (1447–1577) | 3483 ms (3444–3518) | +2000 ms (+135%) |
+
+## what happened to the work that was in flight at the signal
+
+| image | arm | spanning the signal | finished | dropped |
+|---|---|---|---|---|
+| kore-sample:jvm | control | 40 | 0 | **40** |
+| kore-sample:jvm | kore | 40 | 40 | **0** |
+| kore-sample:native | control | 40 | 0 | **40** |
+| kore-sample:native | kore | 40 | 40 | **0** |
+
+kore-sample:jvm: kore's own `/health/startup` first answered 200 at 1194 ms (1137–1267) — the control has no such route, so this one has no comparison and is reported alone.
+kore-sample:native: kore's own `/health/startup` first answered 200 at 726 ms (690–748) — the control has no such route, so this one has no comparison and is reported alone.
