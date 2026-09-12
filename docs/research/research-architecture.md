@@ -512,7 +512,33 @@ because the second failure happens first and looks identical. The negative contr
 which. A run at the default alone would have produced a confident, wrong conclusion — it nearly did.
 
 
-### 1.14 `Dispatchers.IO` is `internal` on Kotlin/Native, so kore must own a thread to block on
+### 1.14 `Dispatchers.IO` on Kotlin/Native is an extension property — and the error when you miss it says `internal`
+
+> **Refuted 2026-09-12, the same day it was written, and the refutation is the more useful finding.**
+> What this section said — that `Dispatchers.IO` is `internal` on Kotlin/Native — is **false**. It is
+> an **extension property** in package `kotlinx.coroutines`, so it needs `import
+> kotlinx.coroutines.IO` of its own. Without that import the compiler resolves the *internal member
+> of the same name* beside it and reports `"it is internal"`. That message is not a platform
+> limitation; it is the name resolving to the wrong declaration.
+>
+> Verified here at coroutines 1.11.0: with the import, `:kore-core:compileKotlinLinuxX64` and
+> `:kore-core:compileKotlinMacosArm64` both succeed, and `withContext(Dispatchers.IO) { 3 + 4 }`
+> **runs** under `linuxX64Test`. Compiling was not enough to check, because the original error was a
+> compile error.
+>
+> **How this got written is the part worth keeping.** The claim was inherited from booblik and the
+> section below congratulates itself for not inheriting it — for compiling a probe instead of
+> trusting a neighbour. The probe reproduced the neighbour's own mistake exactly: same missing
+> import, same error, same conclusion. *Verifying a claim by the method that produced it is not
+> verification.* booblik had already corrected itself the previous evening
+> (`docs(native): Dispatchers.IO is not internal on Kotlin/Native`, 2026-09-11) — the answer existed
+> in the repository the claim came from, and re-deriving it was chosen over re-reading it.
+>
+> What this does to [D9](#d9-kores-background-work-runs-in-two-lanes-and-on-kotlinnative-that-costs-two-threads):
+> its premise is gone. Two lanes may still be right — a blocking check must still not stall the
+> shutdown, and that was *measured* rather than assumed — but "kore must own a thread because the
+> platform offers none" is not a reason any more, and the two threads are now a choice that has to
+> argue for itself. [B-42](../backlog/B-42-dispatchers-io-exists-on-native.md) owns that.
 
 Written while doing [B-38](../backlog/B-38-native-dispatcher.md), which inherited the claim from
 booblik's native module. An inherited finding is a hypothesis until this repository's own toolchain
@@ -520,14 +546,15 @@ agrees, so it was checked by compiling a two-line file against the version actua
 
 | Fact | Where verified |
 |---|---|
-| `Dispatchers.IO` does not resolve from `nativeMain` at coroutines 1.11.0 | the compiler: *"Cannot access 'val IO: CoroutineDispatcher': it is internal in 'kotlinx.coroutines.Dispatchers'"*, on `:kore-core:compileKotlinLinuxX64` |
+| ~~`Dispatchers.IO` does not resolve from `nativeMain` at coroutines 1.11.0~~ — **false**; the probe was missing `import kotlinx.coroutines.IO` | the compiler: *"Cannot access 'val IO: CoroutineDispatcher': it is internal in 'kotlinx.coroutines.Dispatchers'"*, on `:kore-core:compileKotlinLinuxX64` — which is what a missing import of the extension looks like |
+| With `import kotlinx.coroutines.IO` it compiles for `linuxX64` and `macosArm64` **and runs** | `:kore-core:compileKotlinMacosArm64`, and `withContext(Dispatchers.IO)` under `linuxX64Test`, 2026-09-12 |
 | The version this repository pins is 1.11.0 | `gradle/libs.versions.toml:32` |
-| booblik reached the same conclusion independently, and uses `newSingleThreadContext` | `booblik/booblik-native/src/nativeMain/.../Producer.kt` |
+| ~~booblik reached the same conclusion independently~~ — it reached the same **mistake**, and had already corrected it before this section was written | `booblik` `08c9bae`, *"docs(native): Dispatchers.IO is not internal on Kotlin/Native"*, 2026-09-11 |
 
-**Consequence 1 — the elastic pool is a JVM luxury.** On the JVM, "somewhere to put work that might
-block" is free: `Dispatchers.IO` grows past a blocked thread. On Kotlin/Native there is no such
-place, so every thread kore uses for background work is a thread a service pays for by depending on
-kore, and the number has to be a decision rather than an accident. That decision is D9.
+~~**Consequence 1 — the elastic pool is a JVM luxury.**~~ Withdrawn with the fact above: the elastic
+pool is on both platforms. What survives is the *shape* of the question — how many threads a service
+pays for by depending on kore — but the answer "as many as it must, because the platform offers
+none" is not available. B-42.
 
 **Consequence 2 — `Dispatchers.Default` is the wrong answer, not merely a worse one.** It is sized to
 the core count and meant for work that does not block; a dependency check that blocks one of its
