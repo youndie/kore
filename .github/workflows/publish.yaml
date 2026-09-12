@@ -55,11 +55,43 @@ jobs:
       # no publication and cannot acquire one by accident. The list that used to stand here named
       # three modules, was written when there were three, and went on naming three after
       # `kore-booblik` arrived — so 0.1.0 shipped without the module its first consumer needed.
+      # THE LOCAL COPY FIRST, ON ITS OWN, AND NOTHING GOES OVER THE NETWORK YET. It is what the
+      # pre-flight below and the read-back at the end both walk, and producing it first is what makes
+      # a refusal possible before the first PUT rather than after some of them.
+      - name: Produce the publication locally
+        run: ./gradlew --no-daemon publishAllPublicationsToLocalCopyRepository
+        env:
+          ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
+
+      # REFUSE A VERSION THAT ALREADY HAS ARTEFACTS, before writing any.
+      #
+      # `snapshots` does not allow an overwrite — it answers 409 — so a publish that fails partway
+      # leaves a version that can never be completed under the same number, and the next attempt
+      # fails on the artefacts the previous one managed to write instead of on the reason it stopped.
+      # That happened to 0.1.1: a 403 on a coordinate the token did not cover stopped the run after
+      # three jars were already up, and re-running printed three 409s that said nothing about the 403.
+      #
+      # This makes the second run say the true thing — this version is taken — and it also refuses a
+      # re-publish of a released version, which would make one coordinate mean two things.
+      - name: Refuse to publish over a version that already exists
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          taken=0
+          for f in $(find build/published -type f \( -name "*-$v.pom" -o -name "*-$v.jar" \) | sort); do
+            path=${f#build/published/}
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://reposilite.kotlin.website/snapshots/$path")
+            [ "$code" = "404" ] && continue
+            echo "$code $path"
+            taken=1
+          done
+          [ "$taken" = 0 ] || {
+            echo "::error::$v already has artefacts on the repository - publish a new version, not this one"
+            exit 1; }
+          echo "$v is free"
+
       - name: Publish
         run: |
-          ./gradlew --no-daemon \
-            publishAllPublicationsToWipRepository \
-            publishAllPublicationsToLocalCopyRepository
+          ./gradlew --no-daemon publishAllPublicationsToWipRepository
         env:
           ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
           ORG_GRADLE_PROJECT_REPOSILITE_USER: ${{ secrets.REPOSILITE_USER }}
