@@ -102,6 +102,18 @@ announce stage.
   process is alive — which is what the first consumer does today (research §1.11) and exactly what
   kore exists to stop. `--print-config` prints the probe block a chart should carry, so the correct
   one is available without reading this file.
+* **`/version`'s body is a contract; the probes' bodies are not.** A probe body is for a person with
+  `curl`. This one is read by deploy checks, so it is `key: value` per line, plain text, in a fixed
+  order: `release`, `version`, `commit`, `built`, and `compiled-release` **only** when the
+  environment names a release that disagrees with the compiled one. Lines may be added; those names
+  do not change. The disagreement line appears only when there is a disagreement, on purpose — a
+  line that is always there is one nobody reads.
+* **A reduction that would reduce nothing is refused at startup.** kore's default release is
+  `version+commit`, because a deploy marker and a crash group need to tell two builds of one version
+  apart. So `KORE_VERSION_REDUCED` with no `RELEASE` would serve the commit under a switch whose
+  purpose is to hide it — a deployment that believes it is private and is not, which is the same
+  shape as an observability endpoint configured without its key. A build with no git has no commit to
+  hide and is allowed.
 * **`/version` is public and that is a decision with an escape hatch.** For a public repository a
   commit hash is not a secret and the route earns its keep in every deploy check. For a private one,
   a hash plus a build timestamp narrows down what is running. kore therefore reads a single switch

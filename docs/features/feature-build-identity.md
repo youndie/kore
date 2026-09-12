@@ -2,7 +2,7 @@
 id: feature-build-identity
 title: /version — which build this is
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - kore-library
@@ -15,7 +15,7 @@ tags: [build, gradle, version]
 
 # `/version` — which build this is
 
-> **`status: draft`** — designed, not built. The platform constraint behind the design is
+> **`status: active`** — designed, not built. The platform constraint behind the design is
 > [research-architecture](../research/research-architecture.md) D7; the gap it fills is §1.11.
 
 ## 1. Overview
@@ -63,22 +63,25 @@ disagree is precisely the case somebody is investigating.
 
 ## 4. Scenarios (BDD)
 
-The build half is implemented; the three scenarios whose **Then** names `GET /version` are *target*
-until [B-27](../backlog/B-27-version-route.md) adds the route, and are checked here against the
-generated value instead.
+All but the last are automated. The last needs the agents, which is
+[B-28](../backlog/B-28-observability-wiring.md).
 
 ### Scenario: the binary reports the commit it was built from
 * **Given:** a build at a known commit with a clean working tree
 * **When:** `GET /version` is called
 * **Then:** the response names that commit
 * **And:** it names a build timestamp
-* **Automated (the generated value):** kore-build `GitFactsTest.a clean repository reports its commit and is not dirty`
+* **Automated:** kore-ktor `VersionRouteTest.the body names the release and the version and the
+  commit and the build time` — the body is asserted whole, because a deploy check greps it; and
+  kore-build `GitFactsTest.a clean repository reports its commit and is not dirty` for the value
+  reaching it
 
 ### Scenario: a dirty tree is visible
 * **Given:** a build with uncommitted changes
 * **When:** `GET /version` is called
 * **Then:** the commit is marked as dirty
-* **Automated (the generated value):** kore-build `GitFactsTest.an uncommitted change makes the tree dirty`
+* **Automated:** kore-ktor `VersionRouteTest.a dirty build says so in the commit`, and kore-build
+  `GitFactsTest.an uncommitted change makes the tree dirty`
 
 ### Scenario: a build without git still produces a binary
 * **Given:** a source tree with no `.git` directory
@@ -103,6 +106,17 @@ generated value instead.
 * **Given:** an observability agent is configured and no release override is set
 * **When:** the process starts
 * **Then:** the release the agents are given is the one `GET /version` reports
+
+### Scenario: the reduction switch reduces the body and never removes the route
+* **Given:** a deployment that does not want to publish its commit, with a `RELEASE` of its own
+* **When:** `GET /version` is called
+* **Then:** it answers `200` with the release name alone
+* **And:** neither the commit nor the build time appears
+* **And:** with the switch on and **no** `RELEASE`, the process refuses to start — kore's default
+  release is `version+commit`, so reducing to it would publish the commit under a switch meant to
+  hide it
+* **Automated:** `VersionRouteTest` — four of its nine cases, including the refusal and the
+  no-git case where there is no commit to hide
 
 ## 5. Out of scope
 

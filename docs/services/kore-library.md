@@ -85,7 +85,8 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` | **built (B-17)** — the three probes and the `/health` alias |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeBlock.kt` | **built (B-23)** — the chart block `--print-config` prints |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/version/BuildIdentity.kt` | **built (B-26)** — the interface the generated object implements, and `describe`, which is where the `-dirty` suffix is decided once |
-| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` | the version route — B-27 |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/VersionRoute.kt` | **built (B-27)** — `/version`, the body a deploy check greps, and the refusal when the reduction switch would reduce nothing |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/version/Release.kt` | **built (B-27)** — the release value the route reports and the agents will be given, plus the two variables kore reads for itself (`RELEASE`, `KORE_VERSION_REDUCED`) |
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | tracy, metrik and katcher in one call, with their three different shutdown contracts |
 | `kore-booblik/` | **not built** — flush-then-close for booblik. Its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md); D5's "JVM only" was withdrawn when `booblik-native` turned up on Central |
 | `kore-build/src/main/kotlin/io/github/youndie/kore/gradle/` | **built (B-26)** — the Gradle plugin that generates the build-identity source. An *included* build, so a consumer of the library gets the plugin without a separate release. The package is `gradle` and not `build`: a Kotlin package with that name is dropped by anything that filters Gradle output by path component, and the symptom is `NO-SOURCE` and a jar with no plugin in it |

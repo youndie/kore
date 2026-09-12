@@ -4,7 +4,9 @@ import io.github.youndie.kore.health.LivenessGate
 import io.github.youndie.kore.health.ReadinessGate
 import io.github.youndie.kore.health.StartupGate
 import io.github.youndie.kore.ktor.EngineDrain
+import io.github.youndie.kore.generated.KoreBuildIdentity
 import io.github.youndie.kore.ktor.installKoreProbes
+import io.github.youndie.kore.ktor.installKoreVersion
 import io.github.youndie.kore.ktor.installShutdownRefusal
 import io.github.youndie.kore.lifecycle.AnnounceNotReady
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
@@ -122,5 +124,10 @@ public fun Application.koreSampleModule(
     // arrived first, and the one thing this must never miss is the first request after the announce.
     installShutdownRefusal(isShuttingDown = { readiness.isShuttingDown })
     installKoreProbes(startup, readiness, liveness)
+
+    // The identity the Gradle plugin compiled in (B-26), served by the route (B-27). The sample sets
+    // no RELEASE, so this reports the compiled `version+commit` — which is what a public deployment
+    // should report, and what the oracle's container can be asked for.
+    installKoreVersion(KoreBuildIdentity)
     workRoutes(resource)
 }
