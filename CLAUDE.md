@@ -66,21 +66,33 @@ The replica is one-way: work done there is reverted, and a diff taken there prov
 |---|---|
 | `compileKotlinJvm` / `LinuxX64` / `LinuxArm64` / `MacosArm64` | **run** — all four produce artefacts, the Apple klib cross-compiles |
 | `jvmTest`, `linuxX64Test` | **run** |
-| `linuxArm64Test`, `macosArm64Test` | **SKIPPED**, inside `BUILD SUCCESSFUL` |
+| `macosArm64Test` | **disabled**, inside `BUILD SUCCESSFUL` — the task exists, the host cannot run it |
+| `linuxArm64Test` | **does not exist**. Kotlin/Native has no `linux_arm64` host, so the plugin never creates the task |
 
-So green means the `linuxArm64` and `macosArm64` code *compiles*, and says nothing about a test
-there. Anything that must hold on those targets needs a test that runs where they run — or it is not
-covered, and the document says so.
+So a green `build` **on one host** means the arm64 code compiles and says nothing about a test there.
+That row used to read "`linuxArm64Test`, `macosArm64Test` — SKIPPED", one word over two different
+states, and the difference matters: one task is disabled and the other was never created, so no
+runner can be told to run it. Since [B-49](docs/backlog/B-49-arm64-suites-never-run.md) CI covers both
+anyway:
+
+- `macos-arm64-suite` runs `macosArm64Test` on `macos-14`, where the target **is** the host;
+- `linux-arm64-suite` takes the `test.kexe` the x86-64 job cross-linked and **executes** it on
+  `ubuntu-24.04-arm`, because linking and running are separable even where the plugin will not do it.
+
+Both fail if nothing ran. Locally, on the Linux box, neither happens — check CI, not your own green
+build, before believing something holds on arm64.
 
 **Read a result file, not a log line.** `BUILD SUCCESSFUL` through a pipe has been wrong in this
 portfolio before; the test-result XML and the artefact's timestamp have not. CI does the same: the
 build job's last step prints every result file with its counts and fails when there are none, because
 a suite that ran zero tests exits zero.
 
-**CI is two jobs — `check` and `build` — and neither covers the other.** `check` is `make check`, the
-documentation gate. `build` is `./gradlew build` for all four targets. Until B-07 there was only the
-first, which meant a pull request that did not compile was green; that is worth remembering the next
-time a gate looks like it covers more than it does.
+**CI is four jobs — `check`, `build`, `macos-arm64-suite` and `linux-arm64-suite` — and none covers
+the others.** `check` is `make check`, the documentation gate. `build` is `./gradlew build` for all
+four targets on x86-64 Linux. The last two are the suites that host cannot run. Until B-07 there was only the first,
+which meant a pull request that did not compile was green; until B-49 the second was read as covering
+four targets when it ran tests on two. Both are worth remembering the next time a gate looks like it
+covers more than it does.
 
 ## The two rules
 
