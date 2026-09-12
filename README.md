@@ -64,23 +64,30 @@ so that the implementation is answerable to something it did not shape.
 ## What it costs
 
 Measured on 2026-09-12, not estimated: `samples/service` as one binary with two arms selected by
-`--kore=true`, alternating, five repetitions per cell plus a warm-up that is discarded and printed as
-discarded. Median (min–max in the write-up).
+`--kore=true`, alternating, fifteen repetitions per cell plus a warm-up that is discarded and printed
+as discarded. Median.
 
 | | time to first `/health` | RSS at ready | stop under load |
 |---|---|---|---|
-| JVM, without kore | 1177 ms | 109 920 kB | 1475 ms |
-| JVM, with kore | 1189 ms (**+1 %**) | 115 680 kB (**+5 %**) | 3503 ms (**+137 %**) |
-| native, without kore | 719 ms | 26 080 kB | 1483 ms |
-| native, with kore | 724 ms (**+1 %**) | 28 000 kB (**+7 %**) | 3483 ms (**+135 %**) |
+| JVM, without kore | 1171 ms | 111 180 kB | 1491 ms |
+| JVM, with kore | 1201 ms (*noise*) | 116 788 kB (**+5 %**) | 3498 ms (**+135 %**) |
+| native, without kore | 727 ms | 25 920 kB | 1523 ms |
+| native, with kore | 717 ms (*noise*) | 27 520 kB (**+6 %**) | 3499 ms (**+130 %**) |
 
-**The third column is not a cost.** In those same runs, of the 40 requests in flight when the signal
-arrived, the arm without kore finished **0 and dropped all 40** — both platforms, every run — and the
-arm with kore finished all 40. The two seconds are what the work costs when it is not thrown away,
-and a reader shown only that column would read the sign backwards.
+**The third column is not a cost.** In those same runs, of every request in flight when the signal
+arrived, the arm without kore finished **none and dropped all of them** — both platforms, all fifteen
+rounds — and the arm with kore finished all of them. The two seconds are what the work costs when it
+is not thrown away, and a reader shown only that column would read the sign backwards.
 
-Startup does not separate from the noise. RSS costs 1.9 MB on native and 5.8 MB on the JVM; both the
-megabytes and the percentage are here because neither decides anything alone.
+**The first column is noise and is printed as noise.** Three runs of this harness put the JVM startup
+difference at +12 ms, −23 ms and +30 ms — the sign flips in both directions, against a within-arm
+spread of 250 ms. An earlier version of this table printed that column as **+1 %**, which read as a
+measured cost and was an artefact of which afternoon the run happened on.
+
+So the only cost that survives more samples is **RSS: +1.6 MB on native, +5.6 MB on the JVM** — a
+band a few hundred kilobytes wide across all three runs, holding its sign while the startup column
+changed sign twice. Both the megabytes and the percentage are here because neither decides anything
+alone.
 
 And the thing the release stage exists for, measured against a real broker: a producer closed and torn
 down in the same breath reads back **1 of 51** records, the same producer through kore's participant

@@ -9,7 +9,19 @@ import java.util.concurrent.TimeUnit
  * signal must land on PID 1 the way a kubelet sends it. Anything the harness could learn by being
  * inside the process is something it would be trusting the subject to tell it.
  */
-class Container(private val image: String, private val subjectArgs: List<String> = emptyList()) {
+class Container(
+    private val image: String,
+    private val subjectArgs: List<String> = emptyList(),
+    /**
+     * The subject's environment.
+     *
+     * Needed since B-50: the kore arm declares a configuration schema with a **required** key, so it
+     * does not start unconfigured — which is the feature, not an obstacle. A harness that could only
+     * pass arguments could not measure a service that reads its configuration the way a deployment
+     * supplies it.
+     */
+    private val env: Map<String, String> = emptyMap(),
+) {
     private var id: String? = null
 
     /** The host port the container's 8080 was published on. */
@@ -38,8 +50,9 @@ class Container(private val image: String, private val subjectArgs: List<String>
             val chosen = 20_000 + kotlin.random.Random.nextInt(10_000)
             val started =
                 runCatching {
+                    val envArgs = env.flatMap { (key, value) -> listOf("-e", "$key=$value") }
                     id = docker(
-                        *(listOf("run", "-d", "-p", "$chosen:8080", image) + subjectArgs).toTypedArray(),
+                        *(listOf("run", "-d", "-p", "$chosen:8080") + envArgs + image + subjectArgs).toTypedArray(),
                     ).trim()
                     port = chosen
                 }
@@ -103,6 +116,14 @@ class Container(private val image: String, private val subjectArgs: List<String>
     }
 
     fun logs(): String = runCatching { docker("logs", requireId()) }.getOrElse { "" }
+
+    /** The container's exit code, or `-1` while it is still running. */
+    fun exitCode(): Int =
+        runCatching { docker("inspect", "-f", "{{.State.ExitCode}}", requireId()).trim().toInt() }.getOrElse { -1 }
+
+    /** Whether it is still up — which is how a refusal is told from a start (B-50). */
+    fun isRunning(): Boolean =
+        runCatching { docker("inspect", "-f", "{{.State.Running}}", requireId()).trim() == "true" }.getOrElse { false }
 
     fun remove() {
         id?.let { runCatching { docker("rm", "-f", it) } }

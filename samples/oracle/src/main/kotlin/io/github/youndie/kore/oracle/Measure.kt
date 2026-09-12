@@ -46,13 +46,14 @@ class MeasureRun(
     private val arm: String,
     private val koreArm: Boolean,
     private val subjectArgs: List<String>,
+    private val subjectEnv: Map<String, String>,
     private val workMillis: Long,
     private val connections: Int,
     private val readTimeoutMillis: Int,
     private val graceMillis: Long,
 ) {
     fun execute(): Measurement {
-        val container = Container(image, subjectArgs)
+        val container = Container(image, subjectArgs, subjectEnv)
         // Before `docker run`, so the number includes the runtime's own start. That overhead is the
         // same for both arms and cancels in the comparison; excluding it would mean timing from a
         // moment neither a kubelet nor a person can observe.
