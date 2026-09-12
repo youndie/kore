@@ -276,5 +276,7 @@ Stated so that a green suite is not read as more than it is:
 - **Whether the dependency checks are the right checks.** The oracle proves the *order*; whether a
   `SELECT 1` is a good proxy for "the database will serve my queries" is a question about the
   dependency, answered by the service that owns it.
-- **The profiler hook**, which has no oracle yet because it has no defined shape — open question 1 of
+- ~~**The profiler hook**~~ — **dropped** ([B-29](../backlog/B-29-profiler-hook.md)), so there is
+  nothing here to have an oracle for. It used to read: has no oracle yet because it has no defined
+  shape — open question 1 of
   research-architecture §3.
