@@ -9,11 +9,18 @@ which commit it was built from.
 native targets are the ones that decide the design, because every fact that makes this library
 necessary is invisible from the JVM.
 
-## Status: documentation, no code
+## Status: the sequence, the probes, the config and `/version` are built
 
-This repository currently holds research, a backlog and the layer documents. Nothing described in
-`docs/features/` exists yet, and every one of those documents says so. What **is** established is
-the research, and it is worth reading before assuming any of this is obvious:
+The ordered shutdown, the three probes, the typed configuration and `/version` exist and are
+exercised on both the JVM and Kotlin/Native. What is **not** built is the observability wiring and
+the booblik participant; the documents that describe them say so, and the backlog says what each
+waits on.
+
+This paragraph used to read *"documentation, no code"*. It was true when it was written and stopped
+being true without anyone editing it — which is the failure mode a README has that a generated index
+does not. Read [backlog.md](backlog.md) for the current count rather than this sentence.
+
+What was established before any of it, and is worth reading before assuming any of this is obvious:
 
 - **Ktor's `EmbeddedServer.stop` runs its steps in the opposite order on JVM and on Kotlin/Native.**
   On JVM it drains the engine and then destroys the application; on Native it destroys the
@@ -53,6 +60,18 @@ The order is the product, and it is asserted twice: by a property test over the 
 an end-to-end run that sends a real `SIGTERM` to a real binary under load. Both are written in
 [docs/research/research-oracle.md](docs/research/research-oracle.md) — **before** the implementation,
 so that the implementation is answerable to something it did not shape.
+
+## What resolves from where
+
+`kore-core`, `kore-ktor` and the Gradle plugin resolve from Maven Central and depend on nothing else.
+
+**`kore-observability` is portfolio-only.** The three agents it wires are not published to Maven
+Central, so that one module resolves against
+[a private repository](https://reposilite.kotlin.website/snapshots) declared with a group filter in
+[settings.gradle.kts](settings.gradle.kts). If you are outside this portfolio you get the ordered
+shutdown, the probes, the configuration schema and `/version`, and you cannot build the one module
+that wires three agents you do not run either. That is a deliberate boundary rather than an oversight
+— the reasoning is [B-37](docs/backlog/B-37-agents-not-on-central.md).
 
 ## Documentation
 

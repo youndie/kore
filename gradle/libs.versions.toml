@@ -37,6 +37,17 @@ coroutines = "1.11.0"
 # a publishing decision and belongs to B-33, where there is something published to be wrong about.
 jvmToolchain = "25"
 
+# THE THREE AGENTS, from the portfolio's own repository (B-37). The versions are the ones the first
+# consumer resolves today, deliberately: kore is adopted BY that service (B-33), and a library that
+# drags its consumer's agents to different versions as a side effect of being adopted is a library
+# that costs more than it says.
+#
+# katcher is TWO version lines that move independently — the client and the server are not released
+# together — so this names the client's line and nothing else.
+tracyAgent = "0.2.15"
+metrikAgent = "0.2.18"
+katcherClient = "0.7.44"
+
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 # The engine, and only the SAMPLE depends on it. kore-ktor takes whatever `EmbeddedServer` it is
@@ -54,6 +65,13 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 # it from a common test source set, which is the check a `-jvm`-suffixed coordinate in a KMP module
 # means somebody skipped.
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+
+# `kore-observability` only. Each is KMP and each is checked to publish the four targets kore
+# declares, because a `-jvm` coordinate silently satisfying a common source set is the shape of bug
+# that only appears for the consumer who is not on the JVM.
+tracy-agent = { module = "io.github.youndie.tracy:agent", version.ref = "tracyAgent" }
+metrik-agent = { module = "io.github.youndie.metrik:agent", version.ref = "metrikAgent" }
+katcher-client = { module = "io.github.youndie.katcher:client", version.ref = "katcherClient" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

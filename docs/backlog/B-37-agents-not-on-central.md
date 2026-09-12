@@ -1,7 +1,7 @@
 ---
 id: B-37
 title: "Decide how a public kore resolves the three agents"
-status: question
+status: done
 priority: P1
 size: S
 stage: m5-wiring
@@ -29,8 +29,42 @@ broken release.
   so kore depends on none of them. Closest to what kore already does for booblik participants
   (D5's surviving half), and it gives up the "one line" the brief asks for.
 
-**Until it is answered, `kore-observability` has no agent dependencies.** The module exists and
-builds; it just does nothing yet.
+## The decision, 2026-09-12
+
+**The portfolio's own repository.** The second choice: `kore-observability` is portfolio-only, the
+repository is declared in kore's build, and that is said where a stranger will meet it rather than
+left to a resolution failure. Publishing three other projects to Maven Central for kore's sake was
+not chosen; neither was inverting the dependency, which would have given up the "one line" the brief
+asks for.
+
+`https://reposilite.kotlin.website/snapshots`, declared in `settings.gradle.kts` **with a group
+filter** — the same declaration and the same filter the first consumer already carries. The filter is
+failure isolation, not speed: an unfiltered repository takes part in resolving every dependency, so
+the day the host is unreachable Gradle disables it and fails artefacts it never served, naming the
+victim instead of the cause.
+
+**The cost is one module, not the library.** `kore-core`, `kore-ktor` and the Gradle plugin resolve
+from Maven Central alone. Someone outside the portfolio gets four of kore's five features and cannot
+build the fifth, which wires three agents they do not run either.
+
+### Verified before it was written down
+
+The agents are KMP, but *being* KMP is not the same as publishing the targets kore declares — and an
+artefact that published only a JVM variant would satisfy a common source set at resolution time and
+fail exactly the platform kore exists for. So the coordinates were resolved rather than assumed:
+
+| | jvm | linuxX64 | linuxArm64 | macosArm64 |
+|---|---|---|---|---|
+| `io.github.youndie.tracy:agent:0.2.15` | ✓ | ✓ | ✓ | ✓ |
+| `io.github.youndie.metrik:agent:0.2.18` | ✓ | ✓ | ✓ | ✓ |
+| `io.github.youndie.katcher:client:0.7.44` | ✓ | ✓ | ✓ | ✓ |
+
+Each with its transitive `shared` module, read out of `:kore-observability:dependencies` rather than
+inferred from a green compile of a module that references none of them yet.
+
+**The versions are the first consumer's.** kore is adopted *by* that service ([B-33](B-33-publish-and-adopt.md)),
+and a library that moves its consumer's agent versions as a side effect of being adopted costs more
+than it says. katcher is two version lines that move independently; this names the client's.
 
 - AC: a decision recorded here; research §1.12 amended; `docs/services/kore-library.md` §4 and §5
   updated; [B-28](B-28-observability-wiring.md) unblocked.

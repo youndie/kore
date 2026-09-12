@@ -448,10 +448,25 @@ resolve for them — not at build time with a clear message, but as a missing ve
 a broken release. So `kore-observability` ships with **no agent dependencies at all** until this is
 decided, rather than with a repository line that works on one machine.
 
-**Consequence 2.** This is not kore's decision to make on its own: the fix is either publishing three
-other projects to Central, or accepting that one kore module is portfolio-only and saying so in the
-README. Both are the owner's call. [B-37](../backlog/B-37-agents-not-on-central.md), and
-[B-28](../backlog/B-28-observability-wiring.md) is blocked on it.
+**Consequence 2, and it has been decided.** This was not kore's decision to make on its own: the fix
+was either publishing three other projects to Central, or accepting that one kore module is
+portfolio-only and saying so. **The owner chose the portfolio's own repository**
+(2026-09-12, [B-37](../backlog/B-37-agents-not-on-central.md)):
+`https://reposilite.kotlin.website/snapshots`, declared in `settings.gradle.kts` with a group filter,
+the same declaration the first consumer already carries.
+
+What that costs is **one module, not the library**. `kore-core` and `kore-ktor` resolve from Maven
+Central alone; only `kore-observability` needs the portfolio repository, so a consumer outside it
+gets the ordered shutdown, the probes, the configuration schema and `/version`, and cannot resolve
+the one module that wires three agents it does not have either. Said in the README and in
+[services/kore-library](../services/kore-library.md) §5 rather than discovered at resolution time.
+
+**Verified on 2026-09-12, for all four targets rather than for the JVM:** `tracy:agent:0.2.15`,
+`metrik:agent:0.2.18` and `katcher:client:0.7.44` resolve with their transitive `shared` modules on
+`jvm`, `linuxX64`, `linuxArm64` and `macosArm64`. That check is the point of this entry rather than a
+formality — an agent that published only a JVM variant would satisfy a common source set at
+resolution time and fail the thing kore is native-first for. [B-28](../backlog/B-28-observability-wiring.md)
+is unblocked.
 
 **Consequence 3 — a rule this cost.** §1.6 read the agents' `build.gradle.kts` and concluded their
 targets were right, which they are. It did not ask whether a stranger could resolve them, which they

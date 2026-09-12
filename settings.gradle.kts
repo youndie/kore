@@ -20,13 +20,25 @@ dependencyResolutionManagement {
 
     repositories {
         mavenCentral()
+
+        // THE PORTFOLIO'S OWN REPOSITORY, for the three observability agents and nothing else.
+        //
+        // B-37 decided this: tracy, metrik and katcher are not on Maven Central and are not being
+        // moved there for kore's sake. The cost is stated rather than hidden — `kore-observability`
+        // is **portfolio-only**, and a consumer outside it cannot resolve that one module. The other
+        // three resolve from Maven Central alone, which is what keeps the cost to one module instead
+        // of the whole library. `docs/services/kore-library.md` §5 says so, and so does the README.
+        //
+        // FILTERED, and the filter is about failure isolation rather than speed. An unfiltered
+        // repository takes part in resolving EVERY dependency, so the day this host is unreachable
+        // Gradle disables it and fails artefacts it never served — naming the victim rather than the
+        // cause. That has cost this portfolio a debugging session already.
+        maven("https://reposilite.kotlin.website/snapshots") {
+            name = "portfolio"
+            content { includeGroupByRegex("io\\.github\\.youndie.*") }
+        }
     }
 }
-
-// ONE repository, and that is a property worth keeping. kore is published for people outside this
-// portfolio to use, so everything it resolves has to be resolvable by them; the three observability
-// agents are NOT on Maven Central today, which is why `kore-observability` below has no dependency
-// on them yet. That is B-37, not an omission.
 
 // The stage machine, the health registry, the configuration schema. No idea what an HTTP server is,
 // which is what lets the property test drive it with no socket anywhere near it.
