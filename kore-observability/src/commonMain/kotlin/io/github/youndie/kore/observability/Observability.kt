@@ -115,14 +115,7 @@ public fun Application.installKoreObservability(
     var agent: TracyAgent? = null
     val delivery =
         settings.tracy?.let { tracy ->
-            val agentConfig =
-                AgentConfig(
-                    service = settings.service,
-                    apiKey = tracy.key,
-                    endpoint = tracy.endpoint,
-                    instanceId = settings.instance,
-                    release = release,
-                )
+            val agentConfig = tracyAgentConfig(settings, tracy, release)
             val built = TracyAgent(agentConfig, clock = clock)
             agent = built
 
@@ -165,3 +158,39 @@ public fun Application.installKoreObservability(
  */
 @OptIn(kotlin.time.ExperimentalTime::class)
 internal fun defaultEpochMillis(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
+
+/**
+ * tracy's configuration, built from kore's settings.
+ *
+ * **Extracted so a test can read the result.** `TracyAgent` keeps its config private, so the only way
+ * to assert that a consumer's `sampleRate` actually reaches the agent is to check the object handed
+ * to it. `internal`, because the shape of tracy's config is not part of kore's API — a consumer that
+ * wants to build one itself already can.
+ */
+internal fun tracyAgentConfig(
+    settings: ObservabilitySettings,
+    tracy: AgentEndpoint,
+    release: String?,
+): AgentConfig {
+    val base =
+        AgentConfig(
+            service = settings.service,
+            apiKey = tracy.key,
+            endpoint = tracy.endpoint,
+            instanceId = settings.instance,
+            release = release,
+        )
+    // NOT `?: 0.01`. Writing tracy's default here would pin whatever it was on the day this was
+    // written, and the argument list is repeated rather than defaulted for exactly that reason: an
+    // unset rate has to reach tracy as "not set", not as kore's copy of its number.
+    val rate = settings.tracySampleRate ?: return base
+    return AgentConfig(
+        service = base.service,
+        apiKey = base.apiKey,
+        endpoint = base.endpoint,
+        instanceId = base.instanceId,
+        runId = base.runId,
+        release = base.release,
+        sampleRate = rate,
+    )
+}
