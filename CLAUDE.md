@@ -68,19 +68,24 @@ The replica is one-way: work done there is reverted, and a diff taken there prov
 | `jvmTest`, `linuxX64Test` | **run** |
 | `linuxArm64Test`, `macosArm64Test` | **SKIPPED**, inside `BUILD SUCCESSFUL` |
 
-So green means the `linuxArm64` and `macosArm64` code *compiles*, and says nothing about a test
-there. Anything that must hold on those targets needs a test that runs where they run — or it is not
-covered, and the document says so.
+So a green `build` **on one host** means the `linuxArm64` and `macosArm64` code compiles and says
+nothing about a test there. That is why CI does not stop at one host: since [B-49](docs/backlog/B-49-arm64-suites-never-run.md)
+the `native-targets` job runs `linuxArm64Test` on `ubuntu-24.04-arm` and `macosArm64Test` on
+`macos-14`, where each target *is* the host, and fails if the named suite produced no results or ran
+zero tests. Locally, on the Linux box, the two are still skipped — check CI, not your own green build,
+before believing something holds on arm64.
 
 **Read a result file, not a log line.** `BUILD SUCCESSFUL` through a pipe has been wrong in this
 portfolio before; the test-result XML and the artefact's timestamp have not. CI does the same: the
 build job's last step prints every result file with its counts and fails when there are none, because
 a suite that ran zero tests exits zero.
 
-**CI is two jobs — `check` and `build` — and neither covers the other.** `check` is `make check`, the
-documentation gate. `build` is `./gradlew build` for all four targets. Until B-07 there was only the
-first, which meant a pull request that did not compile was green; that is worth remembering the next
-time a gate looks like it covers more than it does.
+**CI is three jobs — `check`, `build` and `native-targets` — and none covers the others.** `check` is
+`make check`, the documentation gate. `build` is `./gradlew build` for all four targets on x86-64
+Linux. `native-targets` is the two suites that host cannot run. Until B-07 there was only the first,
+which meant a pull request that did not compile was green; until B-49 the second was read as covering
+four targets when it ran tests on two. Both are worth remembering the next time a gate looks like it
+covers more than it does.
 
 ## The two rules
 
