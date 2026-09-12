@@ -56,31 +56,38 @@ disagree is precisely the case somebody is investigating.
 
 | Service | Code |
 |---|---|
-| kore-library | `kore-build/src/main/kotlin/io/github/youndie/kore/build/` — the Gradle plugin and the generating task |
+| kore-library | `kore-build/src/main/kotlin/io/github/youndie/kore/gradle/` — the Gradle plugin and the generating task |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/version/` — the type the generated object implements |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/VersionRoute.kt` — the route |
 | sample-service | `samples/service/build.gradle.kts` — the plugin applied, on both targets |
 
 ## 4. Scenarios (BDD)
 
-**All *target*** — no implementation, no automated check.
+The build half is implemented; the three scenarios whose **Then** names `GET /version` are *target*
+until [B-27](../backlog/B-27-version-route.md) adds the route, and are checked here against the
+generated value instead.
 
 ### Scenario: the binary reports the commit it was built from
 * **Given:** a build at a known commit with a clean working tree
 * **When:** `GET /version` is called
 * **Then:** the response names that commit
 * **And:** it names a build timestamp
+* **Automated (the generated value):** kore-build `GitFactsTest.a clean repository reports its commit and is not dirty`
 
 ### Scenario: a dirty tree is visible
 * **Given:** a build with uncommitted changes
 * **When:** `GET /version` is called
 * **Then:** the commit is marked as dirty
+* **Automated (the generated value):** kore-build `GitFactsTest.an uncommitted change makes the tree dirty`
 
 ### Scenario: a build without git still produces a binary
 * **Given:** a source tree with no `.git` directory
 * **When:** the project is built
 * **Then:** the build succeeds
 * **And:** `GET /version` reports the commit as `unknown`
+* **Automated:** kore-build `GitFactsTest.a directory that is not a repository reports unknown`, and
+  the two ways git gives no answer at all — not installed, and not answering — which reported an
+  empty commit until a surviving mutation said so
 
 ### Scenario: changing the commit changes the compiled value
 * **Given:** a built binary
@@ -88,6 +95,9 @@ disagree is precisely the case somebody is investigating.
 * **Then:** `GET /version` reports the new commit
 * **And:** this is the scenario that fails when the generated file is a side effect rather than an
   input — rule 5
+* **Automated:** kore-build `CompilationInputTest.a new commit makes the compilation out of date
+  without cleaning`, against a real Kotlin Multiplatform project — the wiring is keyed on that
+  plugin, so a simpler project would assert a branch that never runs
 
 ### Scenario: the same value reaches the agents
 * **Given:** an observability agent is configured and no release override is set
@@ -113,3 +123,15 @@ disagree is precisely the case somebody is investigating.
   different question ("when was this written") than the one asked during a rollout ("is this the
   image CI built twenty minutes ago"). If reproducibility becomes a requirement the timestamp is the
   field to drop, and that is a decision with a name rather than a surprise.
+* **The timestamp is kept when the identity has not otherwise changed, and that is not an
+  optimisation.** This paragraph used to end at reproducibility, which was the cheaper half of the
+  cost. The generator deliberately re-runs on every build, so a wall-clock field changed the
+  generated source on every build — and the generated source is a source of `commonMain`, so every
+  build recompiled commonMain and, on Kotlin/Native, relinked the binary. The date now changes only
+  when the version, the commit or the dirty flag does. What that costs is a tree nobody has committed
+  to since its last build reporting when it was *first* built; such a tree already reports a `-dirty`
+  commit, which says the same thing louder.
+* **`unknown` is what a build from a source archive reports.** The images are built from artefacts
+  Gradle produced outside Docker (`samples/service/Dockerfile` copies them in), so a container build
+  is not one of these cases — but a build from a release tarball, or a CI checkout that fetches no
+  git metadata, is. The value is honest; it is worth knowing which pipelines will show it.

@@ -2,7 +2,12 @@ import org.gradle.api.file.FileCollection
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    // Generates the object /version serves. Applied here because the sample is what proves the
+    // generated file is an INPUT of the compilation rather than something the build wrote first.
+    id("io.github.youndie.kore.build")
 }
+
+version = "0.1.0-sample"
 
 kotlin {
     // NOT `explicitApi()`. The library modules declare their surface deliberately; a sample has no
