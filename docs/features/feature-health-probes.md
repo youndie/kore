@@ -109,7 +109,7 @@ that changing it is an argument rather than a taste.
 |---|---|---|
 | readiness refresh interval | 2 s | half the readiness probe period below, so a probe rarely reads a result older than one period |
 | dependency check timeout | 1 s | shorter than the refresh interval, so a slow check produces a stale result rather than a backlog of overlapping checks |
-| pre-drain wait | 5 s | the floor of research §1.10: readiness `periodSeconds` × `failureThreshold` — 2 × 3 = 6 s of probing in the worst case is already covered by the control plane marking the endpoint `ready: false`, so what remains to cover is rule propagation to every node. Five seconds is the portfolio's first estimate and is **explicitly a hypothesis** until the oracle measures it (research-oracle §4) |
+| pre-drain wait | 5 s | the floor of research §1.10: readiness `periodSeconds` × `failureThreshold` — 2 × 3 = 6 s of probing in the worst case is already covered by the control plane marking the endpoint `ready: false`, so what remains to cover is rule propagation to every node. **Measured on a single-node cluster: 61 ms median** ([B-20](../backlog/B-20-pre-drain-default.md)) — about eighty times under the default, so the number is a *floor*, not a confirmation: one node is the optimistic end of every factor. The default stays because lowering it would trade a measured margin on a small cluster for an unmeasured one on a large one; the cost, five seconds on every pod's shutdown, is deliberate |
 | drain deadline | 15 s | what is left of a 30 s grace period after the pre-drain wait and the release groups, with margin. **Read it as "how long shutdown takes under load", not as a ceiling** — research §1.13 measured CIO spending the whole grace period whenever a keep-alive client is still connected |
 | release deadline, per group | 3 s | three groups, so 9 s worst case |
 
@@ -247,8 +247,15 @@ quietly counting it.
   that points readiness at it gets a probe that cannot fail while the process is alive — which is
   exactly today's behaviour and exactly what this feature exists to stop. The mitigation is the
   printed probe block of §6 rather than a breaking rename.
-* **The pre-drain default is a hypothesis with a number in it.** Five seconds is an estimate of rule
-  propagation, not a measurement. It is written as a default because a library must ship one; it is
-  written as a hypothesis here because the oracle has not run. If the measurement disagrees, the
-  correction goes into research §1.10 at the point of divergence, not into a quiet edit of this
-  table.
+* **The pre-drain default is no longer a hypothesis, and the measurement narrowed rather than
+  confirmed it.** Endpoint propagation was measured at **61 ms median** (44–79 ms, n = 4) on a
+  single-node cluster — [B-20](../backlog/B-20-pre-drain-default.md),
+  [the report](../research/measurements-2026-09-12/endpoint-propagation.md). That is a **floor**: one
+  node is one kube-proxy, one kubelet, no watch fan-out and an unloaded API server, so a real cluster
+  adds to the number and never subtracts. It can refute — propagation above five seconds would have
+  settled that the default is wrong — and it cannot confirm.
+
+  The default stays at five seconds: lowering it would trade a measured margin on a small cluster for
+  an unmeasured one on a large one, which is the wrong direction for a number nobody reads twice. What
+  it costs is now named — five seconds on every pod's shutdown, on every rollout — and what would
+  justify changing it is the same run on a multi-node cluster under load.

@@ -1,7 +1,7 @@
 ---
 id: B-20
 title: "Measure and settle the pre-drain default"
-status: question
+status: done
 priority: P1
 size: S
 stage: m3-probes
@@ -18,7 +18,41 @@ blocked_by: [B-09, B-33]
 > so the measurement cannot be taken until something deploys it. The loop picked this item, found it
 > unmeasurable, and fixed the dependency rather than producing a number from somewhere else.
 
-## Still unmeasurable after B-33, and the blocker was named wrongly — 2026-09-12
+## Measured 2026-09-12 — and the default stays
+
+The owner said to deploy into a test namespace. Done, on a single-node k0s cluster, in a namespace
+created for it and **deleted afterwards** — full report in
+[measurements-2026-09-12/endpoint-propagation.md](../research/measurements-2026-09-12/endpoint-propagation.md).
+
+**Median 61 ms** (44–79 ms, n = 4) from readiness falling to the last request the pod still served
+through its `Service`. Against a five-second default: **about eighty times under it**.
+
+**kore is not in the measurement, and does not need to be.** The quantity belongs to the cluster — any
+pod behind a `Service` whose readiness can be flipped measures the same thing. A stock `nginx:alpine`
+also removed the registry problem: kore's sample image lives on a build box and the cluster has no way
+to pull it, and the portfolio's registry credentials are not this backlog's to handle.
+
+**Both timestamps come from one clock** — the kubelet's probe and the client's traffic land in the
+same access log, so the answer carries no skew between two pods' clocks.
+
+### What it settles, and what it does not
+
+**It is a floor.** One node means one kube-proxy, one kubelet, no watch fan-out, an unloaded API
+server — the optimistic end of every factor, which is the same objection that made a `kind`
+measurement not worth taking. A real cluster adds to this number, never subtracts.
+
+So it can **refute** and cannot **confirm**: propagation above five seconds here would have settled
+that the default is wrong. It is 61 ms.
+
+**The default stays**, and now for a stated reason rather than an estimate: lowering it would trade a
+measured margin on a small cluster for an unmeasured one on a large cluster, which is the wrong
+direction for a number nobody reads twice (Risk 4). What would justify lowering it is the same run on
+a **multi-node cluster under load**.
+
+**And the cost is now named too.** Five seconds is added to every pod's shutdown on every rollout. The
+conservatism is deliberate, not free.
+
+## How it stood before the measurement — 2026-09-12
 
 B-33 is done: kore `0.1.0` is published and adoption is **proposed** as
 [konekt#35](https://github.com/youndie/konekt/issues/35). But this item never needed a *published*
