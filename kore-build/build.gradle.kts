@@ -12,6 +12,7 @@ kotlin {
 
 dependencies {
     testImplementation(kotlin("test"))
+    testImplementation(gradleTestKit())
 }
 
 tasks.named<Test>("test") { useJUnitPlatform() }

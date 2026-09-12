@@ -113,3 +113,57 @@ class GitFactsTest {
         assertTrue(text.startsWith("// GENERATED"), "the file did not say it is generated")
     }
 }
+
+/**
+ * The timestamp rule, tested without Gradle. Its end-to-end consequence — an unchanged identity not
+ * recompiling the project — is [CompilationInputTest].
+ */
+class BuiltAtTest {
+    private val facts = GitFacts("abc123abc123", dirty = false)
+
+    private fun rendered(version: String, facts: GitFacts, builtAt: String) =
+        renderBuildIdentity("p", version, facts, builtAt)
+
+    @Test
+    fun `with no previous file the timestamp is now`() {
+        assertEquals("NOW", builtAtFor(null, "1.0.0", facts, "NOW"))
+    }
+
+    @Test
+    fun `an identical identity keeps the timestamp it had`() {
+        val previous = rendered("1.0.0", facts, "THEN")
+
+        assertEquals("THEN", builtAtFor(previous, "1.0.0", facts, "NOW"))
+    }
+
+    @Test
+    fun `a new commit gets a new timestamp`() {
+        val previous = rendered("1.0.0", facts, "THEN")
+
+        assertEquals("NOW", builtAtFor(previous, "1.0.0", GitFacts("def456def456", dirty = false), "NOW"))
+    }
+
+    /**
+     * Going dirty is a change even though the commit is the same — it is the moment the binary
+     * stopped being the commit it names.
+     */
+    @Test
+    fun `a tree that has gone dirty gets a new timestamp`() {
+        val previous = rendered("1.0.0", facts, "THEN")
+
+        assertEquals("NOW", builtAtFor(previous, "1.0.0", facts.copy(dirty = true), "NOW"))
+    }
+
+    @Test
+    fun `a new version gets a new timestamp`() {
+        val previous = rendered("1.0.0", facts, "THEN")
+
+        assertEquals("NOW", builtAtFor(previous, "2.0.0", facts, "NOW"))
+    }
+
+    /** A file written by an older plugin, or half-written by an interrupted build. */
+    @Test
+    fun `an unreadable previous file falls back to now`() {
+        assertEquals("NOW", builtAtFor("nonsense", "1.0.0", facts, "NOW"))
+    }
+}

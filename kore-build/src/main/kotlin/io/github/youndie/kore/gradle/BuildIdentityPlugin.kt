@@ -43,9 +43,14 @@ class BuildIdentityPlugin : Plugin<Project> {
 
             // ALWAYS regenerates, and that is the point rather than laziness. Declaring `.git/HEAD`
             // as an input would miss an amend, a rebase, or a dirty working tree going clean.
-            // Regenerating costs a few milliseconds writing one small file — and because Gradle
-            // snapshots that file's CONTENT, the Kotlin compilation downstream still stays
-            // UP-TO-DATE when the identity has not actually changed.
+            // Regenerating costs a few milliseconds writing one small file, and because Gradle
+            // snapshots that file's CONTENT rather than its timestamp, the compilation downstream
+            // stays UP-TO-DATE when the identity has not actually changed.
+            //
+            // That last sentence was false when it was first written: `builtAt` was a wall clock, so
+            // the content differed on every build and every build recompiled commonMain and
+            // everything under it. `builtAtFor` is what makes it true — measured by
+            // CompilationInputTest, which failed on exactly this.
             outputs.upToDateWhen { false }
         }
 
@@ -80,13 +85,23 @@ abstract class GenerateBuildIdentity : DefaultTask() {
     fun generate() {
         val facts = readGitFacts(File(projectDirectory.get())) { message -> logger.info(message) }
         val out = outputDirectory.get().asFile
+        val target = File(out, packageName.get().replace('.', '/'))
+        val file = File(target, "KoreBuildIdentity.kt")
+        val previous = file.takeIf { it.isFile }?.readText()
+        val text =
+            renderBuildIdentity(
+                packageName.get(),
+                version.get(),
+                facts,
+                builtAtFor(previous, version.get(), facts, now()),
+            )
+
         out.deleteRecursively()
-        val target = File(out, packageName.get().replace('.', '/')).apply { mkdirs() }
-        File(target, "KoreBuildIdentity.kt")
-            .writeText(renderBuildIdentity(packageName.get(), version.get(), facts, timestamp()))
+        target.mkdirs()
+        file.writeText(text)
     }
 
-    private fun timestamp(): String = java.time.Instant.now().toString().substringBefore('.') + "Z"
+    private fun now(): String = java.time.Instant.now().toString().substringBefore('.') + "Z"
 }
 
 /** What git could be asked about this working tree. */
@@ -143,6 +158,33 @@ fun readGitFacts(
     // `--porcelain` is empty exactly when the tree is clean. An unknown commit cannot be dirty, which
     // is why this is only reached once a commit was found.
     return GitFacts(commit, dirty = !git("status", "--porcelain").isNullOrBlank())
+}
+
+/**
+ * The build date to write: [now] normally, and whatever the previous file said when the identity is
+ * otherwise identical.
+ *
+ * Not an optimisation. The generator deliberately runs on every build, so a wall-clock timestamp
+ * changes the file on every build, and the file is a source of `commonMain` — every build would
+ * recompile commonMain and everything downstream of it, which on Kotlin/Native is the whole binary.
+ * Keeping the timestamp when nothing else moved makes the file a function of the git state, and an
+ * unchanged git state leaves the compilation alone.
+ *
+ * What this costs is honesty about "when": on a tree that has not been committed to since the last
+ * build, `builtAt` is when the identity was *first* built here rather than now. That tree is already
+ * reporting a `-dirty` commit, which says louder than any timestamp that the binary is not a
+ * release. A release build sits on a commit it has not built before, so its timestamp is real.
+ */
+fun builtAtFor(previous: String?, version: String, facts: GitFacts, now: String): String {
+    val existing = previous ?: return now
+    fun field(name: String, type: String) = Regex("""$name: $type = "?([^"
+]+)"?""").find(existing)?.groupValues?.get(1)
+
+    val unchanged =
+        field("version", "String") == version &&
+            field("commit", "String") == facts.commit &&
+            field("dirty", "Boolean") == facts.dirty.toString()
+    return if (unchanged) field("builtAt", "String") ?: now else now
 }
 
 /** The generated file, as text. Separated so a test can read it without running Gradle. */
