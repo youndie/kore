@@ -1,0 +1,132 @@
+package io.github.youndie.kore.observability
+
+import io.github.youndie.kore.config.ConfigKey
+import io.github.youndie.kore.config.ConfigPair
+import io.github.youndie.kore.config.Configuration
+
+/**
+ * The variables the three agents need, declared for a consumer to splice into **its own** schema.
+ *
+ * Not a schema of kore's own, and that is the point. A `ConfigSchema` owns a prefix, and the
+ * unknown-variable refusal is scoped to it — two schemas would mean two scopes and a variable that
+ * is unknown to one and declared by the other. So kore hands over keys and lets the service's single
+ * schema carry them:
+ *
+ * ```kotlin
+ * val schema = ConfigSchema("KONEKT", keys = myKeys + ObservabilityKeys.all, pairs = ObservabilityKeys.pairs)
+ * ```
+ *
+ * **Every one of these is prefixed like everything else** — `KONEKT_RELEASE`, not `RELEASE`. An
+ * unprefixed key would sit outside the typo check by construction, and the check is the feature: a
+ * misspelled `RELEASSE` that nothing reads is exactly the class of mistake this schema exists to
+ * refuse. The cost is one line in a chart that already sets `RELEASE`, paid once at adoption.
+ */
+public object ObservabilityKeys {
+    /**
+     * Validated for shape and nothing else — there is no registration step in any of the three
+     * agents, so a typo does not fail, it creates a phantom service that looks healthy and receives
+     * nothing. `--print-config` prints the value rather than only the fact that it is set, because a
+     * person reading the name is the only thing that catches `konket-server`.
+     */
+    public val SERVICE: ConfigKey<String> = ConfigKey.required("SERVICE")
+
+    /**
+     * Required once any agent is on. Unset, katcher's own default is `Unspecified`, and a crash
+     * group named `Unspecified` is a crash nobody can act on. It is the value `/version` reports —
+     * see `feature-build-identity` rule 4 — and kore does not read it from a second place.
+     */
+    public val RELEASE: ConfigKey<String?> = ConfigKey.optional("RELEASE")
+
+    /**
+     * Defaults to the pod name. Overridable because a chart that sets `HOSTNAME` to something else —
+     * which has happened in this portfolio — otherwise merges two pods into one instance.
+     */
+    public val INSTANCE: ConfigKey<String?> = ConfigKey.optional("INSTANCE")
+
+    /** katcher's own field. Its default is `Dev`, which is wrong everywhere it matters. */
+    public val ENVIRONMENT: ConfigKey<String> = ConfigKey.string("ENVIRONMENT", "prod")
+
+    public val TRACY_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("TRACY_ENDPOINT")
+    public val TRACY_KEY: ConfigKey<String?> = ConfigKey.optional("TRACY_KEY", secret = true)
+    public val METRIK_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("METRIK_ENDPOINT")
+    public val METRIK_KEY: ConfigKey<String?> = ConfigKey.optional("METRIK_KEY", secret = true)
+    public val KATCHER_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("KATCHER_ENDPOINT")
+    public val KATCHER_KEY: ConfigKey<String?> = ConfigKey.optional("KATCHER_KEY", secret = true)
+
+    public val all: List<ConfigKey<*>> =
+        listOf(
+            SERVICE, RELEASE, INSTANCE, ENVIRONMENT,
+            TRACY_ENDPOINT, TRACY_KEY,
+            METRIK_ENDPOINT, METRIK_KEY,
+            KATCHER_ENDPOINT, KATCHER_KEY,
+        )
+
+    /**
+     * Endpoint and key, per agent — rule 1. One without the other is refused at startup, because all
+     * three agents answer a missing value by doing nothing, quietly, in three different ways.
+     */
+    public val pairs: List<ConfigPair> =
+        listOf(
+            ConfigPair("TRACY_ENDPOINT", "TRACY_KEY"),
+            ConfigPair("METRIK_ENDPOINT", "METRIK_KEY"),
+            ConfigPair("KATCHER_ENDPOINT", "KATCHER_KEY"),
+        )
+}
+
+/** An agent that is on: both halves present, because the schema refused the case where one is not. */
+public class AgentEndpoint(public val endpoint: String, public val key: String)
+
+/**
+ * Everything `installKoreObservability` needs, and nothing about *how* it was obtained.
+ *
+ * A separate type from [Configuration] so the wiring can be tested without an environment, and so a
+ * consumer that does not use kore's schema can still use the wiring.
+ */
+public class ObservabilitySettings(
+    public val service: String,
+    /** `null` only when no agent is on; [installKoreObservability] refuses the other combination. */
+    public val release: String?,
+    public val instance: String,
+    public val environment: String = "prod",
+    public val tracy: AgentEndpoint? = null,
+    public val metrik: AgentEndpoint? = null,
+    public val katcher: AgentEndpoint? = null,
+) {
+    public val anyAgentOn: Boolean get() = tracy != null || metrik != null || katcher != null
+
+    public companion object {
+        /**
+         * Reads the settings out of a configuration built with [ObservabilityKeys].
+         *
+         * @param instanceFallback the pod name, which only the host can read — `HOSTNAME` on the JVM
+         *   and a `getenv` on Kotlin/Native. Passed in rather than looked up so this stays free of a
+         *   platform split that would have to exist in both targets for one string.
+         */
+        public fun from(configuration: Configuration, instanceFallback: String): ObservabilitySettings =
+            ObservabilitySettings(
+                service = configuration[ObservabilityKeys.SERVICE],
+                release = configuration[ObservabilityKeys.RELEASE],
+                instance = configuration[ObservabilityKeys.INSTANCE] ?: instanceFallback,
+                environment = configuration[ObservabilityKeys.ENVIRONMENT],
+                tracy = endpointOf(configuration, ObservabilityKeys.TRACY_ENDPOINT, ObservabilityKeys.TRACY_KEY),
+                metrik = endpointOf(configuration, ObservabilityKeys.METRIK_ENDPOINT, ObservabilityKeys.METRIK_KEY),
+                katcher = endpointOf(configuration, ObservabilityKeys.KATCHER_ENDPOINT, ObservabilityKeys.KATCHER_KEY),
+            )
+
+        private fun endpointOf(
+            configuration: Configuration,
+            endpoint: ConfigKey<String?>,
+            key: ConfigKey<String?>,
+        ): AgentEndpoint? {
+            val resolvedEndpoint = configuration[endpoint]
+            val resolvedKey = configuration[key]
+            // Both or neither: the schema's pair rule already refused one without the other, so this
+            // does not re-check it — it reads the case the refusal let through.
+            return if (resolvedEndpoint != null && resolvedKey != null) {
+                AgentEndpoint(resolvedEndpoint, resolvedKey)
+            } else {
+                null
+            }
+        }
+    }
+}
