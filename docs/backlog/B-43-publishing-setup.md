@@ -1,7 +1,7 @@
 ---
 id: B-43
 title: "Make kore publishable: coordinates, version, POM"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m6-release

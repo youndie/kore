@@ -102,7 +102,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[ ]` | Measure and settle the pre-drain default | P1 | S | B-09, B-33 |
 | [B-33](docs/backlog/B-33-publish-and-adopt.md) `[?]` | Publish kore and adopt it in the first consumer | P1 | M | B-13, B-17, B-23, B-28, B-43 |
 | [B-36](docs/backlog/B-36-booblik-adapter-targets.md) `[?]` | Decide kore-booblik's target set — D5's premise is gone | P1 | S | - |
-| [B-43](docs/backlog/B-43-publishing-setup.md) `[ ]` | Make kore publishable: coordinates, version, POM | P1 | S | - |
+| [B-43](docs/backlog/B-43-publishing-setup.md) `[~]` | Make kore publishable: coordinates, version, POM | P1 | S | - |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
