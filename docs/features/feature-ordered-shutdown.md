@@ -163,6 +163,31 @@ plugin. The consequence is written down in
 proposal in [research-upstream-proposals](../research/research-upstream-proposals.md) §3, not
 silently absorbed.
 
+### What a consumer writes
+
+`runUntilSignal` is the three steps that are kore's own — wait, run, release — and the registrations
+are the service's:
+
+```kotlin
+server.start(wait = false)
+startup.markStarted()
+runBlocking {
+    val run = runUntilSignal(deadlines) {
+        announce(AnnounceNotReady(readiness))
+        drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
+        pool(myPool)
+    }
+    println(run.transcript)
+}
+```
+
+kore does **not** own `main` — [B-30](../backlog/B-30-entry-point-question.md), decided on the shape
+of a real service whose entry point runs migrations and composes its own DI before any route exists.
+What it owns is the stretch from the signal to the exit, and each of those three steps is one a
+consumer gets wrong in a way that looks like it works: `start(wait = true)` never reaches the await, a
+missing `releaseProcess()` costs latency nobody attributes to it, and a watch installed before the
+server is serving catches a signal whose sequence has nothing to drain.
+
 ## 4. Code anchors
 
 | Service | Code |

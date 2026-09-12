@@ -1,7 +1,7 @@
 ---
 id: B-46
 title: "Collapse signal-to-sequence into one call"
-status: open
+status: done
 priority: P2
 size: S
 stage: m5-wiring
@@ -42,5 +42,23 @@ forgetting `releaseProcess` — gets a shutdown that looks like it works.
 - AC: the sample's shutdown half is the call plus its registrations and nothing else; the pieces it
   replaces are still public and still used directly by at least one test; the transcript is still
   reachable by a caller that wants it.
-- Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/`,
+- Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/RunUntilSignal.kt`,
   `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/KoreWiring.kt`
+
+## Findings
+
+* **It belongs in `kore-core`, not `kore-ktor`** — the anchors said otherwise and were wrong. The call
+  needs a signal watch and a stage machine and nothing else; `EngineDrain` is a *registration the
+  caller passes*, not a dependency of the call. Putting it in the Ktor module would have made a
+  service with no HTTP server resolve one to get an ordered shutdown.
+* **`suspend`, not blocking.** A library that blocks a thread it was not given is choosing for a
+  process it does not own — and the caller needs `runBlocking` anyway, because on Kotlin/Native `main`
+  does. It is also what keeps the *order* testable: the four calls are driven on a virtual clock,
+  which a `runBlocking` inside would have made impossible.
+* **Verified through the oracle, not only by tests.** The sample is the oracle's subject, so changing
+  its shutdown path is a change to what the oracle measures. A1–A6 pass on both images after the move
+  — `exit 143 after 15.5 s` on the JVM, `exit 0 after 17.5 s` on native.
+* **A mutation that did not compile proved nothing, and said so.** Removing the `awaitSignal` call
+  left `signal` unresolved; the failures printed afterwards were the *previous* mutation's, still in
+  the result files. Re-run with the results deleted first, the honest mutation — running the sequence
+  before awaiting — was killed by `a participant ran before the signal arrived`.
