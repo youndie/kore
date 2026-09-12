@@ -95,6 +95,16 @@ subprojects {
                             password = (findProperty("REPOSILITE_SECRET") as String?).orEmpty()
                         }
                     }
+                    // THE SAME PUBLICATION, WRITTEN WHERE THE JOB CAN LOOK AT IT. The read-back after
+                    // a publish used to loop over five coordinates somebody typed, out of the fifteen
+                    // a four-module KMP build produces — a list that verified whatever it happened to
+                    // name. Publishing here as well lets the check walk what was **actually** produced,
+                    // so a coordinate the build stopped emitting is a coordinate the check stops
+                    // looking up, which is why B-48 also asserts a floor on how many it found.
+                    maven {
+                        name = "localCopy"
+                        url = File(rootDir, "build/published").toURI()
+                    }
                 }
 
                 publications.withType(MavenPublication::class.java).configureEach {

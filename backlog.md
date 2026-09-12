@@ -98,7 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 No open tasks.
 
-## Closed (47)
+## Closed (48)
 
 **Shape**
 
@@ -167,5 +167,6 @@ No open tasks.
 - [B-34](docs/backlog/B-34-the-three-numbers.md) `[x]` - The three numbers, measured as comparisons
 - [B-35](docs/backlog/B-35-draft-gate.md) `[x]` - Turn on the draft gate on the default branch
 - [B-43](docs/backlog/B-43-publishing-setup.md) `[x]` - Make kore publishable: coordinates, version, POM
+- [B-48](docs/backlog/B-48-publish-the-whole-module-set.md) `[x]` - The publish workflow names three modules and the build has four
 
 <!-- END INDEX -->
