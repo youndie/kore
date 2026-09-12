@@ -1,6 +1,11 @@
 rootProject.name = "kore"
 
 pluginManagement {
+    // An INCLUDED BUILD: a plugin cannot be applied by the build that compiles it. The portfolio's
+    // convention plugins use the same shape, and it is what lets `kore-build` be published on its
+    // own later without changing how this build consumes it.
+    includeBuild("kore-build")
+
     repositories {
         gradlePluginPortal()
         mavenCentral()
