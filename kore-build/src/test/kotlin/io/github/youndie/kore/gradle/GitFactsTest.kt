@@ -70,6 +70,33 @@ class GitFactsTest {
         assertTrue(!facts.dirty, "an unknown commit cannot be dirty")
     }
 
+    /**
+     * A git that never answers — an index.lock held by something else, a repository on a filesystem
+     * that has gone away. Without the timeout the build hangs; with it but without a `null`, the
+     * empty output becomes the commit and the binary claims to be built from nothing.
+     */
+    @Test
+    fun `a git that does not answer in time reports unknown`() {
+        val directory = repository()
+        val slow = File(directory, "slow-git").apply {
+            writeText("#!/bin/sh\nsleep 30\n")
+            setExecutable(true)
+        }
+
+        val facts = readGitFacts(directory, executable = slow.absolutePath, timeoutSeconds = 1)
+
+        assertEquals(GitFacts.UNKNOWN, facts.commit)
+    }
+
+    /** The normal state of a build container: no git installed at all. */
+    @Test
+    fun `a missing git reports unknown rather than failing the build`() {
+        val facts = readGitFacts(repository(), executable = "/nonexistent/git")
+
+        assertEquals(GitFacts.UNKNOWN, facts.commit)
+        assertTrue(!facts.dirty)
+    }
+
     @Test
     fun `the rendered file compiles to what a reader expects`() {
         val text =

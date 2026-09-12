@@ -108,13 +108,23 @@ data class GitFacts(val commit: String, val dirty: Boolean) {
  *
  * A top-level function rather than a method so it can be tested against a real temporary repository
  * without standing up a Gradle build — the interesting behaviour is entirely in what git says.
+ *
+ * [executable] and [timeoutSeconds] are parameters because the two ways of *not* getting an answer —
+ * git absent, and git not returning — are branches whose failure is an empty commit string baked
+ * into a binary, and a test cannot provoke either one against the real `git` on the PATH.
  */
-fun readGitFacts(directory: File, log: (String) -> Unit = {}): GitFacts {
+fun readGitFacts(
+    directory: File,
+    executable: String = "git",
+    timeoutSeconds: Long = 10,
+    log: (String) -> Unit = {},
+): GitFacts {
     fun git(vararg args: String): String? =
         try {
             val process =
-                ProcessBuilder(listOf("git") + args).directory(directory).start()
-            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                ProcessBuilder(listOf(executable) + args).directory(directory).start()
+            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                log("git did not answer within ${timeoutSeconds}s; the build identity will say unknown")
                 process.destroyForcibly()
                 null
             } else if (process.exitValue() != 0) {
@@ -123,6 +133,8 @@ fun readGitFacts(directory: File, log: (String) -> Unit = {}): GitFacts {
                 process.inputStream.bufferedReader().readText().trim()
             }
         } catch (absent: Exception) {
+            // Notably when git is not installed at all, which is the normal state of a build
+            // container. Reporting `unknown` is the whole point of catching it.
             log("no git available for the build identity: $absent")
             null
         }
