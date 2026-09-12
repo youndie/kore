@@ -1,5 +1,6 @@
 package io.github.youndie.kore.health
 
+import io.github.youndie.kore.concurrent.KoreDispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -7,6 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -43,10 +45,17 @@ public class HealthRegistry(
     private val remembered = HashMap<String, Remembered>()
     private var loop: Job? = null
 
-    /** Starts the refresh loop. Idempotent; a second call is ignored rather than starting a second loop. */
-    public fun start(scope: CoroutineScope) {
+    /**
+     * Starts the refresh loop. Idempotent; a second call is ignored rather than starting a second loop.
+     *
+     * The loop runs on [KoreDispatchers.checks] and **not** on whatever the caller was on, because a
+     * check can block its thread and the caller is usually holding the one the shutdown sequence
+     * needs (B-38). Pass [context] to put it somewhere else — a test with a virtual clock passes
+     * `EmptyCoroutineContext` to stay on the test dispatcher.
+     */
+    public fun start(scope: CoroutineScope, context: CoroutineContext = KoreDispatchers.checks) {
         if (loop != null) return
-        loop = scope.launch { refreshForever() }
+        loop = scope.launch(context) { refreshForever() }
     }
 
     public fun stop() {
