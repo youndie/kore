@@ -172,14 +172,28 @@ are the service's:
 server.start(wait = false)
 startup.markStarted()
 runBlocking {
-    val run = runUntilSignal(deadlines) {
+    runUntilSignal(
+        deadlines,
+        onFinished = { run -> println(run.transcript) },
+    ) {
         announce(AnnounceNotReady(readiness))
         drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
         pool(myPool)
     }
-    println(run.transcript)
 }
 ```
+
+**The transcript goes in `onFinished`, and this example used to put it after the call — where, on the
+JVM, it does not run.** The watch there is a shutdown hook; `releaseProcess()` is what lets the hook
+thread return, and the JVM then terminates while the main thread is still going. Measured both ways
+on the sample's own JVM image: printed after the call, **0 transcript lines** in `docker logs` across
+runs; printed from `onFinished`, the full seven stages, exit `143`. Reported from the first consumer
+as [#59](https://github.com/youndie/kore/issues/59), which measured the same asymmetry — the release
+stage's effects in every run, the line after the call in none.
+
+Native has no such hook and carries on, so the documented example worked on the platform kore is
+designed for and failed on the other. That is the same shape as research §1.1, which is why this
+library exists — reproduced in its own example, and caught by a consumer rather than by a test.
 
 kore does **not** own `main` — [B-30](../backlog/B-30-entry-point-question.md), decided on the shape
 of a real service whose entry point runs migrations and composes its own DI before any route exists.
