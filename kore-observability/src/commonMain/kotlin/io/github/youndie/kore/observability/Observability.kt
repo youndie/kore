@@ -3,6 +3,7 @@ package io.github.youndie.kore.observability
 import io.github.youndie.katcher.Katcher
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
 import io.github.youndie.metrik.agent.Metrik
+import io.github.youndie.metrik.agent.MetrikConfig
 import io.github.youndie.tracy.agent.AgentConfig
 import io.github.youndie.tracy.agent.Tracy
 import io.github.youndie.tracy.agent.TracyAgent
@@ -127,13 +128,7 @@ public fun Application.installKoreObservability(
         }
 
     settings.metrik?.let { metrik ->
-        install(Metrik) {
-            service = settings.service
-            apiKey = metrik.key
-            endpoint = metrik.endpoint
-            instanceId = settings.instance
-            this.release = release
-        }
+        install(Metrik) { applyKore(settings, metrik, release) }
     }
 
     settings.katcher?.let { katcher ->
@@ -193,4 +188,28 @@ internal fun tracyAgentConfig(
         release = base.release,
         sampleRate = rate,
     )
+}
+
+/**
+ * metrik's plugin configuration, from kore's settings.
+ *
+ * **Extracted so a test can read the result**, the same reason `tracyAgentConfig` is: `install`
+ * hands the configuration to Ktor and there is no way back to it afterwards, so the only way to
+ * assert that a consumer's window actually reaches the agent is to apply the settings to a
+ * configuration the test holds.
+ */
+internal fun MetrikConfig.applyKore(
+    settings: ObservabilitySettings,
+    metrik: AgentEndpoint,
+    release: String?,
+) {
+    service = settings.service
+    apiKey = metrik.key
+    endpoint = metrik.endpoint
+    instanceId = settings.instance
+    this.release = release
+    // ONLY WHEN SET. `?: DEFAULT_WINDOW_MS` here would pin whatever metrik's default is today, and
+    // the point of the knob is that kore has no opinion about a number that belongs to the
+    // deployment's traffic.
+    settings.metrikWindow?.let { windowMs = it.inWholeMilliseconds }
 }

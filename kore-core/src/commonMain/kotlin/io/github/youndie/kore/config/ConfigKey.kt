@@ -74,6 +74,22 @@ public class ConfigKey<T> internal constructor(
         public fun optionalDouble(name: String): ConfigKey<Double?> =
             ConfigKey(name, null, false, false, { it.toDoubleOrNull() ?: fail(name, it, "a number") }, "a number")
 
+        /**
+         * Milliseconds that may be absent — the [optionalDouble] of durations, and there for the same
+         * reason: the caller is kore wiring an agent that already has an opinion, and `null` passes
+         * the question back to it instead of pinning today's default. Added for metrik's aggregation
+         * window ([#68](https://github.com/youndie/kore/issues/68)).
+         */
+        public fun optionalMillis(name: String): ConfigKey<Duration?> =
+            ConfigKey(
+                name,
+                null,
+                false,
+                false,
+                { (it.toLongOrNull() ?: fail(name, it, "a number of milliseconds")).milliseconds },
+                "duration in milliseconds",
+            )
+
         public fun long(name: String, default: Long? = null): ConfigKey<Long> =
             ConfigKey(name, default, default == null, false, { it.toLongOrNull() ?: fail(name, it, "a long") }, "long")
 
