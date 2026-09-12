@@ -21,14 +21,36 @@ public class ShutdownRun(
  * server.start(wait = false)
  * startup.markStarted()
  * runBlocking {
- *     val run = runUntilSignal(deadlines) {
+ *     runUntilSignal(
+ *         deadlines,
+ *         // NOT after the call: on the JVM this function returning means the shutdown hook has
+ *         // returned, and the process is already terminating. See "where the transcript goes".
+ *         onFinished = { run -> println(run.transcript) },
+ *     ) {
  *         announce(AnnounceNotReady(readiness))
  *         drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
  *         pool(myPool)
  *     }
- *     println(run.transcript)
  * }
  * ```
+ *
+ * ## Where the transcript goes, and why not after the call
+ *
+ * The example above used to end with `println(run.transcript)` **after** `runUntilSignal`, and on the
+ * JVM that line does not run. `JvmShutdownSignalWatch` is a shutdown hook whose own KDoc says the
+ * hook thread must not return until the sequence is done, because returning from it is what lets the
+ * JVM exit — so `releaseProcess()` releases the runtime and the main thread then races termination.
+ *
+ * The first consumer measured it over several runs: the release stage's effects (a pool logging its
+ * own shutdown) appeared **every** time, and the line after the call appeared **never**
+ * ([#59](https://github.com/youndie/kore/issues/59)). Native has no such hook and carries on, which
+ * is exactly the asymmetry that makes this easy to miss on the platform kore is designed for — and
+ * exactly the class of defect this library exists to remove, reintroduced in its own documented
+ * example.
+ *
+ * [onFinished] runs inside the window the hook still holds. A callback that throws is reported, but
+ * only after the process has been released: it must not be able to hold a process that was asked to
+ * stop.
  *
  * ## Why this exists and an entry point does not
  *
@@ -60,14 +82,29 @@ public class ShutdownRun(
 public suspend fun runUntilSignal(
     deadlines: ShutdownDeadlines = ShutdownDeadlines(),
     watch: ShutdownSignalWatch = installShutdownSignalWatch(),
+    onFinished: suspend (ShutdownRun) -> Unit = {},
     register: ShutdownPlanBuilder.() -> Unit = {},
 ): ShutdownRun =
     watch.use { installed ->
         val signal = installed.awaitSignal()
         val transcript = shutdownSequence(deadlines, register = register).run()
+        val run = ShutdownRun(signal, transcript)
+
+        // BEFORE the release, and that is the whole reason this parameter exists. On the JVM the
+        // watch is a shutdown hook, and `releaseProcess` is what lets the hook thread return — after
+        // which the runtime is terminating and everything the caller writes below this call is
+        // racing it. Measured from the first consumer: the release stage's effects appeared in every
+        // run and the `println` immediately after `runUntilSignal` appeared in none (#59).
+        val failure = runCatching { onFinished(run) }.exceptionOrNull()
+
         // AFTER the sequence, always — including when a stage overran its deadline, because the
         // transcript records that and the process still has to be allowed to end. Before it would
         // mean racing the runtime against kore's own stages.
         installed.releaseProcess()
-        ShutdownRun(signal, transcript)
+
+        // Rethrown only after the release. A callback that throws must not be able to hold a process
+        // that has been asked to stop — but swallowing it would hide a failure in the one place
+        // nobody is watching, so it is both released and reported.
+        failure?.let { throw it }
+        run
     }

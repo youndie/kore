@@ -87,27 +87,30 @@ public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
     // supply. `runBlocking` stays the caller's too: a library that blocks a thread it was not given is
     // choosing for a process it does not own.
     runBlocking {
-        val run =
-            runUntilSignal(options.deadlines) {
-                announce(AnnounceNotReady(readiness))
-                drain(EngineDrain(server, options.deadlines.drain, options.deadlines.drain + 5.seconds))
-                consumer(consumer)
-                // The same close the control does in `ApplicationStopping` — here, after the drain.
-                // This is the treatment the experiment is testing, not a detail.
-                pool(
-                    object : ShutdownParticipant {
-                        override val name = "fragile resource"
+        runUntilSignal(
+            options.deadlines,
+            // INSIDE, not after. This sample printed the transcript on the line following
+            // `runUntilSignal` and on the JVM that line never ran: the call returning means the
+            // shutdown hook has returned, and the runtime is already terminating (kore#59). Printed
+            // rather than logged through anything clever — the oracle asserts from the client's
+            // record, and this is for a person reading `docker logs` afterwards.
+            onFinished = { run -> println(run.transcript.describe()) },
+        ) {
+            announce(AnnounceNotReady(readiness))
+            drain(EngineDrain(server, options.deadlines.drain, options.deadlines.drain + 5.seconds))
+            consumer(consumer)
+            // The same close the control does in `ApplicationStopping` — here, after the drain.
+            // This is the treatment the experiment is testing, not a detail.
+            pool(
+                object : ShutdownParticipant {
+                    override val name = "fragile resource"
 
-                        override suspend fun stop() {
-                            resource.closed = true
-                        }
-                    },
-                )
-            }
-
-        // Printed rather than logged through anything clever: the oracle asserts from the client's
-        // record, and this is for a person reading `docker logs` afterwards.
-        println(run.transcript.describe())
+                    override suspend fun stop() {
+                        resource.closed = true
+                    }
+                },
+            )
+        }
     }
 }
 

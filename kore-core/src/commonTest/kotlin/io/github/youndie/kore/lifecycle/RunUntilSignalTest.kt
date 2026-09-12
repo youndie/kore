@@ -52,6 +52,60 @@ class RunUntilSignalTest {
     private fun deadlines() =
         ShutdownDeadlines(preDrainWait = 1.milliseconds, drain = 1.milliseconds, releaseGroup = 1.milliseconds)
 
+    /**
+     * The ordering #59 is about. On the JVM `releaseProcess` lets the shutdown hook return and the
+     * runtime terminate, so a consumer's own code has exactly one safe place to run: inside, before
+     * the release. A test that only asserted "onFinished was called" would pass against the
+     * placement that loses the race.
+     */
+    @Test
+    fun `onFinished runs before the process is released`() = runTest {
+        val watch = ScriptedWatch()
+        val stopped = mutableListOf<String>()
+
+        kotlinx.coroutines.coroutineScope {
+            val running =
+                async {
+                    runUntilSignal(
+                        deadlines(),
+                        watch,
+                        onFinished = { watch.calls += "onFinished(${it.transcript.stages.size} stages)" },
+                    ) { pool(Records("pool", stopped)) }
+                }
+            watch.awaited.await()
+            watch.release.complete(Unit)
+            running.await()
+        }
+
+        assertEquals("await", watch.calls[0])
+        assertTrue(watch.calls[1].startsWith("onFinished("), "onFinished did not run before the release: ${watch.calls}")
+        assertTrue(watch.calls[1].contains(" stages)"), "onFinished was handed no transcript: ${watch.calls}")
+        assertEquals(listOf("release", "close"), watch.calls.drop(2))
+    }
+
+    /**
+     * A callback that throws must not be able to hold a process that has been asked to stop — and
+     * must not vanish either, because it failed in the one place nobody is watching.
+     */
+    @Test
+    fun `a failing onFinished still releases the process and is then reported`() = runTest {
+        val watch = ScriptedWatch()
+
+        kotlinx.coroutines.coroutineScope {
+            val running =
+                async {
+                    assertFailsWith<IllegalStateException> {
+                        runUntilSignal(deadlines(), watch, onFinished = { error("the callback failed") }) {}
+                    }
+                }
+            watch.awaited.await()
+            watch.release.complete(Unit)
+            running.await()
+        }
+
+        assertEquals(listOf("await", "release", "close"), watch.calls)
+    }
+
     @Test
     fun `the sequence runs only after the signal arrives`() = runTest {
         val watch = ScriptedWatch()
