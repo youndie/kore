@@ -50,10 +50,10 @@ gate:
 # Non-blocking, on purpose.
 #
 # `bdd_report` counts scenarios; demanding a percentage is meaningless while every scenario is
-# target behaviour. `code_anchors` will never reach zero and must not be gated on: most of what it
-# reports as rotten is an address INSIDE a dependency's artefact, verified by unpacking it rather
-# than by finding a file, and no path search resolves those. Read it anyway — the one address in it
-# that was a real defect named a file nobody had ever written. See B-51.
+# target behaviour. `code_anchors` reports 0 rotten since B-51 — an address inside a dependency's
+# artefact now says so, with the artefact before a `!/`, instead of being counted as rot it could
+# never shed. Still not a gate: a path quoted AS OBSOLETE is indistinguishable by machine from a live
+# one, and what rots lives in other people's repositories.
 report:
 	$(PY) scripts/bdd_report.py --docs $(DOCS) --repos $(REPOS)
 	$(PY) scripts/code_anchors.py --docs $(DOCS) --repos $(REPOS)

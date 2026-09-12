@@ -128,16 +128,19 @@ rather than a formality — and the reason kore installs a refusal of its own.
 
 ### 1.3 On Kotlin/Native the shutdown hook is a single global slot, and it runs inside a POSIX signal handler
 
-Verified against `ktor-server-core-linuxx64-3.5.2-sources.jar`.
+Verified by unpacking `ktor-server-core-linuxx64-3.5.2-sources.jar` — and, for the JVM row,
+`ktor-server-core-jvm-3.5.2-sources.jar`, because a target's sources jar carries `commonMain` plus
+**that target's** source sets and no others. This section used to name only the first, which was
+true of two of its three rows; each address below now carries the artefact it was read out of.
 
 | Fact | Where verified |
 |---|---|
-| `addShutdownHook` is common API with a per-platform actual | `commonMain/io/ktor/server/engine/ShutdownHook.kt` |
-| On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
+| `addShutdownHook` is common API with a per-platform actual | `ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt` |
+| On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
 | The handler is installed with `signal(SIGINT, …)` / `signal(SIGTERM, …)` and a `staticCFunction` that reads that global | same file |
 | `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:48-49` |
-| Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `commonMain/io/ktor/server/engine/ShutdownHook.kt`, `posixMain/.../ShutdownHookNative.kt` |
-| On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
+| Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`, `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
+| On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `ktor-server-core-jvm-3.5.2-sources.jar!/jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
 | On JVM the mechanism can be switched off entirely by the system property `io.ktor.server.engine.ShutdownHook` | same file, `SHUTDOWN_HOOK_ENABLED` |
 
 **Consequence 1.** kore may not deliver its shutdown through `addShutdownHook`. On Native it would
@@ -152,8 +155,7 @@ allocation, locks and the coroutine machinery are all reachable from it. kore's 
 the minimum a signal handler may do — set a flag and wake something — and let an ordinary coroutine
 on an ordinary thread run the sequence. `platform.posix` exposes `sigaction`, `sigemptyset` and
 `sigfillset` on `linux_x64` and `linux_arm64` (verified by dumping
-`klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` from the Kotlin/Native 2.4.10
-distribution).
+`kotlin-native-2.4.10!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix`).
 
 **Amended while implementing (B-08): kore uses `signal()`, not `sigaction()`, and the choice is not
 the interesting one.** `struct sigaction` has a different shape on Linux and on Darwin —
@@ -177,9 +179,9 @@ header be set, and does setting it do what the name suggests.
 
 | Fact | Where verified |
 |---|---|
-| Ktor's unsafe-header list is exactly `Transfer-Encoding` and `Upgrade`, so `Connection` may be appended by ordinary application code | `ktor-http-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/http/HttpHeaders.kt`, `UnsafeHeadersArray` |
-| CIO writes the response headers to the wire verbatim and adds no `Connection` logic of its own | `ktor-server-cio-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationResponse.kt`, `sendResponseMessage` |
-| Whether CIO ends the connection after a response is decided by `isLastHttpRequest(version, connectionOptions)`, where `connectionOptions` is parsed from the **request's** `Connection` header | `commonMain/io/ktor/server/cio/backend/ServerPipeline.kt` |
+| Ktor's unsafe-header list is exactly `Transfer-Encoding` and `Upgrade`, so `Connection` may be appended by ordinary application code | `ktor-http-jvm-3.5.2-sources.jar!/commonMain/io/ktor/http/HttpHeaders.kt`, `UnsafeHeadersArray` |
+| CIO writes the response headers to the wire verbatim and adds no `Connection` logic of its own | `ktor-server-cio-jvm-3.5.2-sources.jar!/commonMain/io/ktor/server/cio/CIOApplicationResponse.kt`, `sendResponseMessage` |
+| Whether CIO ends the connection after a response is decided by `isLastHttpRequest(version, connectionOptions)`, where `connectionOptions` is parsed from the **request's** `Connection` header | `ktor-server-cio-jvm-3.5.2-sources.jar!/commonMain/io/ktor/server/cio/backend/ServerPipeline.kt` |
 
 **Consequence.** The header is emitted and a well-behaved client honours it, but the *server* keeps
 the keep-alive connection in its pipeline loop regardless. The socket goes away when the client
@@ -197,8 +199,8 @@ ability to list what is in the environment, not just to ask for names one at a t
 | Fact | Where verified |
 |---|---|
 | Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | [tracy](https://github.com/youndie/tracy) `server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
-| `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.10 distribution, `klib dump-metadata klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
-| `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `klib/platform/macos_arm64/...posix`; both greps are empty |
+| `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.10 distribution, `klib dump-metadata` against `kotlin-native-2.4.10!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
+| `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `kotlin-native-2.4.10!/klib/platform/macos_arm64/...posix`; both greps are empty |
 | `_NSGetEnviron`, the documented macOS replacement, is not in `platform.posix`, `platform.darwin` or `platform.Foundation` either — reaching it needs a cinterop `.def` of one's own | the same `klib dump-metadata` against those three klibs; all three greps return 0 |
 
 **Consequence 1.** The strict-unknown check is a capability of the **JVM and Linux native** targets.
@@ -379,7 +381,7 @@ The brief names a pool `ping` as the readiness check for the database.
 
 | Fact | Where verified |
 |---|---|
-| `ConnectionPool` declares `poolSize()`, `poolIdleSize()`, `suspend acquire(): Result<Connection>` and `suspend close(): Result<Unit>` — and nothing else | `io.github.smyrgeorge:sqlx4k:1.13.0` sources, `commonMain/io/github/smyrgeorge/sqlx4k/ConnectionPool.kt` |
+| `ConnectionPool` declares `poolSize()`, `poolIdleSize()`, `suspend acquire(): Result<Connection>` and `suspend close(): Result<Unit>` — and nothing else | `io.github.smyrgeorge:sqlx4k:1.13.0!/commonMain/io/github/smyrgeorge/sqlx4k/ConnectionPool.kt` |
 | 1.13.0 is the version the three native services in the portfolio pin | `gradle/libs.versions.toml` of tracy, metrik and katcher |
 
 **Consequence 1.** On the native side the readiness check for a database is *run a trivial statement
@@ -425,7 +427,7 @@ This has bitten the portfolio before and is not re-derived here.
 ### 1.10 What Kubernetes actually does on pod deletion — readiness is not what removes the pod
 
 Verified against the Kubernetes documentation sources
-(`kubernetes/website`, `content/en/docs/concepts/workloads/pods/pod-lifecycle.md` and `probes.md`,
+(`kubernetes/website!/content/en/docs/concepts/workloads/pods/pod-lifecycle.md` and `probes.md` beside it,
 fetched 2026-09-11).
 
 | Fact | Where verified |
