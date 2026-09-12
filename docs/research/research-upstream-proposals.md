@@ -26,7 +26,18 @@ verified against, and what kore does meanwhile.
 
 ---
 
-## 1. Ktor — **not filed, needs a decision first**
+## 1. Ktor — **not filed; the evidence is now in, the permission is not**
+
+Both entries were waiting on two different things. **The evidence arrived**: the negative control
+([B-03](../backlog/B-03-negative-control.md), `measurements-2026-09-11/negative-control.md`) turned
+§1.1 from a reading of the source into a result — same source, same configuration, same load, and on
+Kotlin/Native the idiomatic `ApplicationStopping` subscriber breaks **48 requests with 5xx on every
+one of three runs**, while the JVM breaks none. That is the thing a reporter has to be able to defend.
+
+**The permission has not.** Ktor is somebody else's tracker: an issue costs a maintainer time and
+cannot be quietly withdrawn, and a claim about their design is a public statement made in the
+repository owner's name. So these two stay here until the owner of this repository says to file them.
+See [B-32](../backlog/B-32-file-upstream.md).
 
 ### 1.1 `EmbeddedServer.stop` runs its steps in the opposite order on JVM and on Kotlin/Native
 
@@ -68,9 +79,16 @@ first half plainly, which is a point in its favour and also the reason the secon
 raising separately: the replacement behaviour is documented, the signal-safety is not.
 
 **What kore does meanwhile.** It does not use `addShutdownHook` at all: it installs its own handler
-with `sigaction`, and that handler does nothing but set a flag and wake a parked coroutine
+with `signal()`, and that handler does nothing but set a flag and wake a parked coroutine
 (research D3, and the module reasoning in
 [services/kore-library](../services/kore-library.md) §3).
+
+> **Corrected 2026-09-12 while preparing to file.** This paragraph said `sigaction`. kore used to
+> intend that and does not use it: the `sigaction` struct differs between Linux and Darwin, so B-08
+> switched to ANSI `signal()` with a handler that only sets a flag (research §1.3 carries the
+> correction; `kore-core/src/nativeMain/.../ShutdownSignalWatch.native.kt` is the code). The claim
+> about Ktor is unaffected — but this sentence was one paragraph away from being pasted into
+> somebody else's tracker.
 
 **Open.** Same as §1.1 — ask first. A proposal that the slot become a list would *worsen* kore's
 position rather than improve it, because a co-resident hook calling `stop()` directly reintroduces
@@ -79,7 +97,7 @@ signal stack", not as "there should be more than one".
 
 ---
 
-## 2. metrik — `youndie/metrik`, ready to file
+## 2. metrik — **filed as [youndie/metrik#29](https://github.com/youndie/metrik/issues/29)**, 2026-09-12
 
 **Claim.** `MetrikAgent.stop()` cancels its job and its scope, closes the sender and closes the
 dispatcher, and does not flush the open aggregation window. With the default 60-second window, a
@@ -100,7 +118,7 @@ library that owns the shutdown order can put it where it belongs.
 **What kore does meanwhile.** Nothing it can do from outside; the loss is documented in
 [feature-observability-wiring](../features/feature-observability-wiring.md) §7 rather than absorbed.
 
-## 3. tracy — `youndie/tracy`, ready to file
+## 3. tracy — **filed as [youndie/tracy#32](https://github.com/youndie/tracy/issues/32)**, 2026-09-12
 
 **Claim.** `TracyDelivery.stop(grace)` exists, is correct, and is written for exactly this moment —
 its own comment says the records produced during a shutdown are the least replaceable ones in the
@@ -118,7 +136,7 @@ application, so it can. A correct default beats a correct API nobody calls.
 **What kore does meanwhile.** It holds the delivery and calls `stop` in its telemetry group, with its
 own deadline ([feature-observability-wiring](../features/feature-observability-wiring.md) §3).
 
-## 4. booblik — `youndie/booblik`, ready to file, and it is one line
+## 4. booblik — **filed as [youndie/booblik#68](https://github.com/youndie/booblik/issues/68)**, 2026-09-12, and it is one line
 
 **Claim.** The JVM and Native clients of the same broker disagree about what `Producer.close()`
 does, and the JVM one is the one that loses data.
@@ -146,7 +164,7 @@ disagree ([feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §
 learning that a second implementation existed and asking whether it agreed. One implementation cannot
 tell you it is wrong; two can.
 
-## 5. katcher — `youndie/katcher`, a question rather than a defect
+## 5. katcher — **asked as [youndie/katcher#50](https://github.com/youndie/katcher/issues/50)**, 2026-09-12, a question rather than a defect
 
 **Claim.** `Katcher` is a global object with `start(configure)` and no `stop` and no `flush`. A crash
 report produced during shutdown may not be uploaded before the process exits.
