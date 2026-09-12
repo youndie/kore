@@ -144,7 +144,7 @@ a green build.
 |---|---|---|
 | Library | `io.ktor:ktor-server-core` | the application, the events, `EmbeddedServer` — `kore-ktor` only |
 | Library | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | the stage machine and the health refresh loop |
-| Library | tracy agent, metrik agent, katcher client | `kore-observability` only — **not declared yet**: none of the three is on Maven Central (research §1.12), which is [B-37](../backlog/B-37-agents-not-on-central.md) |
+| Library | `io.github.youndie.tracy:agent` 0.2.15, `io.github.youndie.metrik:agent` 0.2.18, `io.github.youndie.katcher:client` 0.7.44 | `kore-observability` only, and from the **portfolio's own repository** rather than Maven Central (research §1.12, B-37). `implementation`, not `api`: an agent is something kore calls, not something it hands back. The versions are the first consumer's, so adopting kore does not move them |
 | Library | a booblik client | `kore-booblik` only — and there are two of them, one per platform ([B-36](../backlog/B-36-booblik-adapter-targets.md)) |
 | Toolchain | Kotlin 2.4.10 / Kotlin/Native | the platform klibs research §1.3 and §1.5 were read from |
 
@@ -159,8 +159,22 @@ kore is a library. It publishes artefacts; it deploys nothing.
   (research D1). Verified by building them on 2026-09-11: all three native klibs and the JVM jar are
   produced, and the `macosArm64` klib cross-compiles on a Linux host. `kore-booblik`'s targets are
   [B-36](../backlog/B-36-booblik-adapter-targets.md).
-* **Resolvable by whom:** everything kore depends on today is on Maven Central. That is a property
-  worth keeping and it is the whole content of [B-37](../backlog/B-37-agents-not-on-central.md).
+* **Resolvable by whom — three modules by anyone, one by the portfolio.** `kore-core`, `kore-ktor`
+  and the Gradle plugin resolve from Maven Central alone. **`kore-observability` does not**: the three
+  agents it wires are published only to `https://reposilite.kotlin.website/snapshots`, which
+  `settings.gradle.kts` declares with a group filter. A consumer outside this portfolio therefore
+  gets the ordered shutdown, the three probes, the configuration schema and `/version`, and cannot
+  resolve the one module that wires three agents they do not run either.
+
+  Decided in [B-37](../backlog/B-37-agents-not-on-central.md) on 2026-09-12, against the alternative
+  of publishing three other projects to Central for kore's sake. It is said here, in the README and in
+  research §1.12 because the failure it would otherwise produce is a missing version at resolution
+  time, which reads as a broken release rather than as a deliberate boundary.
+
+  The repository is **filtered to `io.github.youndie.*`**, and that is failure isolation rather than
+  speed: an unfiltered repository takes part in resolving every dependency, so the day the host is
+  unreachable Gradle disables it and fails artefacts it never served — naming the victim instead of
+  the cause.
 * **Gradle plugin:** `io.github.youndie.kore` — generates the build identity of
   [feature-build-identity](../features/feature-build-identity.md).
 * **What a consumer deploys** is its own image; what kore contributes to that image is the four

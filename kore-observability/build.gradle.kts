@@ -8,13 +8,22 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":kore-core"))
-            // NO AGENT DEPENDENCIES YET, and the reason is not that the wiring is unwritten.
+
+            // THE THREE AGENTS. B-37 decided where they come from: the portfolio's own repository,
+            // declared and filtered in `settings.gradle.kts`, rather than Maven Central where all
+            // three answer 404.
             //
-            // The tracy, metrik and katcher artefacts are not on Maven Central — checked on
-            // 2026-09-11, all three answer 404 there — and are published only to the portfolio's
-            // own repository. kore is public and meant to be consumed, so adding that repository
-            // here would make the module unbuildable for everyone outside the portfolio, silently,
-            // at resolution time. B-37 is the decision; B-28 is the wiring and is blocked on it.
+            // What that costs is this module and only this module. A consumer outside the portfolio
+            // can use `kore-core` and `kore-ktor` from Maven Central and cannot resolve this one —
+            // stated in the README and in `docs/services/kore-library.md` §5 rather than discovered
+            // at resolution time.
+            //
+            // `implementation`, not `api`: an agent is something kore *calls*, not something it
+            // hands back. A consumer that wants to touch an agent directly depends on it directly,
+            // and then its version is that consumer's choice rather than kore's.
+            implementation(libs.tracy.agent)
+            implementation(libs.metrik.agent)
+            implementation(libs.katcher.client)
         }
     }
 }
