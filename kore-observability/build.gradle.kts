@@ -8,6 +8,10 @@ kotlin {
     sourceSets {
         commonTest.dependencies {
             implementation(libs.ktor.server.test.host)
+            // A REAL socket for one test: tracy's sender speaks HTTP to an endpoint, and an
+            // in-memory test client cannot receive it. The receiver is what proves a flush left the
+            // process rather than that a method was called.
+            implementation(libs.ktor.server.cio)
             implementation(libs.kotlinx.coroutines.test)
         }
 
@@ -31,7 +35,10 @@ kotlin {
             // `implementation`, not `api`: an agent is something kore *calls*, not something it
             // hands back. A consumer that wants to touch an agent directly depends on it directly,
             // and then its version is that consumer's choice rather than kore's.
-            implementation(libs.tracy.agent)
+            // `api` for tracy alone: `KoreObservability.tracy` hands the agent back so a consumer can
+            // build loggers, so tracy is part of this module's surface. The other two are called and
+            // never returned.
+            api(libs.tracy.agent)
             implementation(libs.metrik.agent)
             implementation(libs.katcher.client)
         }

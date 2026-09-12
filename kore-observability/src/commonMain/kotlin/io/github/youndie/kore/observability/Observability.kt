@@ -25,6 +25,18 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  */
 public class KoreObservability internal constructor(
+    /**
+     * The tracy agent, or `null` when tracy is off — **because a service has to be able to log**.
+     *
+     * Handed back rather than hidden: `agent.logger("name")` is how anything gets into tracy at all,
+     * and a wiring call that installed the agent and kept it to itself would leave a consumer with
+     * the plugin's sampled request spans and no way to write a line. That is the same shape as
+     * installing a buffer with nothing to empty it, one level up.
+     *
+     * It makes tracy part of this module's API rather than an implementation detail, which is honest:
+     * `kore-observability` wires three named agents and says so in its name.
+     */
+    public val tracy: TracyAgent?,
     private val tracyDelivery: TracyDelivery?,
     private val flushGrace: Duration,
 ) : ShutdownParticipant {
@@ -87,6 +99,7 @@ public fun Application.installKoreObservability(
             "deploy marker are named after, and katcher's own default for it is \"Unspecified\""
     }
 
+    var agent: TracyAgent? = null
     val delivery =
         settings.tracy?.let { tracy ->
             val agentConfig =
@@ -97,12 +110,13 @@ public fun Application.installKoreObservability(
                     instanceId = settings.instance,
                     release = release,
                 )
-            val agent = TracyAgent(agentConfig, clock = clock)
+            val built = TracyAgent(agentConfig, clock = clock)
+            agent = built
 
             // BOTH, always. The plugin fills a buffer; the delivery is what empties it.
-            val started = TracyDelivery(agent, agentConfig)
+            val started = TracyDelivery(built, agentConfig)
             started.start(this)
-            install(Tracy) { this.agent = agent }
+            install(Tracy) { this.agent = built }
             started
         }
 
@@ -126,7 +140,7 @@ public fun Application.installKoreObservability(
         }
     }
 
-    return KoreObservability(delivery, flushGrace)
+    return KoreObservability(agent, delivery, flushGrace)
 }
 
 /**
