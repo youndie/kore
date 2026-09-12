@@ -31,10 +31,17 @@ ktor = "3.5.2"
 # takes in coroutine types, so they are part of the surface rather than a detail behind it.
 coroutines = "1.11.0"
 
-# WHAT THE JVM HALF COMPILES TO, and it is deliberately the portfolio's number rather than the low
-# floor a library would normally pick. A library published at 25 cannot be consumed below 25;
-# kore's consumers are this portfolio's services, which are on 25 already. Choosing a lower floor is
-# a publishing decision and belongs to B-33, where there is something published to be wrong about.
+# WHAT THE JVM HALF COMPILES TO — **decided in B-43**, and it stays at the portfolio's number.
+#
+# A library published at 25 cannot be consumed below 25, and kore is public, so this is the one line
+# here an outside consumer might need changed. It stays at 25 for a reason that survives being
+# checked: every consumer that exists is a service in this portfolio and they are on 25 already, and
+# **the direction is reversible the way it is written and not the other way round.** Lowering the
+# floor later breaks nobody — a consumer on 25 can use a library compiled for 17. Raising it breaks
+# everyone below. So starting high is the change that can be taken back.
+#
+# Nothing in kore needs 25: it is a choice, not a constraint. If an outside consumer asks, lowering
+# it is a build change and a re-run of the suite, not a redesign.
 jvmToolchain = "25"
 
 # THE THREE AGENTS, from the portfolio's own repository (B-37). The versions are the ones the first

@@ -1,7 +1,7 @@
 ---
 id: B-43
 title: "Make kore publishable: coordinates, version, POM"
-status: open
+status: done
 priority: P1
 size: S
 stage: m6-release
@@ -32,3 +32,39 @@ no `maven-publish` at all** today, so there is nothing to publish even once some
   JVM and on `linuxX64`; the POM names the licence and the project; the JVM floor is decided in
   writing.
 - Anchors: `build.gradle.kts`, `gradle/libs.versions.toml`
+
+## What was decided
+
+**Coordinates:** `io.github.youndie:kore-core`, `-ktor`, `-observability`, each with the four targets
+of research D1 plus the metadata module — 15 artefacts, confirmed in `~/.m2` rather than assumed.
+`samples/*` publishes nothing: a sample is an experiment, and an artefact nothing should resolve is
+one somebody eventually will.
+
+**Version:** `-PVERSION`, the portfolio's existing scheme, defaulting to `0.1.0-SNAPSHOT`. A build
+that forgets the property should produce something obviously unreleased rather than a number that
+looks like a release.
+
+**The JVM floor stays at 25**, and the argument is reversibility rather than preference. Lowering it
+later breaks nobody — a consumer on 25 can use a library compiled for 17 — while raising it breaks
+everyone below. Nothing in kore *needs* 25; it is a choice, so it is written where the choice is.
+
+**kore configures `maven-publish` itself and does not use the portfolio's `sborka.publish`
+convention plugin.** That plugin is fetched in `pluginManagement`, which Gradle evaluates before any
+settings plugin runs — so a build using it could not be *configured* at all without the portfolio's
+repository reachable. [B-37](B-37-agents-not-on-central.md) accepted that cost for one module's
+dependencies; paying it for the whole build would make kore unbuildable for the outsiders it is
+published for. This is the one place kore deliberately diverges from the house style, and the reason
+is the property B-37 was careful to protect.
+
+## Verified through the real path
+
+`publishToMavenLocal`, then a **scratch consumer** in `/tmp` that resolves `kore-core` and
+`kore-ktor` from `mavenLocal()` and *compiles against the API* — `ReadinessGate`, `shutdownSequence`,
+`ConfigKey`, `KoreRoutes` — on `jvm` and `linuxX64`. Both compile tasks executed and produced
+`ConsumerKt.class` and a `linuxX64` klib.
+
+Compiling against it rather than only resolving it is the point: a module that resolves and is never
+compiled against is how a missing metadata variant goes unnoticed until the first native consumer.
+
+**With a control.** Asking for `kore-core:9.9.9-NOPE` fails with *"Could not find"*, and the real
+version then resolves — so the green run is resolution rather than something already on a classpath.

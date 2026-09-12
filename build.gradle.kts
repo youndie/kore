@@ -4,6 +4,18 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
 }
 
+// THE COORDINATES, and the version comes from a property because CI composes it.
+//
+// `-PVERSION=…` is the portfolio's existing scheme. The default is a snapshot rather than a number:
+// a build that forgets the property should produce something obviously unreleased, not `1.0.0`.
+group = "io.github.youndie"
+version = (findProperty("VERSION") as String?) ?: "0.1.0-SNAPSHOT"
+
+subprojects {
+    group = rootProject.group
+    version = rootProject.version
+}
+
 // The target set of research D1, in one place rather than repeated in every module.
 //
 // Named explicitly and never chosen from `os.name`: a build that picks its native target from the
@@ -44,6 +56,46 @@ subprojects {
 
             sourceSets.commonTest.dependencies {
                 implementation(kotlin("test"))
+            }
+        }
+
+        // PUBLISHING, on the library modules only — a sample is an experiment and publishing one
+        // would put an artefact in a repository that nothing should ever resolve.
+        //
+        // Configured here rather than by the portfolio's `sborka.publish` convention plugin, and that
+        // is a deliberate refusal rather than an oversight. That plugin is fetched in
+        // `pluginManagement`, which is evaluated before any settings plugin runs — so a build that
+        // used it could not even be *configured* without the portfolio's repository reachable.
+        // B-37 accepted that cost for one module's dependencies; paying it for the whole build would
+        // make kore unbuildable for the outsiders it is published for.
+        if (path.startsWith(":kore-")) {
+            apply(plugin = "maven-publish")
+            val moduleName = name
+            extensions.configure<PublishingExtension> {
+                publications.withType(MavenPublication::class.java).configureEach {
+                    pom.name.set(moduleName)
+                    pom.description.set(
+                        "kore — ordered shutdown, health probes, typed configuration and build " +
+                            "identity for Kotlin server binaries",
+                    )
+                    pom.url.set("https://github.com/youndie/kore")
+                    pom.licenses {
+                        license {
+                            name.set("MIT")
+                            url.set("https://github.com/youndie/kore/blob/main/LICENSE")
+                        }
+                    }
+                    pom.developers {
+                        developer {
+                            id.set("youndie")
+                            name.set("youndie")
+                        }
+                    }
+                    pom.scm {
+                        url.set("https://github.com/youndie/kore")
+                        connection.set("scm:git:https://github.com/youndie/kore.git")
+                    }
+                }
             }
         }
     }
