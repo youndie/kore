@@ -43,7 +43,13 @@ kotlin {
 // wrapper script. A wrapper script is how a process stops being PID 1 and stops receiving SIGTERM,
 // which is the one thing this sample exists to receive.
 val jvmFatJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("all")
+    // THE NAME IS PINNED, not composed from the version, and that is a bug fix rather than a
+    // simplification. `archiveClassifier` alone produces `service-<version>-all.jar`, so the moment
+    // B-26 gave this project a `version` the artefact was renamed — and `Dockerfile`'s
+    // `COPY build/libs/service-all.jar` went on finding the file from *before* that change, which was
+    // still lying in `build/libs`. The image kept building, from code an hour old, and nothing said
+    // so: a missing file fails a COPY loudly, a stale one does not fail at all.
+    archiveFileName.set("service-all.jar")
     manifest { attributes["Main-Class"] = "io.github.youndie.kore.sample.MainKt" }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 

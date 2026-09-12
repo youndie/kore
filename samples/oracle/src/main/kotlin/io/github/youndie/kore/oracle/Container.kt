@@ -16,10 +16,41 @@ class Container(private val image: String, private val subjectArgs: List<String>
     var port: Int = 0
         private set
 
+    /**
+     * Retries the bind, because the ephemeral port docker picks can already be taken.
+     *
+     * A run that starts containers back to back will eventually be handed a host port still held by
+     * a socket in `TIME_WAIT`, and `docker run` fails with *"address already in use"*. That is the
+     * harness colliding with itself; reading it as a result would be reading the stand instead of the
+     * subject. Retried a few times and then given up on loudly — a retry that hides a real inability
+     * to start would be the same mistake in the other direction.
+     */
     fun start() {
-        id = docker(*(listOf("run", "-d", "-p", "0:8080", image) + subjectArgs).toTypedArray()).trim()
-        val mapping = docker("port", requireId(), "8080").lineSequence().first().trim()
-        port = mapping.substringAfterLast(':').toInt()
+        var lastFailure: Throwable? = null
+        repeat(START_ATTEMPTS) { attempt ->
+            // A port BELOW the ephemeral range, not `-p 0`, and that is the fix rather than the
+            // retry. Asking docker for any free port makes it choose inside
+            // `net.ipv4.ip_local_port_range` (32768–60999 here) — the same range the harness's own
+            // outgoing connections draw their source ports from. Under a run that opens connections
+            // quickly the two collide and `docker run` fails with "address already in use", which
+            // reads like the subject failing to start. Choosing from 20000–30000 takes the harness
+            // out of its own way.
+            val chosen = 20_000 + kotlin.random.Random.nextInt(10_000)
+            val started =
+                runCatching {
+                    id = docker(
+                        *(listOf("run", "-d", "-p", "$chosen:8080", image) + subjectArgs).toTypedArray(),
+                    ).trim()
+                    port = chosen
+                }
+            if (started.isSuccess) return
+            lastFailure = started.exceptionOrNull()
+            // The container may exist even when the port bind failed; it would otherwise be left
+            // behind holding a name and an image reference.
+            remove()
+            Thread.sleep(500L * (attempt + 1))
+        }
+        throw IllegalStateException("could not start $image after $START_ATTEMPTS attempts", lastFailure)
     }
 
     /** `SIGTERM` to PID 1, which is what a kubelet does. */
@@ -47,11 +78,39 @@ class Container(private val image: String, private val subjectArgs: List<String>
     fun pid1(): String =
         docker("inspect", "-f", "{{json .Config.Entrypoint}}", requireId()).trim()
 
+    /**
+     * The container's PID **on the host**, and then its `VmRSS` from the host's own `/proc`.
+     *
+     * Not `docker stats`, which reports the cgroup's memory including page cache — a number that
+     * answers "how much has this container touched" rather than "how much is resident for this
+     * process". And not from inside: the native image is distroless and has nothing to read it with,
+     * so a measurement written that way could not be taken on half the subjects.
+     *
+     * Returns `null` when `/proc` does not have it — a container that has already exited, or a
+     * daemon that is not on this host. A missing number is reported as missing rather than as zero.
+     */
+    fun rssKb(): Long? {
+        val pid = docker("inspect", "-f", "{{.State.Pid}}", requireId()).trim().toIntOrNull() ?: return null
+        val status = java.io.File("/proc/$pid/status")
+        if (!status.isFile) return null
+        return status.readLines()
+            .firstOrNull { it.startsWith("VmRSS:") }
+            ?.substringAfter("VmRSS:")
+            ?.trim()
+            ?.removeSuffix(" kB")
+            ?.trim()
+            ?.toLongOrNull()
+    }
+
     fun logs(): String = runCatching { docker("logs", requireId()) }.getOrElse { "" }
 
     fun remove() {
         id?.let { runCatching { docker("rm", "-f", it) } }
         id = null
+    }
+
+    private companion object {
+        const val START_ATTEMPTS = 5
     }
 
     private fun requireId(): String = id ?: error("the container was not started")
