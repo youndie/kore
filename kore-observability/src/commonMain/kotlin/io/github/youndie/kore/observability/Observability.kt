@@ -150,6 +150,9 @@ public fun Application.installKoreObservability(
             // `release` is non-null here: `anyAgentOn` is true and the refusal above has run.
             this.release = release ?: ""
             environment = settings.environment
+            // Unset, katcher writes beside the working directory — the container's writable layer.
+            // A report that could not be delivered waits there for a next launch the pod may not get.
+            cacheDir = settings.katcherCacheDir
         }
     }
 

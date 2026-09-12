@@ -53,12 +53,23 @@ public object ObservabilityKeys {
     public val KATCHER_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("KATCHER_ENDPOINT")
     public val KATCHER_KEY: ConfigKey<String?> = ConfigKey.optional("KATCHER_KEY", secret = true)
 
+    /**
+     * Where katcher keeps a report it has not delivered yet. Unset, katcher writes `.katcher_cache`
+     * next to the working directory — a path in the container's writable layer, which dies with the
+     * pod. A deployment that wants the crash that killed a binary to survive its restart points this
+     * at a mounted volume.
+     *
+     * Optional because it is only worth setting when there is a volume to set it to, and a service
+     * with none is better off with katcher's default than with a path that is not there.
+     */
+    public val KATCHER_CACHE_DIR: ConfigKey<String?> = ConfigKey.optional("KATCHER_CACHE_DIR")
+
     public val all: List<ConfigKey<*>> =
         listOf(
             SERVICE, RELEASE, INSTANCE, ENVIRONMENT,
             TRACY_ENDPOINT, TRACY_KEY,
             METRIK_ENDPOINT, METRIK_KEY,
-            KATCHER_ENDPOINT, KATCHER_KEY,
+            KATCHER_ENDPOINT, KATCHER_KEY, KATCHER_CACHE_DIR,
         )
 
     /**
@@ -91,6 +102,13 @@ public class ObservabilitySettings(
     public val tracy: AgentEndpoint? = null,
     public val metrik: AgentEndpoint? = null,
     public val katcher: AgentEndpoint? = null,
+    /**
+     * Where katcher keeps an undelivered report — [ObservabilityKeys.KATCHER_CACHE_DIR]. `null`
+     * leaves katcher's own platform default, which for a server binary is the working directory.
+     *
+     * Ignored when katcher is off: there is nothing to store.
+     */
+    public val katcherCacheDir: String? = null,
 ) {
     public val anyAgentOn: Boolean get() = tracy != null || metrik != null || katcher != null
 
@@ -111,6 +129,7 @@ public class ObservabilitySettings(
                 tracy = endpointOf(configuration, ObservabilityKeys.TRACY_ENDPOINT, ObservabilityKeys.TRACY_KEY),
                 metrik = endpointOf(configuration, ObservabilityKeys.METRIK_ENDPOINT, ObservabilityKeys.METRIK_KEY),
                 katcher = endpointOf(configuration, ObservabilityKeys.KATCHER_ENDPOINT, ObservabilityKeys.KATCHER_KEY),
+                katcherCacheDir = configuration[ObservabilityKeys.KATCHER_CACHE_DIR],
             )
 
         private fun endpointOf(

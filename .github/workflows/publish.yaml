@@ -1,0 +1,79 @@
+# Publishing kore to the portfolio's repository.
+#
+# MANUAL, not on every push to the default branch. A version number other builds resolve cannot be
+# taken back, so publishing is a decision somebody makes rather than a side effect of merging — which
+# is the same reason the oracle is not wired into `check`.
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish. Leave empty for 0.1.<run number>."
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The same cache key the check workflow uses: the Kotlin/Native distribution and the platform
+      # klibs of four targets are the expensive half of any build here, and a publish builds all of
+      # them.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      - name: Determine version
+        id: ver
+        run: |
+          v="${{ inputs.version }}"
+          [ -n "$v" ] || v="0.1.${{ github.run_number }}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "publishing $v"
+
+      # THE GATE BEFORE THE BUTTON. A publish that ships a version whose tests were never run is the
+      # one mistake this cannot take back, and `publish` does not depend on `check` having passed.
+      - name: Build and test everything first
+        run: make build GRADLEFLAGS=--no-daemon
+        env:
+          ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
+
+      # The three library modules. `samples/*` publishes nothing — an artefact nothing should resolve
+      # is one somebody eventually will.
+      - name: Publish
+        run: |
+          ./gradlew --no-daemon \
+            :kore-core:publishAllPublicationsToWipRepository \
+            :kore-ktor:publishAllPublicationsToWipRepository \
+            :kore-observability:publishAllPublicationsToWipRepository
+        env:
+          ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
+          ORG_GRADLE_PROJECT_REPOSILITE_USER: ${{ secrets.REPOSILITE_USER }}
+          ORG_GRADLE_PROJECT_REPOSILITE_SECRET: ${{ secrets.REPOSILITE_SECRET }}
+
+      # READ IT BACK. A green publish task is not a published artefact: the repository can accept the
+      # PUT and serve nothing, and the token here is scoped to artifact paths rather than to the
+      # group, so a new coordinate can be refused while its neighbour succeeds.
+      - name: Verify the artefacts are actually served
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          fail=0
+          for m in kore-core kore-ktor kore-observability kore-core-jvm kore-core-linuxx64; do
+            url="https://reposilite.kotlin.website/snapshots/io/github/youndie/$m/$v/$m-$v.pom"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            echo "$code $m"
+            [ "$code" = "200" ] || fail=1
+          done
+          [ "$fail" = 0 ] || { echo "::error::a module was not served after publishing"; exit 1; }

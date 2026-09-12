@@ -1,7 +1,7 @@
 ---
 id: B-33
 title: "Publish kore and adopt it in the first consumer"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m6-release
@@ -22,7 +22,34 @@ Publish `io.github.youndie:kore-*` and replace konekt's hand-written lifecycle w
   therefore still covered only by the sample. That is a stated gap, not an oversight, and the next
   consumer should be one of the native services.
 
-## The question — this item is three decisions, and two of them are not the loop's
+## Done 2026-09-12: published, and adoption proposed rather than performed
+
+**kore `0.1.0` is published** to the portfolio's repository and **verified by reading it back** —
+`kore-core`, `kore-ktor`, `kore-observability` and their per-target variants all answer `200` for
+their POM. A green publish task is not a published artefact: the token here is scoped to artifact
+paths rather than to the group, so a new coordinate can be refused while its neighbour succeeds
+(this portfolio has met that), and the repository can accept a PUT and serve nothing. It did not
+happen — every path was accepted — and it was checked rather than assumed.
+
+`.github/workflows/publish.yaml` is the repeatable route: manual dispatch, `0.1.<run number>` by
+default, `make build` **before** the publish because `publish` does not depend on `check` having
+passed, and the same read-back as a step. It needs `REPOSILITE_USER` and `REPOSILITE_SECRET` as
+repository secrets — youndie/kore has none today, so until somebody adds them the workflow will fail
+loudly at the PUT rather than quietly publish nothing.
+
+**The repository block is registered unconditionally**, even with no credentials, and that is
+deliberate: a sibling in this portfolio guarded its block on the secret being set, the block then
+registered no repository at all, and the publish went green having done nothing.
+
+**Adoption is proposed, not performed** — [youndie/konekt#35](https://github.com/youndie/konekt/issues/35),
+which is what the owner chose. It names what kore replaces, what it closes
+([konekt#30](https://github.com/youndie/konekt/issues/30) and
+[#32](https://github.com/youndie/konekt/issues/32)), what it does **not**
+([#31](https://github.com/youndie/konekt/issues/31), a booblik call konekt makes itself), and the
+two costs a reader would otherwise find out later: every configuration variable gains the schema's
+prefix, and konekt is a JVM service so adopting kore here exercises the half that was never in doubt.
+
+## The question, before it was answered
 
 Picked on 2026-09-12 and stopped immediately, because doing it means three different kinds of act:
 
