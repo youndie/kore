@@ -13,7 +13,7 @@ import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
 import io.github.youndie.kore.lifecycle.ShutdownTranscript
 import io.github.youndie.kore.lifecycle.shutdownSequence
-import io.github.youndie.kore.signal.installShutdownSignalWatch
+import io.github.youndie.kore.lifecycle.runUntilSignal
 import io.ktor.server.application.Application
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
@@ -80,13 +80,13 @@ public fun startKoreSample(options: SampleOptions) {
     server.start(wait = false)
     startup.markStarted()
 
-    val watch = installShutdownSignalWatch()
-
+    // ONE CALL for the stretch kore owns — wait for the signal, run the sequence, let the process go
+    // (B-46). What stays here is the registrations, which are this service's own and which no API can
+    // supply. `runBlocking` stays the caller's too: a library that blocks a thread it was not given is
+    // choosing for a process it does not own.
     runBlocking {
-        watch.awaitSignal()
-
-        val transcript =
-            shutdownSequence(options.deadlines) {
+        val run =
+            runUntilSignal(options.deadlines) {
                 announce(AnnounceNotReady(readiness))
                 drain(EngineDrain(server, options.deadlines.drain, options.deadlines.drain + 5.seconds))
                 consumer(consumer)
@@ -101,12 +101,11 @@ public fun startKoreSample(options: SampleOptions) {
                         }
                     },
                 )
-            }.run()
+            }
 
         // Printed rather than logged through anything clever: the oracle asserts from the client's
-        // record, and this is for a person reading `docs logs` afterwards.
-        println(transcript.describe())
-        watch.releaseProcess()
+        // record, and this is for a person reading `docker logs` afterwards.
+        println(run.transcript.describe())
     }
 }
 

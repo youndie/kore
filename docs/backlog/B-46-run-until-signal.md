@@ -1,7 +1,7 @@
 ---
 id: B-46
 title: "Collapse signal-to-sequence into one call"
-status: open
+status: wip
 priority: P2
 size: S
 stage: m5-wiring
