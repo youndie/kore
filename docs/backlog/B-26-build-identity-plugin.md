@@ -1,7 +1,7 @@
 ---
 id: B-26
 title: "The Gradle plugin that generates the build identity"
-status: open
+status: wip
 priority: P1
 size: M
 stage: m5-wiring
