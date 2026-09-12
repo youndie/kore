@@ -1,0 +1,22 @@
+
+pool is live against the server after 3 attempt(s)
+server stopped cleanly
+pool is live against the server after 4 attempt(s)
+server paused — sockets open, nothing answering
+
+=== clean stop ===
+research §1.9 consequence 1:
+  acquire()  FAILED — SQLError: [Pool] :: Cannot connect to 127.0.0.1/<unresolved>:21947
+  statement  FAILED — SQLError: [Pool] :: Cannot connect to 127.0.0.1/<unresolved>:21947
+
+REFUTED: amend research §1.9 consequence 1 at the point of divergence, and with it rule 6 of feature-health-probes and the double in PooledStoreCheckTest.
+
+
+=== paused — the far end gone silently ===
+research §1.9 consequence 1:
+  acquire()  SUCCEEDED — a connection object came back
+  statement  FAILED — TookTooLong: statement did not answer within 10s
+
+SUPPORTED: a pool hands out a connection whose far end is gone, and only a statement notices. `storeCheck`'s shape and rule 6 stand.
+
+
