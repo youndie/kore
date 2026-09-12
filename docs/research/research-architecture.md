@@ -533,6 +533,60 @@ kore, and the number has to be a decision rather than an accident. That decision
 the core count and meant for work that does not block; a dependency check that blocks one of its
 threads takes a fraction of the process's whole compute capacity with it.
 
+
+### 1.15 Neither booblik client reconnects, the first consumer had to do it itself, and nothing detects it
+
+Written while doing [B-19](../backlog/B-19-broker-check.md), which existed to build a broker check and
+whose stated justification turned out to cite this document for something this document never said.
+The claim — "a broker pod replaced, the client dialling nothing again, `EOFException` at five a
+second" — was attributed to §1.8's neighbourhood. It is not there. It was checked against the source
+instead, and it is **half right in a way worth writing down properly**.
+
+| Fact | Where verified |
+|---|---|
+| The JVM client dials **once**, in a property initializer, and does not keep the address — so re-dialling is not expressible from inside the object | `booblik/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/BooblikConnection.kt:50-57` |
+| Its failure path is terminal: `fail()` closes the outbound channel, fails every pending request with `ConnectionClosedException`, closes the socket, and has no path back to a new one | same file, `:173-183` |
+| The **native** client has the same shape — `Socket.connect(address)` in an initializer | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Connection.kt:30-33` |
+| There is no `reconnect`, `backoff` or `retry` anywhere in either client's production source | searched across `booblik-client`, `booblik-native`, `booblik-net`, `booblik-protocol`: no hits outside a comment and two lines of doc prose |
+| A peer close surfaces as `EOFException("broker closed the connection")`, caught only to fan the failure out to waiting callers | `booblik-client/.../ResponseReader.kt:116`, raised on the reader coroutine at `BooblikConnection.kt:97-108` |
+| `Consumer.poll()` does not catch it — the exception leaves the client, so the rate is whatever loop the caller wrote | `booblik-client/.../Consumer.kt:89-97`; the native `records()` is an unguarded `while (true)` at `booblik-native/.../Consumer.kt:135-140` |
+| In the first consumer that loop delays 200 ms, which is where "five a second" comes from | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/events/UsageConsumer.kt:55`, `:97` |
+
+**The half that is wrong, and it matters.** The first consumer **has already fixed this**, as its
+own item `B-107`. `BrokerConnection` is no longer a socket held forever: it holds a generation and a
+`reconnect(seen: Int)` guarded by it, so two callers finding the same dead socket replace it once,
+and the consumer rebuilds at its saved position.
+
+| Fact | Where verified |
+|---|---|
+| `reconnect(seen: Int): Int`, synchronized and generation-guarded | konekt `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:77-92` |
+| The consumer reconnects and resumes at its own position rather than from the beginning | konekt `UsageConsumer.kt:105-120` |
+| It is tested — replacement is idempotent, the consumer resumes, the outbox recovers | konekt `server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt` |
+
+So kore must not describe a permanent wedge in the present tense: the consumer heals. What remains
+true is that **the healing is the consumer's own code, because the client offers none** — every
+service that talks to booblik writes a generation-guarded reconnect or does without one — and that
+the recovery costs a poll interval plus however long the new pod takes to accept.
+
+**Consequence — the detection half is still missing, and that is what kore's check is for.** Nothing
+in the first consumer reports broker health: `/health` answers a static string that never touches the
+broker (konekt `server/src/main/kotlin/io/konekt/Application.kt:185-189`, and see §1.11 for the same
+route serving all three probes). A connect-shaped check would not have helped either, which is the
+point of [feature-health-probes](../features/feature-health-probes.md) §3: a socket answers the
+kernel. `metadata` is the request that asks the broker, it exists on every client, and the first
+consumer already calls it for a different purpose.
+
+| Fact | Where verified |
+|---|---|
+| `public suspend fun metadata(topics: List<TopicName> = emptyList()): MetadataResult` | `booblik-client/.../BooblikConnection.kt:128` |
+| The native client has the blocking equivalent | `booblik-native/.../Connection.kt:75` |
+| A named topic that does not exist fails the whole request with `UNKNOWN_TOPIC_OR_PARTITION` — so naming a real topic is the check, not a decoration | the protocol's metadata response; konekt already calls it at `UsageConsumer.kt:151-159` |
+
+**Consequence — a claim's citation is part of the claim.** Two documents in this repository justified
+a design decision by pointing at a section that did not contain the finding. The decision survived
+verification; the reasoning behind it was improved by it, and one half of it was wrong. That is the
+argument for the verification-address column, applied to this repository's own prose.
+
 ---
 
 ## 2. Decisions

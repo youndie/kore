@@ -75,8 +75,16 @@ adapters in the box:
 
 * **a pooled store** — run a trivial statement, bounded. Not `acquire()` (rule 6);
 * **a message broker** — ask for metadata on a topic the service actually uses, bounded. Not "the
-  socket is open": research §1.8's neighbour finding is that a broker pod being replaced leaves a
-  client dialling nothing while every object involved still looks alive.
+  socket is open", which answers the kernel: it cannot tell a broker that has finished starting from
+  one that has not, one that knows this topic from one that does not, or a session still usable by
+  this client from one the peer has closed. Research §1.15 has the verified version — neither booblik
+  client reconnects, so a replaced broker pod is survived by the *consumer's* own code and detected by
+  nobody.
+
+  > This paragraph used to cite "research §1.8's neighbour finding" for a client left dialling
+  > nothing forever. §1.8 contains no such finding, and the behaviour it described had already been
+  > fixed in the first consumer. The design survived being checked; the reason for it did not, and
+  > §1.15 replaces it.
 
 A check that has never run is not healthy. The registry's initial state is "unknown", which readiness
 reports as `503` — so a process that came up before its first refresh does not get a free `200`.
@@ -106,9 +114,10 @@ grace period too.
 | Service | Code |
 |---|---|
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/` — the registry, the cached result, the refresh loop |
-| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/Check.kt` — the contract |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/HealthCheck.kt` — the contract, and `HealthStatus.UNKNOWN` as a first-class answer |
+| kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/PooledStoreCheck.kt`, `BrokerCheck.kt` — the two shapes kore ships, neither of them a driver dependency |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` — the three routes and the alias |
-| sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/Main.kt` — one real check |
+| sample-service | **no real check yet** — the sample registers none, which is [B-40](../backlog/B-40-sample-pooled-store.md). This row used to name `samples/.../commonMain/.../Main.kt` for "one real check": that file is not in `commonMain`, and the check was never there |
 
 ## 6. The probe block a chart should carry
 
@@ -138,7 +147,7 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 
 ## 7. Scenarios (BDD)
 
-**All seven are automated (six as of B-18, the seventh with B-41).** The last one runs against a double that reproduces the
+**All eight are automated (six as of B-18, then B-41 and B-19).** The last one runs against a double that reproduces the
 documented failure rather than a real driver — that distinction is on the scenario itself, and a real
 store in the sample is [B-40](../backlog/B-40-sample-pooled-store.md). A scenario gains its line when a test covers **all** of
 it; where a clause is a consequence rather than a second observable, the scenario says so instead of
@@ -199,6 +208,18 @@ quietly counting it.
   difference, and is asserted in the same test
 * **Automated:** `PooledStoreCheckTest` — against a double that reproduces the documented failure, not
   a real driver; a real store is [B-40](../backlog/B-40-sample-pooled-store.md)
+
+### Scenario: a broker whose peer has closed is not healthy
+* **Given:** a broker client whose connection the peer has closed, and which cannot re-dial
+* **When:** the readiness check runs
+* **Then:** it fails, because it asked the broker for metadata on a topic the service uses
+* **And:** the same client, in the same state, passes a connect-shaped check — which is the whole
+  difference, and is asserted in the same test
+* **And:** a topic the broker does not know fails the check too, so naming a real topic is the check
+  rather than a decoration
+* **Automated:** `BrokerCheckTest` — against a double whose every behaviour has an address in research
+  §1.15, not a real client; kore takes no broker-client dependency, and for booblik there are two
+  with different APIs ([B-36](../backlog/B-36-booblik-adapter-targets.md))
 
 ## 8. Out of scope
 
