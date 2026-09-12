@@ -2,7 +2,7 @@
 id: feature-ordered-shutdown
 title: Ordered shutdown
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - kore-library
@@ -15,9 +15,14 @@ tags: [lifecycle, sigterm, drain]
 
 # Ordered shutdown
 
-> **`status: draft`** — designed, not built. The facts it rests on are verified and sourced in
-> [research-architecture](../research/research-architecture.md) §1.1–§1.4 and §1.8–§1.10; the
-> behaviour below is not yet observable anywhere.
+> **Built.** The stage machine, the drain and the three release groups exist and are exercised on the
+> JVM and on Kotlin/Native, and the ordering is asserted twice — by the property tests over the
+> machine and by a `SIGTERM` sent to a real binary under load. The facts it rests on are verified and
+> sourced in [research-architecture](../research/research-architecture.md) §1.1–§1.4 and §1.8–§1.10.
+>
+> **One scenario in §5 is still *target*** and says so where it stands: kore's own booblik
+> participant does not exist ([B-15](../backlog/B-15-booblik-adapter.md)). The machine orders
+> consumers before pools today; what is missing is the adapter, not the order.
 
 ## 1. Overview
 
@@ -204,6 +209,10 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **Then:** that participant's group ends at its own deadline
 * **And:** the remaining groups still run
 * **And:** the process still exits inside the grace period
+* **Automated:** `ShutdownSequenceTest.property 3 - a participant over its deadline does not extend
+  the stage`, and `property 5 holds even when a participant ignores cancellation` for the harder
+  case — a participant that cannot be cancelled at all. The last clause is the oracle's: `negative
+  control` measures the exit, because a unit test with a virtual clock cannot observe a process
 
 ### Scenario: a dependency check blocking a thread does not delay the sequence
 * **Given:** a health check that occupies its thread without suspending, and a shutdown sequence
@@ -219,6 +228,9 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **When:** the sequence reaches the release stage
 * **Then:** the failure is recorded
 * **And:** the telemetry group still runs and the process still exits `0`
+* **Automated:** `ShutdownSequenceTest.property 4 - a participant that throws does not stop the
+  sequence`, and `a stage records every failure and not only the first` — because "the failure is
+  recorded" is a weaker claim than what the machine promises
 
 ### Scenario: a JVM producer's accumulated records are flushed before it is closed
 * **Given:** a JVM booblik producer holding records inside its linger window — the client whose
@@ -226,6 +238,11 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **When:** the sequence reaches the release stage
 * **Then:** those records are sent before `close()` is called
 * **And:** no record is completed with `ConnectionClosedException` as a result of the shutdown
+* ***Target*** — and the only one left in this document. kore's stage machine already orders
+  consumers before pools and a service can register a flushing participant today; what does not exist
+  is **kore's own booblik participant**, which is [B-15](../backlog/B-15-booblik-adapter.md), blocked
+  on [B-36](../backlog/B-36-booblik-adapter-targets.md). Until then the flush is the consumer's code
+  and this scenario describes an adapter rather than the machine
 
 ### Scenario: two signals run the sequence once
 * **Given:** the sequence has begun

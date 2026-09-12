@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -35,6 +36,13 @@ class TracyFlushTest {
         /** One write, one read, from different threads. A count would need an atomic; this does not. */
         @Volatile
         var sawRequest: Boolean = false
+
+        /** What tracy said this binary is. The release travels as a header, not in the batch. */
+        @Volatile
+        var release: String? = null
+
+        @Volatile
+        var service: String? = null
     }
 
     @Test
@@ -46,6 +54,8 @@ class TracyFlushTest {
                     routing {
                         // tracy chooses the path; this takes whatever it posts to.
                         post("/{...}") {
+                            receiver.release = call.request.headers["X-Tracy-Release"]
+                            receiver.service = call.request.headers["X-Tracy-Service"]
                             receiver.sawRequest = true
                             call.respondText("ok")
                         }
@@ -89,5 +99,16 @@ class TracyFlushTest {
             receiver.sawRequest,
             "the record never left the process: tracy's delivery either was not installed or was not stopped",
         )
+
+        // `feature-build-identity` rule 4: the release an agent is given is the one `/version`
+        // reports. This half asserts what tracy actually received on the wire; the other half —
+        // that `/version` serves the same string — is `VersionRouteTest`. Neither alone closes it,
+        // and the value only has one owner because `releaseOf` is the only thing that makes one.
+        assertEquals(
+            "1.4.0+abc123",
+            receiver.release,
+            "the agent was given a different release from the one /version reports",
+        )
+        assertEquals("orders", receiver.service, "the agent was given a different service name")
     }
 }

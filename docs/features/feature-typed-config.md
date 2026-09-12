@@ -2,7 +2,7 @@
 id: feature-typed-config
 title: Typed configuration from the environment
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - kore-library
@@ -14,9 +14,11 @@ tags: [configuration, environment, startup]
 
 # Typed configuration from the environment
 
-> **`status: draft`** — designed, not built. The platform facts it rests on are verified and sourced
-> in [research-architecture](../research/research-architecture.md) §1.5; the baseline it generalises
-> is §1.11.
+> **Built.** The schema, the typed keys, the unknown-variable refusal and `--print-config` exist, and
+> all nine scenarios are automated — including the environment enumeration on Kotlin/Native, which is
+> checked against a second implementation rather than against itself. The platform facts it rests on
+> are verified and sourced in [research-architecture](../research/research-architecture.md) §1.5; the
+> baseline it generalises is §1.11.
 
 ## 1. Overview
 

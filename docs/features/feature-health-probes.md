@@ -2,7 +2,7 @@
 id: feature-health-probes
 title: Three probes that answer three questions
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - kore-library
@@ -15,9 +15,11 @@ tags: [kubernetes, probes, readiness]
 
 # Three probes that answer three questions
 
-> **`status: draft`** — designed, not built. The Kubernetes behaviour it is built on is verified and
-> sourced in [research-architecture](../research/research-architecture.md) §1.10; the baseline it
-> improves on is §1.11.
+> **Built.** Three routes, three questions, a cached result refreshed by a background loop, and the
+> two check shapes kore ships. All eight scenarios are automated on both platforms. The Kubernetes
+> behaviour it is built on is verified and sourced in
+> [research-architecture](../research/research-architecture.md) §1.10; the baseline it improves on is
+> §1.11.
 
 ## 1. Overview
 

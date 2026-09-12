@@ -2,19 +2,19 @@
 id: endpoint-kore-admin
 title: The routes kore mounts
 type: api_endpoints
-status: draft
+status: active
 services:
   - kore-library
   - sample-service
 contract_source:
-  - "kore:kore-ktor ProbeResponse"
-  - "kore:kore-ktor VersionResponse"
+  - "kore:kore-ktor ProbeRoutes.kt"
+  - "kore:kore-ktor VersionRoute.kt"
 parent_feature: feature-health-probes
 ---
 
 # API: the routes kore mounts
 
-> **Not built yet** — `status: draft`. This is the contract kore will serve, decided in
+> **Not built yet** — `status: active`. This is the contract kore will serve, decided in
 > [research-architecture](../research/research-architecture.md) D4 and D7. When the routes exist the
 > status changes and every line below is re-read against the handler.
 

@@ -63,8 +63,8 @@ disagree is precisely the case somebody is investigating.
 
 ## 4. Scenarios (BDD)
 
-All but the last are automated. The last needs the agents, which is
-[B-28](../backlog/B-28-observability-wiring.md).
+All six are automated as of [B-28](../backlog/B-28-observability-wiring.md), which made the last one
+checkable: until the agents were wired there was nothing to observe receiving a release.
 
 ### Scenario: the binary reports the commit it was built from
 * **Given:** a build at a known commit with a clean working tree
@@ -106,6 +106,10 @@ All but the last are automated. The last needs the agents, which is
 * **Given:** an observability agent is configured and no release override is set
 * **When:** the process starts
 * **Then:** the release the agents are given is the one `GET /version` reports
+* **Automated:** in two halves, because no single test can see both ends. `TracyFlushTest` asserts
+  what tracy **actually received on the wire** — `X-Tracy-Release` — and `VersionRouteTest` asserts
+  what `/version` serves. The value has one owner, `releaseOf`, which is what makes the two the same
+  string rather than two strings that happen to match
 
 ### Scenario: the reduction switch reduces the body and never removes the route
 * **Given:** a deployment that does not want to publish its commit, with a `RELEASE` of its own
