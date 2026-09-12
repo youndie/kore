@@ -211,13 +211,18 @@ LOCAL=1 make check
 
 `make check` is the gate and CI runs exactly it — on a GitHub runner, where no hook and no `LOCAL=1`
 are involved; the prefix above is only for running it here, beside a mutagen session. `make report`
-is the two non-blocking reports, and **`code_anchors` has no zero to reach** — the sentence that used
-to promise a gate once it did was wrong twice over. It first said the rotten paths were *where the
-code will live*; the code arrived and the count did not move. It is now 14, of which **13 are inside a
-dependency's artefact** — Ktor's sources in a klib, sqlx4k's, the platform klibs, the Kubernetes
-website — verified by unpacking that artefact, which is what research §1 is, and unresolvable by any
-search over sibling repositories. The 14th was a layer-document row naming a file that had never
-existed, which is the kind of thing this report is genuinely for and the reason to keep reading one
-nothing gates on. Making the number mean something needs the checker to tell an artefact-internal
-address from a path, and the checker is a byte-identical copy of docs-bootstrap's — so that change
-belongs there: [B-51](docs/backlog/B-51-anchors-inside-artefacts.md).
+is the two non-blocking reports. **`code_anchors` reports 0 rotten** as of B-51, and getting there
+took changing what the question was rather than fixing paths: thirteen of the fourteen were addresses
+*inside a dependency's artefact* — Ktor's sources in a jar, sqlx4k's, the Kotlin/Native platform
+klibs, the Kubernetes website — verified by unpacking, and unresolvable by any search over sibling
+repositories. They now carry the artefact before a `!/` and are reported as what they are
+([docs-bootstrap SPEC §4.1](https://github.com/youndie/docs-bootstrap/blob/main/SPEC.md)). The
+fourteenth was a layer-document row naming a file that had never existed, and it is the reason to
+keep reading a report nothing gates on.
+
+Two sentences about this report have been wrong before, in opposite directions: *"they are where the
+code will live"* (the code arrived and the count did not move) and *"it becomes a gate when it reaches
+zero"* (nothing could reach it). It is **still not a gate**, now for the remaining reason rather than
+the arithmetic one: a path quoted *as obsolete* is indistinguishable by machine from a live one, and
+the paths that do rot are in other people's repositories, so a red build here is one nobody in this
+repository caused.

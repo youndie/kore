@@ -1,7 +1,7 @@
 ---
 id: B-51
 title: "An address inside an artefact is not a rotten anchor"
-status: question
+status: done
 priority: P3
 size: S
 stage: m6-release
@@ -50,6 +50,47 @@ is how the inconsistency was noticed. But it works by deleting `io/ktor/server/e
 whose whole value is precision, to satisfy a checker. Gaming a report is worse than a report with a
 known floor.
 
+## Done — 2026-09-12
+
+Changed **in docs-bootstrap** ([#7](https://github.com/youndie/docs-bootstrap/pull/7)) and copied
+here; the five scripts are byte-identical again. An address inside an artefact carries the artefact
+before a `!/` and is reported in its own section, never as rot:
+
+```
+Anchors: 114 - found 80, not found 0, inside artefacts 15, skipped 19
+Every anchor resolves
+```
+
+**The escape hatch is narrow on purpose.** The left side must name something fetchable — a versioned
+file, a Maven coordinate, or `owner/repo` — or the address is reported *missing*, saying why.
+Otherwise "put a `!` in it" becomes the way to silence any anchor that really has rotted. All three
+branches were exercised before the change was believed: a valid address, `Ktor!/…` refused by name,
+and a placeholder skipped as a pattern.
+
+### Rewriting the addresses found a claim the document could not support
+
+§1.3 opened with *"Verified against `ktor-server-core-linuxx64-3.5.2-sources.jar`"* and then cited
+`jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt`. A target's sources jar carries `commonMain` plus
+**that target's** source sets, so the named artefact cannot contain a `jvmMain` file. Unpacked both
+to check rather than guessing:
+
+| Artefact | Holds |
+|---|---|
+| `ktor-server-core-linuxx64-3.5.2-sources.jar` | `commonMain/…/ShutdownHook.kt`, `posixMain/…/ShutdownHookNative.kt` |
+| `ktor-server-core-jvm-3.5.2-sources.jar` | `commonMain/…/ShutdownHook.kt`, `jvmMain/…/ShutdownHookJvm.kt` |
+
+The facts were right and the attribution was not — which is the point of making an address name its
+own artefact instead of inheriting one from a sentence above the table.
+
+### Still not a gate
+
+Zero is reachable now, and the two sentences this repository has had about that were wrong in
+opposite directions — *"they are where the code will live"*, then *"it has no zero to reach"*. The
+remaining objection is the one that was always the real one: a path quoted **as obsolete** is
+indistinguishable by machine from a live one, and what rots lives in other people's repositories, so
+a red build here is one nobody here caused. Turning `--check` on for the scheduled run is a separate
+decision that needs evidence about obsolete-path citations, not a third promise.
+
 - AC: the anchors report separates "inside an artefact" from "not found", and kore's copy of the
-  script is still byte-identical to docs-bootstrap's.
+  script is still byte-identical to docs-bootstrap's. **Met.**
 - Anchors: `scripts/code_anchors.py`, `docs/research/research-architecture.md`

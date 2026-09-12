@@ -93,8 +93,8 @@ the entry stays as the record — see the head of this section.
 with `signal()`, so it runs arbitrary Kotlin — allocation, locks, `runBlocking` — on the
 signal-handler stack, which is not async-signal-safe.
 
-**Verified against** `posixMain/io/ktor/server/engine/ShutdownHookNative.kt` and
-`commonMain/io/ktor/server/engine/ShutdownHook.kt` of the same artefact. Ktor's own KDoc states the
+**Verified against** `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` and
+`ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`. Ktor's own KDoc states the
 first half plainly, which is a point in its favour and also the reason the second half is worth
 raising separately: the replacement behaviour is documented, the signal-safety is not.
 

@@ -249,11 +249,11 @@ jobs:
   # cause. It also does not block: a path quoted *as obsolete* is indistinguishable from a live one
   # by machine, so the report is read by a person.
   #
-  # It does NOT become a gate when the list reaches zero, and the promise that it would has been
-  # removed: 13 of the 14 addresses reported rotten are inside a dependency's artefact — Ktor's
-  # sources in a klib, sqlx4k's, the platform klibs, the Kubernetes website — verified by unpacking
-  # that artefact rather than by finding a file. No path search can resolve them, so the count has
-  # no zero to reach. See B-51.
+  # The list IS at zero since B-51 — those 13 addresses inside dependency artefacts now carry the
+  # artefact before a `!/` and are reported as verified-by-unpacking rather than as rot. That still
+  # does not make this a gate: what remains is the other objection, that a path quoted AS OBSOLETE
+  # reads the same as a live one to a machine, and that the paths which rot are in other people's
+  # repositories. Zero is now a number worth watching rather than a target that could not be hit.
   anchors:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
