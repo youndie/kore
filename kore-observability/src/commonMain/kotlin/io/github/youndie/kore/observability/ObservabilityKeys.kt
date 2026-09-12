@@ -3,6 +3,7 @@ package io.github.youndie.kore.observability
 import io.github.youndie.kore.config.ConfigKey
 import io.github.youndie.kore.config.ConfigPair
 import io.github.youndie.kore.config.Configuration
+import kotlin.time.Duration
 
 /**
  * The variables the three agents need, declared for a consumer to splice into **its own** schema.
@@ -65,6 +66,20 @@ public object ObservabilityKeys {
 
     public val METRIK_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("METRIK_ENDPOINT")
     public val METRIK_KEY: ConfigKey<String?> = ConfigKey.optional("METRIK_KEY", secret = true)
+    /**
+     * How long metrik aggregates before it sends — metrik's own knob, passed through when set.
+     *
+     * The agent sends a window **when the window closes**, and its default is 60 000 ms, so a freshly
+     * started process reports nothing at all for a minute. That is right for a deployment and wrong
+     * for a stand, where the whole end-to-end run is shorter than one window: the first consumer's
+     * scenario test passed four times against a stand that had been up a while and failed on a
+     * freshly rebuilt one, which is a flaky test rather than a broken one — the worse of the two.
+     *
+     * Unset leaves metrik's default rather than a number of kore's
+     * ([#68](https://github.com/youndie/kore/issues/68)).
+     */
+    public val METRIK_WINDOW_MS: ConfigKey<Duration?> = ConfigKey.optionalMillis("METRIK_WINDOW_MS")
+
     public val KATCHER_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("KATCHER_ENDPOINT")
     public val KATCHER_KEY: ConfigKey<String?> = ConfigKey.optional("KATCHER_KEY", secret = true)
 
@@ -83,7 +98,7 @@ public object ObservabilityKeys {
         listOf(
             SERVICE, RELEASE, INSTANCE, ENVIRONMENT,
             TRACY_ENDPOINT, TRACY_KEY, TRACY_SAMPLE_RATE,
-            METRIK_ENDPOINT, METRIK_KEY,
+            METRIK_ENDPOINT, METRIK_KEY, METRIK_WINDOW_MS,
             KATCHER_ENDPOINT, KATCHER_KEY, KATCHER_CACHE_DIR,
         )
 
@@ -126,6 +141,8 @@ public class ObservabilitySettings(
     public val katcherCacheDir: String? = null,
     /** See [ObservabilityKeys.TRACY_SAMPLE_RATE]. `null` leaves tracy's own default. */
     public val tracySampleRate: Double? = null,
+    /** See [ObservabilityKeys.METRIK_WINDOW_MS]. `null` leaves metrik's own default. */
+    public val metrikWindow: Duration? = null,
 ) {
     public val anyAgentOn: Boolean get() = tracy != null || metrik != null || katcher != null
 
@@ -148,6 +165,7 @@ public class ObservabilitySettings(
                 katcher = endpointOf(configuration, ObservabilityKeys.KATCHER_ENDPOINT, ObservabilityKeys.KATCHER_KEY),
                 katcherCacheDir = configuration[ObservabilityKeys.KATCHER_CACHE_DIR],
                 tracySampleRate = configuration[ObservabilityKeys.TRACY_SAMPLE_RATE],
+                metrikWindow = configuration[ObservabilityKeys.METRIK_WINDOW_MS],
             )
 
         private fun endpointOf(

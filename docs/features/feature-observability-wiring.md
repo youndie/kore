@@ -73,6 +73,18 @@ them by copying an example gets whichever of those behaviours the example happen
    ([#57](https://github.com/youndie/kore/issues/57)). The next knob needs the same argument made
    again, not a precedent.
 
+10. **How long metrik aggregates is the deployment's to choose too.** `METRIK_WINDOW_MS`, optional.
+    The agent sends a window **when the window closes**, and its default is a minute — right for a
+    deployment, wrong for a stand whose whole end-to-end run is shorter than that. The first consumer
+    met it as a scenario test that passed four times against a stand which had been up a while and
+    failed on a freshly rebuilt one: adopting the one call as it stood would have made that test
+    *flaky* rather than broken, which is worse
+    ([#68](https://github.com/youndie/kore/issues/68)).
+
+    This is the second knob after `sampleRate` and the argument was made again rather than inherited,
+    as rule 9 says it has to be: metrik's window changes whether a short-lived process reports *at
+    all*, which is the same bar `sampleRate` cleared. `level` and `slowThreshold` still have not.
+
 ## 3. The three shutdown contracts
 
 Read in the agents, not assumed (research §1.6):
@@ -123,6 +135,16 @@ the thing that empties it".
 * **Automated:** `TracySampleRateTest` (jvm and linuxX64) — four cases, and the unset one reads its
   expectation out of `AgentConfig` rather than asserting `0.01`, so it goes red if kore ever starts
   pinning a default instead of passing the question on
+
+### Scenario: a consumer sets how long metrik aggregates
+* **Given:** `METRIK_WINDOW_MS` set to `1000` and metrik configured
+* **When:** the wiring builds metrik's configuration
+* **Then:** the agent is given `1000`
+* **And:** with the variable unset, kore **does not write the field at all**
+* **Automated:** `MetrikWindowTest` (jvm and linuxX64). The unset case asserts against a sentinel
+  rather than against metrik's default, and that is the point: a first version compared with a fresh
+  `MetrikConfig` and a mutation pinning `?: 60_000L` **survived it** — pinning a number equal to
+  today's default is indistinguishable from leaving the field alone, and is exactly the defect
 
 ### Scenario: no agent configured is a valid deployment
 * **Given:** none of the three agents has any variable set

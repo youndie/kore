@@ -46,6 +46,13 @@ class TracySampleRateTest {
      * Unset must reach tracy as *not set*, not as kore's copy of tracy's number — so the expectation
      * is read out of `AgentConfig` rather than written as a literal. A test asserting `0.01` would go
      * green on the day tracy changed its default and kore started pinning the old one.
+     *
+     * **What this cannot see, stated because the neighbouring test can.** A pin equal to tracy's
+     * default *today* — `?: 0.01` — passes here, because the value that lands is the same either way.
+     * `MetrikWindowTest` catches its equivalent with a sentinel, and only because `MetrikConfig` is
+     * mutable: the claim there is "kore does not write the field", which is observable, while
+     * `AgentConfig` is built by constructor and this one can only compare the result. Found by a
+     * mutation that survived the metrik version of this test before it was strengthened.
      */
     @Test
     fun `an unset rate leaves tracy's own default rather than a number of kore's`() {
