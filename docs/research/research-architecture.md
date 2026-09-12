@@ -511,6 +511,28 @@ because the second failure happens first and looks identical. The negative contr
 [research-oracle](research-oracle.md) §1 must therefore be run at **both** settings, and say which is
 which. A run at the default alone would have produced a confident, wrong conclusion — it nearly did.
 
+
+### 1.14 `Dispatchers.IO` is `internal` on Kotlin/Native, so kore must own a thread to block on
+
+Written while doing [B-38](../backlog/B-38-native-dispatcher.md), which inherited the claim from
+booblik's native module. An inherited finding is a hypothesis until this repository's own toolchain
+agrees, so it was checked by compiling a two-line file against the version actually pinned here.
+
+| Fact | Where verified |
+|---|---|
+| `Dispatchers.IO` does not resolve from `nativeMain` at coroutines 1.11.0 | the compiler: *"Cannot access 'val IO: CoroutineDispatcher': it is internal in 'kotlinx.coroutines.Dispatchers'"*, on `:kore-core:compileKotlinLinuxX64` |
+| The version this repository pins is 1.11.0 | `gradle/libs.versions.toml:32` |
+| booblik reached the same conclusion independently, and uses `newSingleThreadContext` | `booblik/booblik-native/src/nativeMain/.../Producer.kt` |
+
+**Consequence 1 — the elastic pool is a JVM luxury.** On the JVM, "somewhere to put work that might
+block" is free: `Dispatchers.IO` grows past a blocked thread. On Kotlin/Native there is no such
+place, so every thread kore uses for background work is a thread a service pays for by depending on
+kore, and the number has to be a decision rather than an accident. That decision is D9.
+
+**Consequence 2 — `Dispatchers.Default` is the wrong answer, not merely a worse one.** It is sized to
+the core count and meant for work that does not block; a dependency check that blocks one of its
+threads takes a fraction of the process's whole compute capacity with it.
+
 ---
 
 ## 2. Decisions
@@ -649,6 +671,43 @@ so masking is a property of the declaration rather than a list of names somebody
 
 ---
 
+
+### D9. kore's background work runs in two lanes, and on Kotlin/Native that costs two threads
+
+Brief: unstated. Forced by §1.14.
+
+**The decision.** kore names two dispatchers — `KoreDispatchers.lifecycle` and
+`KoreDispatchers.checks`. The stage machine and the signal watch use the first; dependency checks use
+the second. On Kotlin/Native each is a single thread kore owns, created on first use, never closed.
+On the JVM both are `Dispatchers.IO`.
+
+**The cost, stated as a number.** Native: **two threads** for the life of the process, and one of
+them only if a health loop is ever started. JVM: **none of its own**.
+
+**Why two rather than one.** A dependency check can block its thread — that is Risk 3, and
+`withTimeoutOrNull` stops *waiting* for a blocked call without freeing the thread it holds. One
+shared lane would let a check against a dead database hold the thread the shutdown sequence needs,
+and `SIGTERM` would then be answered whenever the socket happened to time out. The ordered shutdown
+is the thing this library promises; it gets a lane nothing else can occupy. Measured, not assumed:
+with both on one lane the sequence takes 2.001 s against a check holding a thread for 2 s
+(`SharedLaneControlTest`, Kotlin/Native), and with two lanes it returns in milliseconds
+(`BlockingCheckTest`, both platforms).
+
+**Rejected: one lane per check.** It buys freshness for the checks that are not blocked and costs a
+thread per dependency. It buys nothing for shutdown, which is already protected. A check stalled
+behind another is reported as a stale answer *with its age*, which the registry already does — a
+degradation the design states rather than hides.
+
+**Rejected: `Dispatchers.Default`.** §1.14, consequence 2.
+
+**Rejected: letting the caller decide and documenting nothing.** That is what the code did before,
+and the sentence in `ShutdownSequence`'s contract — "returns no later than the sum of the stage
+deadlines *plus whatever the caller's own dispatcher makes it wait*" — is exactly the escape hatch
+that makes the bound unenforceable. The defaults are overridable; what they are not any more is
+unstated.
+
+---
+
 ## 3. Risks and open questions
 
 **Risk 1. The ordering is right and nothing proves it stays right.** The whole library is one
@@ -674,6 +733,12 @@ Mitigation: every dependency check declares its own timeout, the readiness route
 *cached* result refreshed by a background loop rather than by calling the dependency on the request
 path, and the loop's overrun is reported as a stale result rather than as a hang. That also makes a
 readiness probe cheap enough to run every two seconds, which §1.10 needs.
+**Amended 2026-09-12 (B-38): that mitigation covered the request path and left the process.** A
+cached result keeps a blocking check off the probe's thread, and says nothing about the thread the
+check *is* holding. On Kotlin/Native that thread is one kore owns, and if the shutdown sequence ran
+on it the drain would be eaten exactly as this risk says — by the mitigation's own blind side. The
+second half is D9: checks run in a lane of their own, and the sequence in one nothing else may
+occupy.
 
 **Risk 4. A default that is wrong is worse than no default, because nobody reads it again.** Every
 number kore ships — the pre-drain wait, the drain deadline, the release deadline — decides how a

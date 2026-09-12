@@ -205,6 +205,15 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **And:** the remaining groups still run
 * **And:** the process still exits inside the grace period
 
+### Scenario: a dependency check blocking a thread does not delay the sequence
+* **Given:** a health check that occupies its thread without suspending, and a shutdown sequence
+* **When:** the signal arrives while that check is blocked
+* **Then:** the sequence completes within its own deadlines rather than behind the check
+* **And:** this is the scenario that fails when kore's background work shares one lane — research D9
+* **Automated:** `BlockingCheckTest` (jvm and linuxX64), with `SharedLaneControlTest` (linuxX64) as
+  its positive control: on one shared lane the same check delays the sequence by its full duration,
+  which is what makes the first test's green mean something
+
 ### Scenario: a participant that throws does not abort the sequence
 * **Given:** a registered pool whose `close()` throws
 * **When:** the sequence reaches the release stage
