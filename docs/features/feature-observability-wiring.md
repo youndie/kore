@@ -148,7 +148,13 @@ the thing that empties it".
   them. A service that needs a fourth wires it itself.
 * **Deciding what to log or measure.** The agents' plugins instrument the routes; kore decides
   nothing about content.
-* **The profiler.** Named in the brief and deliberately unresolved — open question 1 of research §3.
+* **The profiler — dropped**, not unresolved ([B-29](../backlog/B-29-profiler-hook.md)). As a route
+  it would be a sixth one, unauthenticated, dumping stacks; as a plain hook it would duplicate
+  `-XX:StartFlightRecording`, whose `dumponexit=true` already handles the only shutdown-shaped risk;
+  and on Kotlin/Native there is nothing to hook, so it would be a capability that quietly does nothing
+  on the platform kore is aimed at. A service that wants a profiler gets one from its deployment.
+  Research §3 has the full reasoning, as a deviation from the brief.
+* ~~**The profiler.** Named in the brief and deliberately unresolved — open question 1 of research §3.~~
   It is not in this feature because it has no defined shape yet, and a feature document that
   described one would be describing an intention.
 

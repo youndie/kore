@@ -921,8 +921,33 @@ The hypothesis is that kore should own *enabling* a profiling endpoint or an on-
 nothing else, because the profilers differ per platform (JFR and async-profiler on the JVM, nothing
 equivalent on Kotlin/Native). If that holds, the honest shape is a small extension point plus a JVM
 adapter, and on native the hook exists and does nothing — which must be *stated by*
-`--print-config`, not discovered. Settle in M4; it is the least-defined item in the brief and the
-one most likely to be dropped rather than built.
+`--print-config`, not discovered.
+
+**Settled 2026-09-12 ([B-29](../backlog/B-29-profiler-hook.md)): dropped, and this is a deviation
+from the brief.** Four reasons, and the first two are about kore's own positions rather than about
+profilers:
+
+1. **As a route it is incompatible with two decisions already taken.** The route list is closed —
+   *"five routes and there will not quietly be a sixth"* — and none of them is authenticated, because
+   a deploy check runs before anything has a token (D4, endpoint-kore-admin). A profiling endpoint is
+   the one route that **must** be authenticated: it dumps stacks and memory and it is expensive to
+   call. Adding it would mean either an unauthenticated dump endpoint or kore growing an auth story.
+2. **As a plain hook it adds nothing kore is positioned to add.** Everything else kore wires removes a
+   failure mode: a flush that is never called, a close that discards, a stage that runs before the
+   drain. Starting a profiler is `-XX:StartFlightRecording` — a deployment flag — and the one
+   shutdown-shaped risk, losing the buffer at exit, the JVM already solves declaratively with
+   `dumponexit=true`. Checked in the JDK's own help on Java 25, which prints
+   `-XX:StartFlightRecording:dumponexit=true` as its example. kore would be duplicating a flag.
+3. **On the platform kore is aimed at there is nothing to hook.** Kotlin/Native has no JFR and no
+   equivalent, so "the hook exists and does nothing" would be the state on the *primary* target. This
+   library exists because a thing that works on the JVM and quietly does nothing on native is the
+   shape of bug it was written to prevent — shipping one of its own would be the wrong lesson.
+4. **The brief's other four bullets each name a failure this portfolio has had.** This one names a
+   capability. That difference is why it was the least defined from the start.
+
+What is **not** dropped is the need it points at: a service that wants a profiler still gets one, from
+its deployment, with a flag. kore neither helps nor gets in the way, and that is now written down
+rather than left open.
 
 **Open question 2. Whether kore should own the HTTP server at all.** Everything above is written as
 "kore mounts routes into your application and wraps your `EmbeddedServer`". The alternative is that
