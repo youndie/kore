@@ -48,6 +48,21 @@ public object ObservabilityKeys {
 
     public val TRACY_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("TRACY_ENDPOINT")
     public val TRACY_KEY: ConfigKey<String?> = ConfigKey.optional("TRACY_KEY", secret = true)
+    /**
+     * What fraction of requests keep their trace — tracy's own knob, passed through when set.
+     *
+     * It does **not** thin spans: it decides whether the request's whole pending trace is kept, so
+     * below the rate what survives is warnings and entity references with no body behind them. The
+     * right value is a property of the deployment's traffic and kore has no way to know it — a
+     * reference build serving a handful of requests a minute wants `1.0`, a service at 100 rps very
+     * much does not.
+     *
+     * Unset leaves tracy's default rather than a number of kore's own. Reported by the first consumer
+     * after a demonstration went missing from its own trace
+     * ([#57](https://github.com/youndie/kore/issues/57)).
+     */
+    public val TRACY_SAMPLE_RATE: ConfigKey<Double?> = ConfigKey.optionalDouble("TRACY_SAMPLE_RATE")
+
     public val METRIK_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("METRIK_ENDPOINT")
     public val METRIK_KEY: ConfigKey<String?> = ConfigKey.optional("METRIK_KEY", secret = true)
     public val KATCHER_ENDPOINT: ConfigKey<String?> = ConfigKey.optional("KATCHER_ENDPOINT")
@@ -67,7 +82,7 @@ public object ObservabilityKeys {
     public val all: List<ConfigKey<*>> =
         listOf(
             SERVICE, RELEASE, INSTANCE, ENVIRONMENT,
-            TRACY_ENDPOINT, TRACY_KEY,
+            TRACY_ENDPOINT, TRACY_KEY, TRACY_SAMPLE_RATE,
             METRIK_ENDPOINT, METRIK_KEY,
             KATCHER_ENDPOINT, KATCHER_KEY, KATCHER_CACHE_DIR,
         )
@@ -109,6 +124,8 @@ public class ObservabilitySettings(
      * Ignored when katcher is off: there is nothing to store.
      */
     public val katcherCacheDir: String? = null,
+    /** See [ObservabilityKeys.TRACY_SAMPLE_RATE]. `null` leaves tracy's own default. */
+    public val tracySampleRate: Double? = null,
 ) {
     public val anyAgentOn: Boolean get() = tracy != null || metrik != null || katcher != null
 
@@ -130,6 +147,7 @@ public class ObservabilitySettings(
                 metrik = endpointOf(configuration, ObservabilityKeys.METRIK_ENDPOINT, ObservabilityKeys.METRIK_KEY),
                 katcher = endpointOf(configuration, ObservabilityKeys.KATCHER_ENDPOINT, ObservabilityKeys.KATCHER_KEY),
                 katcherCacheDir = configuration[ObservabilityKeys.KATCHER_CACHE_DIR],
+                tracySampleRate = configuration[ObservabilityKeys.TRACY_SAMPLE_RATE],
             )
 
         private fun endpointOf(

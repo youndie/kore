@@ -58,6 +58,20 @@ them by copying an example gets whichever of those behaviours the example happen
    the writable layer that dies with the pod, so a report that outlived its process is lost anyway.
    Optional rather than required because it is only worth setting when there is a volume to set it
    to; a service with none is better off with katcher's default than with a path that is not there.
+9. **How much tracy keeps is the deployment's to choose, and kore does not choose it.**
+   `TRACY_SAMPLE_RATE`, optional. It is not a thinning of spans: it decides whether the request's
+   **whole pending trace** is kept, so below the rate what survives is warnings and entity references
+   with no body behind them. A reference build serving a handful of requests a minute wants `1.0`; a
+   service at 100 rps very much does not, and one span per request is about 1.2 GB a day by tracy's
+   own research. Unset passes the question back to tracy rather than restating its number — a kore
+   fallback of `0.01` would pin whatever tracy's default was on the day it was typed.
+
+   **Why this one and not `level` or `slowThreshold`, which are the same shape.** Because kore is not
+   an observability library and an `ObservabilitySettings` that mirrors `AgentConfig` field by field
+   is one. `sampleRate` is the knob that changes *what a consumer can see at all* — the first consumer
+   found this by looking for a purchase it had just made and finding a reference to it with no body
+   ([#57](https://github.com/youndie/kore/issues/57)). The next knob needs the same argument made
+   again, not a precedent.
 
 ## 3. The three shutdown contracts
 
@@ -98,6 +112,17 @@ the thing that empties it".
 * **Automated:** `ObservabilityKeysTest.an endpoint without its key refuses the start and names both
   variables` — the refusal is the schema's pair rule, so kore declares the pairs rather than
   re-checking them at the call
+
+### Scenario: a consumer sets how much tracy keeps
+* **Given:** `TRACY_SAMPLE_RATE` set to `1.0` and tracy configured
+* **When:** the wiring builds tracy's agent
+* **Then:** the agent is given `1.0`
+* **And:** with the variable unset, the agent is given **tracy's own default** and not a number kore
+  wrote down
+* **And:** a value that is not a number refuses at startup, like every other typed key
+* **Automated:** `TracySampleRateTest` (jvm and linuxX64) — four cases, and the unset one reads its
+  expectation out of `AgentConfig` rather than asserting `0.01`, so it goes red if kore ever starts
+  pinning a default instead of passing the question on
 
 ### Scenario: no agent configured is a valid deployment
 * **Given:** none of the three agents has any variable set

@@ -58,6 +58,22 @@ public class ConfigKey<T> internal constructor(
         public fun int(name: String, default: Int? = null): ConfigKey<Int> =
             ConfigKey(name, default, default == null, false, { it.toIntOrNull() ?: fail(name, it, "an integer") }, "int")
 
+        /**
+         * A `Double` that may be absent, where absent means **leave somebody else's default alone**.
+         *
+         * Distinct from `double(name, default)` — which this deliberately does not have — because the
+         * caller here is kore wiring an agent that already has an opinion. Writing kore's own number
+         * as the fallback would pin whatever that agent's default was on the day this was written;
+         * `null` passes the question back to it. Added for tracy's `sampleRate`
+         * ([#57](https://github.com/youndie/kore/issues/57)).
+         *
+         * A value that is set and does not parse is still a refusal: an agent silently disabled by a
+         * typo is indistinguishable from a healthy one, which is the failure this whole schema exists
+         * to refuse.
+         */
+        public fun optionalDouble(name: String): ConfigKey<Double?> =
+            ConfigKey(name, null, false, false, { it.toDoubleOrNull() ?: fail(name, it, "a number") }, "a number")
+
         public fun long(name: String, default: Long? = null): ConfigKey<Long> =
             ConfigKey(name, default, default == null, false, { it.toLongOrNull() ?: fail(name, it, "a long") }, "long")
 
