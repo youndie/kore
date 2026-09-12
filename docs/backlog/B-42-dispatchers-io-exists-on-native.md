@@ -1,7 +1,7 @@
 ---
 id: B-42
 title: "D9 lost its premise: Dispatchers.IO exists on Kotlin/Native"
-status: open
+status: done
 priority: P1
 size: S
 stage: m2-shutdown
@@ -38,6 +38,37 @@ a reason that no longer exists.
   by a test that does.
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/concurrent/`,
   `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/concurrent/`
+
+## The answer
+
+**Both lanes are `Dispatchers.IO` on every target. kore owns no threads.** D9 is rewritten with its
+first version withdrawn in place rather than edited away.
+
+The question was whether Kotlin/Native's `Dispatchers.IO` is elastic — whether it grows past a
+blocked thread the way the JVM's does, or queues behind a fixed pool. That is measurable, so it was
+measured rather than argued:
+
+| Threads deliberately blocked for 3 s | Time to schedule a trivial task on `Dispatchers.IO` |
+|---|---|
+| 1 | 207 µs |
+| 4 | 369 µs |
+| 16 | 75 µs |
+| 64 | 94 µs |
+| 128 | 107 µs |
+
+`linuxX64`, coroutines 1.11.0. It is elastic, and flatly so. Two owned threads would have bought a
+named entry in a thread dump at the price of a `close` contract kore could never honour — a lane
+outlives every shutdown that might close it.
+
+**What survived unchanged.** That a blocking check must not stall the shutdown, and that this is a
+measurement rather than an argument. `BlockingCheckTest` is untouched.
+
+**What the control test became, which is the better half.** It used to put both on
+`KoreDispatchers.checks` and rely on that being a thread kore owned. With an elastic lane it had
+nothing left to demonstrate, so it now creates its own single-threaded dispatcher — and says the true
+thing: the danger is not kore's defaults, it is **a consumer pointing a lane at a dispatcher that
+cannot grow**. It also moved from `nativeTest` to `commonTest`, so it now runs on the JVM as well,
+which it never did.
 
 ## How it was missed, which is the transferable part
 

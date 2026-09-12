@@ -78,7 +78,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` | **built (B-22)** — the `__environ` walk, checked against `/proc/self/environ` |
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` | **built (B-22)** — the declared gap of research §1.5. Compiles on a Linux host; its tests do not run there, so this branch is unexercised in CI |
 | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` | `System.getenv()`, which is the whole of it on this target |
-| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/concurrent/KoreDispatchers.kt` | **built (B-38)** — the two lanes, and the per-platform values behind them. Native owns one thread each, created on first use and never closed; the JVM uses the elastic `Dispatchers.IO` for both. Research D9 |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/concurrent/KoreDispatchers.kt` | **built (B-38, corrected by B-42)** — the two lanes. Both are `Dispatchers.IO` on every target and kore owns **no** threads; the names are the seam a consumer overrides. Research D9 |
 | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |

@@ -1,29 +1,25 @@
 package io.github.youndie.kore.concurrent
 
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.newSingleThreadContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 
 /**
- * One thread each, named, created on first use.
+ * Both lanes are `Dispatchers.IO`, the same as on the JVM, and kore owns no threads.
  *
- * `by lazy` rather than eager initialisers so the two are independent: a binary that never starts a
- * health loop never creates the checks thread.
+ * **This file used to create two with `newSingleThreadContext`**, on the grounds that
+ * `Dispatchers.IO` is `internal` on Kotlin/Native. It is not. It is an extension property in package
+ * `kotlinx.coroutines`, so it needs `import kotlinx.coroutines.IO` — the import above — and without
+ * it the compiler resolves the internal member of the same name and reports "it is internal", which
+ * is the error that was taken for a platform limitation (research §1.14, B-42).
  *
- * Neither is ever closed. They are process-lifetime threads by design — closing them during a
- * shutdown would remove the lane the shutdown itself is running in, which is the sort of ordering
- * bug this library is written to make impossible.
- *
- * The names are for `top -H` and a thread dump during an incident: a thread called `kore-checks`
- * parked in a socket read names its own problem.
+ * It is also **elastic here**, which is the part that had to be measured rather than assumed: with
+ * 128 threads deliberately blocked for three seconds, a trivial task on `Dispatchers.IO` was
+ * scheduled in 107 µs (`linuxX64`, coroutines 1.11.0). So the separation the two lanes exist for is
+ * provided by the dispatcher on this platform too, and two threads per process would buy a named
+ * entry in a thread dump at the price of a `close` contract kore could never honour — the lanes
+ * outlive every shutdown that might close them.
  */
-@OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
-private val lifecycleThread: CoroutineDispatcher by lazy { newSingleThreadContext("kore-lifecycle") }
+internal actual val koreLifecycleDispatcher: CoroutineDispatcher get() = Dispatchers.IO
 
-@OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
-private val checksThread: CoroutineDispatcher by lazy { newSingleThreadContext("kore-checks") }
-
-internal actual val koreLifecycleDispatcher: CoroutineDispatcher get() = lifecycleThread
-
-internal actual val koreChecksDispatcher: CoroutineDispatcher get() = checksThread
+internal actual val koreChecksDispatcher: CoroutineDispatcher get() = Dispatchers.IO

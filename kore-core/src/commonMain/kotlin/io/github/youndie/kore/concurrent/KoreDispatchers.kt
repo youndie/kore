@@ -3,42 +3,32 @@ package io.github.youndie.kore.concurrent
 import kotlinx.coroutines.CoroutineDispatcher
 
 /**
- * The two lanes kore's own background work runs in. **Two, and not one** — B-38.
+ * The two lanes kore's own background work runs in.
  *
- * `Dispatchers.IO` is `internal` on Kotlin/Native at the coroutines version this repository pins
- * (1.11.0), verified by the compiler rather than by the documentation: *"Cannot access 'val IO:
- * CoroutineDispatcher': it is internal in 'kotlinx.coroutines.Dispatchers'"*. So a library that wants
- * somewhere to put work that might block has to own it, and owning it means deciding how many
- * threads a service pays for kore existing.
+ * [checks] runs dependency checks; [lifecycle] runs the stage machine and the signal watch. Both are
+ * `Dispatchers.IO` on every target kore builds for, and **kore owns no threads of its own**.
  *
- * ## Why two lanes rather than one
+ * ## Why two names for one dispatcher
  *
- * [checks] runs dependency checks, and a dependency check **can block its thread**: it is a
- * suspending signature over a driver that may not be. `HealthRegistry.refreshOnce` bounds each check
- * with `withTimeoutOrNull`, which does not interrupt a blocking call — it only stops waiting for it,
- * while the thread stays occupied.
+ * Because the reason they are separable outlives the fact that they are currently equal. A
+ * dependency check **can block its thread**: it is a suspending signature over a driver that may not
+ * be, and `HealthRegistry.refreshOnce` bounds each check with `withTimeoutOrNull`, which stops
+ * *waiting* for a blocking call without freeing the thread it holds. If the shutdown sequence shared
+ * a thread with a check blocked on a dead database, `SIGTERM` would be answered whenever the socket
+ * timed out instead of within its deadline — the one hang this library exists to prevent.
  *
- * [lifecycle] runs the stage machine and the signal watch. If it shared a thread with [checks], a
- * check blocked on a dead database would hold the one thread the shutdown sequence needs, and a
- * `SIGTERM` would be answered whenever the socket timed out instead of within its deadline. The
- * ordered shutdown is the specification this library exists to keep; a hang there is the failure
- * that matters most, so it gets a lane nothing else can occupy.
+ * `Dispatchers.IO` removes that by being elastic, so today the separation costs nothing. The names
+ * remain because a consumer can point either lane somewhere else, and pointing [checks] at a
+ * dispatcher that cannot grow is the way to reintroduce the hang. `SharedLaneControlTest` is what
+ * that costs, measured.
  *
- * ## Why not one lane per check
+ * ## What this used to say
  *
- * A thread per dependency buys freshness for the checks that are not blocked, and costs a thread for
- * every dependency a service has. It buys nothing for shutdown, which is already protected. A check
- * stalled behind another one is reported as a *stale answer with its age*, which `HealthRegistry`
- * already does and a probe already reads — a degradation the design states rather than hides.
- *
- * ## What it costs
- *
- * **Kotlin/Native: two threads for the life of the process**, created lazily, so a binary that never
- * starts a health loop pays for one. **JVM: none of its own** — both lanes are `Dispatchers.IO`,
- * which is elastic, shared, and grows past a blocked thread rather than queueing behind it.
- *
- * A consumer that wants different numbers passes its own dispatcher; these are the defaults, not a
- * policy. What they are not is *unstated*, which is what they were before this.
+ * That `Dispatchers.IO` is `internal` on Kotlin/Native and kore therefore had to own a thread per
+ * lane. It is not: it is an extension property needing `import kotlinx.coroutines.IO`, and without
+ * that import the compiler resolves the internal member of the same name and says "it is internal"
+ * — research §1.14, [B-42]. It is elastic there too, measured rather than assumed: with 128 threads
+ * blocked for three seconds, a trivial task was scheduled in 107 µs on `linuxX64`.
  */
 public object KoreDispatchers {
     /** The stage machine and the signal watch. Nothing that may block belongs here. */
