@@ -33,7 +33,7 @@ class CompilationInputTest {
         run(directory, "git", "commit", "-q", "-m", message)
     }
 
-    private fun project(): File {
+    private fun project(jvmOnly: Boolean = false, extra: String = ""): File {
         val directory = File.createTempFile("kore-testkit", "").let { it.delete(); it.mkdirs(); it }
         File(directory, "settings.gradle.kts").writeText(
             """
@@ -43,19 +43,31 @@ class CompilationInputTest {
             """.trimMargin(),
         )
         File(directory, "build.gradle.kts").writeText(
-            """
-            |plugins {
-            |    kotlin("multiplatform") version "$KOTLIN_VERSION"
-            |    id("io.github.youndie.kore.build")
-            |}
-            |kotlin { jvm() }
-            |version = "1.0.0"
-            """.trimMargin(),
+            if (jvmOnly) {
+                """
+                |plugins {
+                |    kotlin("jvm") version "$KOTLIN_VERSION"
+                |    id("io.github.youndie.kore.build")
+                |}
+                |version = "1.0.0"
+                |$extra
+                """.trimMargin()
+            } else {
+                """
+                |plugins {
+                |    kotlin("multiplatform") version "$KOTLIN_VERSION"
+                |    id("io.github.youndie.kore.build")
+                |}
+                |kotlin { jvm() }
+                |version = "1.0.0"
+                |$extra
+                """.trimMargin()
+            },
         )
         // The generated object implements BuildIdentity, which lives in kore-core; this project has
         // no such dependency, so it declares the interface itself. What is under test is whether the
         // generated file reaches the compiler, not what it implements.
-        File(directory, "src/commonMain/kotlin").apply { mkdirs() }.let {
+        File(directory, if (jvmOnly) "src/main/kotlin" else "src/commonMain/kotlin").apply { mkdirs() }.let {
             File(it, "Shim.kt").writeText(
                 """
                 |package io.github.youndie.kore.version
@@ -76,11 +88,11 @@ class CompilationInputTest {
         return directory
     }
 
-    private fun gradle(directory: File) =
+    private fun gradle(directory: File, task: String = "compileKotlinJvm") =
         GradleRunner.create()
             .withProjectDir(directory)
             .withPluginClasspath()
-            .withArguments("compileKotlinJvm", "--stacktrace")
+            .withArguments(task, "--stacktrace")
             .forwardOutput()
 
     @Test
@@ -131,6 +143,85 @@ class CompilationInputTest {
             TaskOutcome.UP_TO_DATE,
             second.task(":compileKotlinJvm")?.outcome,
             "an unchanged identity recompiled the project",
+        )
+    }
+
+    /**
+     * #70. The plugin wired the generated file to `commonMain` only, so on a `kotlin("jvm")` module
+     * the task ran, the file appeared, and nothing compiled it — a green build and an unresolvable
+     * import.
+     *
+     * The assertion is a **reference** to the generated object rather than the file's existence: the
+     * file existed the whole time the defect was there, which is exactly what made it silent.
+     */
+    @Test
+    fun `a JVM-only module compiles the generated identity`() {
+        val directory = project(jvmOnly = true)
+        File(directory, "src/main/kotlin/Uses.kt").writeText(
+            """
+            |import io.github.youndie.kore.generated.KoreBuildIdentity
+            |
+            |val commit: String = KoreBuildIdentity.commit
+            """.trimMargin(),
+        )
+        commit(directory, "uses")
+
+        val build = gradle(directory, "compileKotlin").build()
+
+        assertEquals(
+            TaskOutcome.SUCCESS,
+            build.task(":compileKotlin")?.outcome,
+            "the generated identity never reached a JVM-only compilation",
+        )
+    }
+
+    /**
+     * #71. `unknown` is the correct degradation and stays; what was missing is a way in for a commit
+     * the driver knows and git cannot be asked for — a Docker context without `.git`, a CI job with
+     * the sha in a variable, a replicated working tree with neither.
+     *
+     * The project here **has** a git repository, and the override still wins: that is the claim. A
+     * test run without git would pass against a plugin that quietly ignored the property.
+     */
+    @Test
+    fun `a supplied commit wins over the one git would report`() {
+        val directory =
+            project(
+                extra = """
+                    |tasks.named<io.github.youndie.kore.gradle.GenerateBuildIdentity>("generateKoreBuildIdentity") {
+                    |    commit.set("deadbeef1234")
+                    |}
+                """.trimMargin(),
+            )
+
+        gradle(directory).build()
+
+        val generated = File(directory, "build/generated/kore/io/github/youndie/kore/generated/KoreBuildIdentity.kt")
+        val text = generated.readText()
+        assertTrue(text.contains("""commit: String = "deadbeef1234""""), "the supplied commit did not win:\n$text")
+        assertTrue(text.contains("dirty: Boolean = false"), "a supplied commit must not claim a dirty tree:\n$text")
+    }
+
+    /**
+     * A plugin that cannot wire the module it was applied to has to say so. Generating the file and
+     * staying quiet is #70 with the report removed.
+     */
+    @Test
+    fun `neither Kotlin plugin is a refusal rather than a file nobody compiles`() {
+        val directory = File.createTempFile("kore-testkit-bare", "").let { it.delete(); it.mkdirs(); it }
+        File(directory, "settings.gradle.kts").writeText("""rootProject.name = "bare"""")
+        File(directory, "build.gradle.kts").writeText("""plugins { id("io.github.youndie.kore.build") }""")
+
+        val failure =
+            GradleRunner.create()
+                .withProjectDir(directory)
+                .withPluginClasspath()
+                .withArguments("tasks", "--stacktrace")
+                .buildAndFail()
+
+        assertTrue(
+            failure.output.contains("needs a Kotlin plugin"),
+            "the plugin accepted a module it cannot wire:\n${failure.output.takeLast(2000)}",
         )
     }
 

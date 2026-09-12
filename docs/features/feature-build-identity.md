@@ -40,6 +40,15 @@ disagree is precisely the case somebody is investigating.
    failing — a library that cannot be built in a container without `.git` is a library that cannot be
    built in half the CI systems there are. `unknown` is a value that reads as an absence; an
    invented-looking hash is not.
+
+   **And a commit the driver knows gets a way in** — the `commit` property on the task, added for
+   [#71](https://github.com/youndie/kore/issues/71). A Docker build context usually excludes `.git`,
+   a CI job has the sha in a variable long before it has a checkout, and a replicated working tree
+   has neither; in those cases `unknown` was not a missing value but an available one with no way in.
+   Set, it also means `dirty = false`: an externally supplied commit is a statement about a commit,
+   not about a working tree. A property rather than a conventional environment variable read inside
+   the plugin — which variable names the commit is the consumer's fact, and a plugin guessing wrong
+   would compile a *different* commit in, which is worse than `unknown`.
 4. **The release identifier `/version` reports is the same one the agents get.** One value, one
    place. Today the release travels as an environment variable into metrik's deploy marker and
    katcher's crash group (research §1.11), and nothing relates it to the code that was built; kore
@@ -48,6 +57,14 @@ disagree is precisely the case somebody is investigating.
 5. **The generated source is an input of the compilation, not a side effect of the build.** The
    failure mode of getting this wrong is a stale commit hash and a green build — a value that looks
    authoritative and is a release behind.
+
+   **For every Kotlin plugin the module might have, and a refusal when it has none.** Until
+   [#70](https://github.com/youndie/kore/issues/70) the wiring was keyed on the multiplatform plugin
+   alone, so on a `kotlin("jvm")` module the task ran, the file appeared on disk with the right
+   contents, and nothing compiled it: a green build and an unresolvable import, in a module where the
+   plugin was applied and apparently working. That is this rule failing one plugin at a time, and it
+   was found by the first consumer rather than by the test that asserts the rule — because that test
+   built a multiplatform project, which is the branch that worked.
 6. **`/version` can be reduced but not removed.** See the quirk in
    [endpoint-kore-admin](../api/endpoint-kore-admin.md): a route that disappears by configuration is
    one a deploy check cannot tell apart from a broken deployment.
