@@ -265,20 +265,25 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
   recorded" is a weaker claim than what the machine promises
 
 ### Scenario: a JVM producer's accumulated records are flushed before it is closed
-* **Given:** a JVM booblik producer holding records inside its linger window — the client whose
-  `close()` fails them rather than sending them
+* **Given:** a JVM booblik producer holding records inside its linger window — records whose only
+  route to the socket is a coroutine the shutdown is about to cancel
 * **When:** the sequence reaches the release stage
-* **Then:** those records are sent before `close()` is called
+* **Then:** those records are sent *and acknowledged* before the producer's scope and connection go
 * **And:** no record is completed with `ConnectionClosedException` as a result of the shutdown
 * **Automated:** `BooblikParticipantTest` (jvm and linuxX64) — five cases over kore's half of this,
   which is the **order**: the flush happens first, the close never comes first, a flush that never
   returns is bounded and the producer is still closed, and a flush that throws still closes while the
   failure reaches the stage machine.
-* **What those tests do not assert, and nobody should read them as asserting:** that a flush puts
-  records on a socket. That is booblik's promise, and it is the one that *differs between the two
-  clients* — which is why this adapter exists rather than a reason to test somebody else's client
-  here. The scenario's "those records are sent" is covered end to end only by a run against a real
-  broker, which is [B-45](../backlog/B-45-booblik-against-a-real-broker.md)
+* **Automated end to end:** `samples/oracle` `brokerFlush` against `ghcr.io/youndie/booblik:latest` —
+  three arms, five runs, **1 of 51** records read back when the producer is closed and torn down in
+  the same breath and **51 of 51** through this participant
+  ([B-45](../backlog/B-45-booblik-against-a-real-broker.md),
+  [write-up](../research/measurements-2026-09-12/broker-flush.md)). It is a sample rather than a
+  check: it needs docker and a pullable image, and a red one would report on another repository.
+* **What the unit tests do not assert, and nobody should read them as asserting:** that a flush puts
+  records on a socket. That is booblik's promise, and the run above is what holds it to it. It also
+  corrected the premise this scenario used to state: `close()` does not fail the batch — it sends it
+  without waiting, and a teardown that does not wait either is what loses it (research §1.8)
 
 ### Scenario: two signals run the sequence once
 * **Given:** the sequence has begun

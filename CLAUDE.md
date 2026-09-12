@@ -107,10 +107,13 @@ time a gate looks like it covers more than it does.
   readiness reports it as `503`.
 - **A stale result is not a healthy result.** Past its refresh budget, a cached check answers `503`
   with the age of the last answer, not the last answer.
-- **Flush before close, always.** The JVM booblik `Producer.close()` completes queued records
-  *exceptionally* rather than sending them; the native one of the same broker sends them
-  (research §1.8). "Close the consumers" is two verbs, everyone omits the first, and two published
-  implementations of it disagree — so kore flushes explicitly rather than relying on either.
+- **Flush before close, always — and the missing verb is *wait*, not *send*.** booblik's JVM
+  `Producer.close()` does send the accumulated batch; it sends it on the producer's own coroutine and
+  does not wait, so a shutdown that closes and then tears the scope and the connection down in the
+  same breath loses it. Measured against a real broker in B-45: **1 of 51 records** survive that
+  teardown, **51 of 51** when anything waits (research §1.8). This bullet used to say `close()`
+  discarded the batch — two true quotations joined by an inference nobody ran, filed upstream as
+  [booblik#68](https://github.com/youndie/booblik/issues/68) and closed as not confirmed.
 - **A recorded decision is a fact about the past; the registry is the fact about now.** Research §1.7
   concluded booblik had no native client from a decision in booblik's own research that a later
   milestone had superseded without amending. Reading a build file tells you what a project publishes;

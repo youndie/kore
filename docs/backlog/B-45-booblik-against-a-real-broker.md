@@ -1,7 +1,7 @@
 ---
 id: B-45
 title: "The booblik participant against a real broker"
-status: question
+status: done
 priority: P2
 size: M
 stage: m2-shutdown
@@ -30,28 +30,42 @@ the thing it was written to reproduce.
   [youndie/booblik#68](https://github.com/youndie/booblik/issues/68) is fixed, this run should keep
   passing for a different reason, and that is worth seeing rather than assuming.
 
-## Blocked on something that does not exist — 2026-09-12
+## The "blocked" entry was wrong, and then the run happened — 2026-09-12
 
-Picked by the rule and stopped at the first step: **there is no broker to run it against.**
+This item spent a day recorded as blocked on a broker image that **already existed**. The check that
+produced that entry was an unauthenticated GHCR API call answering `401`; an auth challenge is not
+absence, and `docker pull ghcr.io/youndie/booblik:latest` succeeds. The upstream proposal built on it
+(§7.3) has been withdrawn. The lesson is the one the table above should have had a column for: a
+negative result needs a positive control — some image the same query *does* find.
 
-| Looked for | Found |
+### What the run found
+
+`samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/BrokerFlush.kt`, three arms against
+`ghcr.io/youndie/booblik:latest`, five runs, identical every time
+([write-up](../research/measurements-2026-09-12/broker-flush.md)):
+
+| Shutdown | Records read back, of 51 |
 |---|---|
-| a published `booblik-app` (the server) | **no** — the portfolio's repository carries `booblik-client`, `booblik-core`, `booblik-java`, `booblik-native*` and `booblik-protocol*`, and no server |
-| the same on Maven Central | **no** — same list, minus the two that are portfolio-only |
-| a published container image | **none reachable**; booblik has a `Dockerfile` at its root, so an image *can* be built, but nothing publishes one |
+| `producer.close()`, then `connection.close()` and `scope.cancel()` in the same breath | **1** — only the awaited warm-up |
+| `producer.close()`, 500 ms of quiet, then the teardown | **51** |
+| kore's `booblikParticipant(…).stop()` — flush awaited, then close — then the teardown | **51** |
 
-**Rejected: cloning and building booblik inside this check.** It would work — the build host has git,
-network and docker — and it would make a kore check depend on building another repository at some
-commit, breaking whenever that build changes and reproducible from nothing in this repository. A test
-that needs a second project's build to be green is a test that reports on that project.
+**The AC is met and the premise underneath it is refuted.** The control does lose its batch, so the
+treatment means something. But it does not lose it *because `close()` discards records* — the second
+arm shows the same `close()` keeping all 51 when anything at all waits afterwards. `close()` sends the
+batch on the producer's own coroutine and does not wait; a shutdown is exactly when that coroutine's
+scope and connection are being torn down. kore's contribution is the **waiting**, not the sending.
+Research §1.8 is amended in place, and so is the CLAUDE.md rule that carried the old mechanism.
 
-So this waits on a **published broker image** (or a published `booblik-app` the check could run with
-`java -jar`). Raised as §7.3 of the upstream proposals: the `Dockerfile` exists and nothing publishes
-its output, which is one CI step away.
+### Two preconditions this cost, both invisible until they were checked
 
-**What this does not block.** [B-15](B-15-booblik-adapter.md) is done and its five tests assert kore's
-half — the order — on both platforms. What waits here is the other half, which belongs to booblik:
-that a flush actually puts records on a socket and that closing without one loses them.
+- **The broker does not create topics** — `BooblikConfig.topics` is fixed at startup (booblik M-42).
+  A produce to an undeclared topic is refused into a handle nobody awaits, and the first *fetch* of
+  one costs the connection. The harness declares `BOOBLIK_TOPICS` and awaits the warm-up record, so a
+  refusal is a failure rather than an empty fetch that reads like a lost batch.
+- **`docker run -p` publishes the port before the process binds it.** The first connection lands on
+  docker's proxy and dies the moment it is asked anything. Readiness here is a METADATA round trip
+  naming the topic, not an open socket.
 
 - AC: the "a JVM producer's accumulated records are flushed before it is closed" scenario of
   [feature-ordered-shutdown](../features/feature-ordered-shutdown.md) §5 runs against a real broker,
