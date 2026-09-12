@@ -165,3 +165,84 @@ class ConfigSchemaTest {
         }
     }
 }
+
+class UnknownVariableTest {
+    private val url = ConfigKey.required("STORE_URL")
+    private val workers = ConfigKey.int("WORKERS", 4)
+    private val schema = ConfigSchema("SAMPLE", listOf(url, workers))
+    private val minimal = arrayOf("SAMPLE_STORE_URL" to "postgres://x")
+
+    private fun env(vararg pairs: Pair<String, String>) = Environment.of(mapOf(*pairs))
+
+    /**
+     * The case the whole feature exists for.
+     *
+     * `SAMPLE_TIMEOUT_MS` is declared and `SAMPLE_TIMEOUT_MSEC` is set. Nothing is missing, nothing
+     * fails to parse, and the process starts with a timeout nobody chose — an implementation that
+     * only checks *required* variables passes this.
+     */
+    @Test
+    fun `a near-miss name is refused rather than ignored`() {
+        val failure =
+            assertFailsWith<ConfigurationException> {
+                schema.read(env(*minimal, "SAMPLE_WORKER" to "8"))
+            }
+
+        val problem = failure.problems.single()
+        assertEquals("SAMPLE_WORKER", problem.variable)
+        assertTrue(problem.message.contains("not declared"), "the message did not say why: ${problem.message}")
+        // BOTH spellings, which is what the scenario promises: a message naming only the unknown
+        // half leaves the reader to find the other one.
+        assertTrue(
+            problem.message.contains("SAMPLE_WORKERS"),
+            "the message did not name the declared variable it is a near miss of: ${problem.message}",
+        )
+    }
+
+    @Test
+    fun `an unknown that resembles nothing declared gets no suggestion`() {
+        val failure = assertFailsWith<ConfigurationException> { schema.read(env(*minimal, "SAMPLE_ZZZZZZZZZZ" to "x")) }
+
+        // A suggestion far enough away stops being a help and becomes a guess that sends the reader
+        // to the wrong variable.
+        assertTrue(
+            !failure.problems.single { it.variable == "SAMPLE_ZZZZZZZZZZ" }.message.contains("did you mean"),
+            "an unrelated name was offered as the thing that was meant",
+        )
+    }
+
+    @Test
+    fun `variables outside the prefix are not the schema's business`() {
+        // Without the prefix scope this refuses to start on its first deployment, gets switched off,
+        // and is never switched on again.
+        schema.read(
+            env(
+                *minimal,
+                "PATH" to "/usr/bin",
+                "HOSTNAME" to "pod-1",
+                "KUBERNETES_SERVICE_HOST" to "10.0.0.1",
+                "KUBERNETES_PORT_443_TCP" to "tcp://10.0.0.1:443",
+            ),
+        )
+    }
+
+    @Test
+    fun `an unknown variable is reported alongside everything else wrong`() {
+        val failure = assertFailsWith<ConfigurationException> { schema.read(env("SAMPLE_NOPE" to "x")) }
+
+        assertTrue(failure.problems.size >= 2, "the unknown replaced the missing one: ${failure.problems}")
+        assertTrue(failure.problems.any { it.variable == "SAMPLE_NOPE" })
+        assertTrue(failure.problems.any { it.variable == "SAMPLE_STORE_URL" })
+    }
+
+    /**
+     * On a target that cannot list the environment the check does not run — and must not report that
+     * it found nothing. A check that always passes is worse than an absent one.
+     */
+    @Test
+    fun `a target that cannot list the environment does not refuse`() {
+        val unlistable = Environment.unlistable(mapOf(*minimal, "SAMPLE_NOPE" to "x"), reason = "no environ here")
+
+        schema.read(unlistable)
+    }
+}

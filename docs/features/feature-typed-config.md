@@ -92,11 +92,10 @@ library's.
 
 ## 6. Scenarios (BDD)
 
-**Eight of nine are automated as of B-23.** The one that remains is the near-miss name: `--print-config`
-now *lists* an unknown variable, and [B-24](../backlog/B-24-unknown-variable-refusal.md) is what makes
-it a **refusal**. "A variable outside the prefix is not the schema's business" was held back at B-21
-because it would have passed vacuously — there was no unknown check for it to survive. There is one
-now, so it is marked.
+**All nine are automated as of B-24.** Two were deliberately held back on the way here because they
+would have passed **vacuously**: "a variable outside the prefix is not the schema's business" until
+there was an unknown check for it to survive (B-23), and the near-miss until that check became a
+**refusal** rather than a listing (B-24).
 
 ### Scenario: a missing required variable stops the process
 * **Given:** a schema with a required `SAMPLE_STORE_URL` and nothing set
@@ -117,6 +116,7 @@ now, so it is marked.
 * **Then:** it refuses to start
 * **And:** the message names both spellings
 * **And:** this is the scenario an implementation that checks only *required* variables passes
+* **Automated:** `UnknownVariableTest`
 
 ### Scenario: a variable outside the prefix is not the schema's business
 * **Given:** the environment carries `PATH`, `HOSTNAME` and a dozen `*_PORT` variables the kubelet
