@@ -1,7 +1,7 @@
 ---
 id: B-15
 title: "The booblik participant: flush, then close"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m2-shutdown

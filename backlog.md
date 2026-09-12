@@ -98,7 +98,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-15](docs/backlog/B-15-booblik-adapter.md) `[ ]` | The booblik participant: flush, then close | P1 | S | B-11 |
+| [B-15](docs/backlog/B-15-booblik-adapter.md) `[~]` | The booblik participant: flush, then close | P1 | S | B-11 |
 | [B-20](docs/backlog/B-20-pre-drain-default.md) `[?]` | Measure and settle the pre-drain default | P1 | S | B-09, B-33 |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
