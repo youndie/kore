@@ -1,8 +1,16 @@
-# One gate, and CI runs exactly this target.
+# Two gates, and CI runs exactly these targets.
 #
 # A local check set that differs from the CI one turns "green here, red there" into the normal state
-# of affairs, and then neither is read. So: whatever is not in `make check` is not a gate, and
-# whatever is in it runs the same way in both places.
+# of affairs, and then neither is read. So: whatever is not behind one of these targets is not a
+# gate, and whatever is runs the same way in both places.
+#
+# `check` reads the documents — python, seconds, no JDK. `build` compiles and tests — a toolchain and
+# minutes. They are separate targets because a contributor editing a document should not need the
+# second, and one target that needed both would be one nobody ran.
+#
+# This header used to say "whatever is not in `make check` is not a gate", which was **false**: CI's
+# `build` job blocks a pull request and had no named target at all, so the one gate a contributor
+# could not run locally was the slow one they would find out about from a red pull request (B-02).
 #
 # Every script defaults to `docs` in the working directory, so the variables below exist to be
 # overridden rather than because anything needs them.
@@ -11,11 +19,16 @@ DOCS ?= docs
 BACKLOG ?= backlog.md
 REPOS ?= ..
 PY ?= python3
+GRADLE ?= ./gradlew
+# CI passes `--no-daemon`; a laptop wants the daemon. The flags are the only difference between the
+# two, which is the point — the command itself is one string in one place.
+GRADLEFLAGS ?=
 
-.PHONY: check gate report fix help
+.PHONY: check gate report fix build help
 
 help:
-	@echo "make check   - the gate: blocking checks, exactly what CI runs"
+	@echo "make check   - the documentation gate: blocking, exactly what CI's check job runs"
+	@echo "make build   - the code gate: blocking, exactly what CI's build job runs"
 	@echo "make report  - non-blocking reports: BDD coverage, code anchors"
 	@echo "make fix     - regenerate the backlog index, fill in missing coverage-map lines"
 
@@ -42,6 +55,11 @@ gate:
 report:
 	$(PY) scripts/bdd_report.py --docs $(DOCS) --repos $(REPOS)
 	$(PY) scripts/code_anchors.py --docs $(DOCS) --repos $(REPOS)
+
+# The code gate. One `build` for every target the project declares; what that does and does not
+# cover is in CLAUDE.md rather than assumed here.
+build:
+	$(GRADLE) build $(GRADLEFLAGS)
 
 fix:
 	$(PY) scripts/backlog_index.py --docs $(DOCS) --backlog $(BACKLOG)

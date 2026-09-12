@@ -124,7 +124,10 @@ jobs:
           key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: konan-${{ runner.os }}-
 
-      - run: ./gradlew build --no-daemon
+      # `make build`, not `./gradlew` directly, so the command a contributor runs and the command
+      # that gates a pull request are one string in one place — the same reason the job above runs
+      # `make check` rather than listing the scripts.
+      - run: make build GRADLEFLAGS=--no-daemon
 
       # Read the result files rather than trusting the exit code. A suite that ran zero tests exits
       # zero, and on a multiplatform build the tests that silently do not run are the interesting
