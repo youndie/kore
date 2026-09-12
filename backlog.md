@@ -106,7 +106,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-37](docs/backlog/B-37-agents-not-on-central.md) `[?]` | Decide how a public kore resolves the three agents | P1 | S | - |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
-| [B-31](docs/backlog/B-31-first-consumer-findings.md) `[~]` | Findings against the first consumer, found by reading | P2 | S | - |
+| [B-31](docs/backlog/B-31-first-consumer-findings.md) `[?]` | Findings against the first consumer, found by reading | P2 | S | - |
 | [B-32](docs/backlog/B-32-file-upstream.md) `[ ]` | File the upstream proposals that are ready; ask before Ktor | P2 | S | B-03 |
 | [B-34](docs/backlog/B-34-the-three-numbers.md) `[ ]` | The three numbers, measured as comparisons | P2 | S | B-06 |
 | [B-40](docs/backlog/B-40-sample-pooled-store.md) `[?]` | Give the sample a real pooled store the oracle can stop underneath it | P2 | M | - |
