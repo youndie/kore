@@ -1,5 +1,7 @@
 package io.github.youndie.kore.observability
 
+import io.github.youndie.tracy.agent.Tracy
+import io.ktor.server.application.pluginOrNull
 import io.github.youndie.kore.lifecycle.KoreStage
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.shutdownSequence
@@ -67,6 +69,33 @@ class ObservabilityInstallTest {
     fun `a blank service name is refused`() = testApplication {
         application {
             assertFailsWith<IllegalArgumentException> { installKoreObservability(settings(service = "  ")) }
+        }
+        client.get("/")
+    }
+
+    /**
+     * Rule 7: the buffer and the thing that empties it are installed together or not at all.
+     *
+     * The plugin is what a test can see from outside; the delivery is not. They are installed in one
+     * `let` block precisely so that "both or neither" is structural rather than remembered — this
+     * asserts the visible half, and a mutation that skips the plugin is what it catches.
+     */
+    @Test
+    fun `tracy's plugin is installed when tracy is configured and not otherwise`() = testApplication {
+        application {
+            installKoreObservability(settings(tracy = AgentEndpoint("http://127.0.0.1:1", "key")))
+
+            assertTrue(pluginOrNull(Tracy) != null, "tracy was configured and its plugin was not installed")
+        }
+        client.get("/")
+    }
+
+    @Test
+    fun `tracy's plugin is absent when tracy is not configured`() = testApplication {
+        application {
+            installKoreObservability(settings())
+
+            assertTrue(pluginOrNull(Tracy) == null, "tracy was not configured and its plugin was installed anyway")
         }
         client.get("/")
     }
