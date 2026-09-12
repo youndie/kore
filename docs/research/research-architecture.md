@@ -295,7 +295,7 @@ shutdown stages, and kore still defines the *stage* abstractly rather than depen
 position and must be told to stop before the pools close", and booblik consumers are one instance of
 it.
 
-### 1.8 The two booblik producers disagree about what `close()` means, and the JVM one drops records
+### 1.8 A producer closed and torn down in the same breath loses its accumulated batch
 
 Found while reading §1.7, and it is the concrete reason the consumer stage has to distinguish
 *flush* from *close*.
@@ -323,14 +323,48 @@ accumulated batch is sent; on the JVM it is discarded. That is a sharper claim t
 and a more useful one: the fix upstream is not a design argument, it is one line that already exists
 in the sibling implementation.
 
-**Consequence.** "Close the consumers and the pools" is not one verb. A stage that closes without
-flushing silently drops up to a linger window of published events on every deployment — a small
+**Refuted by measurement while doing [B-45](../backlog/B-45-booblik-against-a-real-broker.md) (2026-09-12), and the
+heading above is the sentence that was wrong.** Everything in the two tables is still true of the
+source; the *link between them* is not. `drainPending()` is not the closing path. Closing the mailbox
+makes the accumulation window's `select` take the closed branch, which breaks the window and falls
+into the `sendAll()` at the foot of `runLoop` — the same call the linger timer would have reached —
+so by the time `finally { drainPending() }` runs there is nothing left in `pending` to fail. booblik
+now says so in as many words on `Producer.close()`, with `ProducerCloseFlushTest` behind it; the
+report this finding became, [youndie/booblik#68](https://github.com/youndie/booblik/issues/68), was
+closed as not confirmed.
+
+**What actually loses records, measured against a real broker** — `samples/oracle/.../BrokerFlush.kt`,
+three arms against `ghcr.io/youndie/booblik:latest`, five runs, identical every time
+([write-up](measurements-2026-09-12/broker-flush.md)):
+
+| Shutdown | Records read back, of 51 |
+|---|---|
+| `producer.close()`, then `connection.close()` and `scope.cancel()` in the same breath | **1** — only the awaited warm-up |
+| `producer.close()`, 500 ms of quiet, then the teardown | **51** |
+| kore's `booblikParticipant(…).stop()` — flush awaited, then close — then the teardown | **51** |
+
+So `close()` does send the batch. It sends it **on the producer's own coroutine and does not wait**,
+and a shutdown is precisely the moment that coroutine's scope and connection are being torn down.
+The loss is a race, and the second arm is what names it: the same `close()` keeps all 51 records when
+anything at all waits afterwards.
+
+**Consequence, and it survives the refutation with a different reason.** "Close the consumers and the
+pools" is not one verb. The verb that is missing is not *send* but *wait*: a stage that closes and
+tears down silently drops up to a linger window of published events on every deployment — a small
 number, always, and invisible, because the records that vanish are the ones the process never got an
 acknowledgement for. kore's consumer stage is *flush with a deadline, then close*, in that order, on
-both platforms — kore does not rely on either client's `close()` doing the right thing, precisely
-because they disagree. The deadline is what stops a flush against a dead broker from eating the whole
-grace period. Also carried as a finding against the first consumer in
+both platforms; `flush()` is the only call in that client that suspends until the broker has answered,
+which is why kore uses it rather than relying on `close()` — not because `close()` discards anything.
+The deadline is what stops a flush against a dead broker from eating the whole grace period. Also
+carried as a finding against the first consumer in
 [B-31](../backlog/B-31-first-consumer-findings.md).
+
+**The shape of the original error is worth more than the correction.** Two true quotations, from two
+real files, joined by an inference nobody ran: `close()` ends at `drainPending()`, `drainPending()`
+fails the batch, therefore `close()` loses the batch. The middle step was false and no amount of
+re-reading the two quotations would have shown it — only executing the path did. The native client's
+`sendAll()` in `drainPending()` is a second belt for its own cancellation reasons, not the fix for a
+gap on the JVM.
 
 **And a fact picked up in passing, which kore's own scopes need.** booblik's native module records
 that **`Dispatchers.IO` is `internal` on Kotlin/Native** — checked there by compiling against
@@ -763,10 +797,12 @@ requests on Kotlin/Native and none on the JVM — so a JVM-only adapter would le
 matters most untested on the platform where the library's premise was demonstrated. The cheaper
 option is cheaper exactly where kore cannot afford it.
 
-And the two clients disagree about the thing the adapter exists for: the JVM `close()` discards the
-accumulated batch, the native one sends it first (§1.8). One adapter written against either would be
-right on the other platform by accident. Two actuals make the difference explicit, and flush-then-close
-makes kore independent of how the disagreement is resolved upstream.
+And the two clients still differ on the thing the adapter exists for, though not where this document
+first said: on a **cancelled scope** the JVM `close()` fails the accumulated batch while the native
+one sends it (§1.8). One adapter written against either would be right on the other platform by
+accident. Two actuals make the difference explicit, and flush-then-close makes kore independent of
+which of the two a service happens to be running — B-45 measured the JVM arm losing 50 of 51 records
+to a teardown that a flush saves.
 
 `kore-booblik` is still not in the build: the decision is recorded, the module arrives with
 [B-15](../backlog/B-15-booblik-adapter.md).

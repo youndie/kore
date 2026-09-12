@@ -1,0 +1,80 @@
+=== run 1 ===
+> Task :samples:oracle:brokerFlush
+control — close() then tear down: 50 records queued inside the linger window
+treatment — kore's participant: 50 records queued inside the linger window
+mechanism — close(), wait, then tear down: 50 records queued inside the linger window
+
+records sent without awaiting, per arm: 50 (plus one awaited warm-up)
+  control   — producer.close()            : 1 of 51 read back
+  treatment — booblikParticipant().stop() : 51 of 51 read back
+  mechanism — producer.close() + 500 ms   : 51 of 51 read back
+
+The batch is not thrown away by close() — it goes out on the producer's own coroutine, and what loses it is tearing the scope and the connection down before that coroutine has run. kore's contribution is the *waiting*, not the sending.
+
+SUPPORTED: tearing down without a flush loses the accumulated batch and kore's participant does not.
+
+BUILD SUCCESSFUL in 8s
+=== run 2 ===
+> Task :samples:oracle:brokerFlush
+control — close() then tear down: 50 records queued inside the linger window
+treatment — kore's participant: 50 records queued inside the linger window
+mechanism — close(), wait, then tear down: 50 records queued inside the linger window
+
+records sent without awaiting, per arm: 50 (plus one awaited warm-up)
+  control   — producer.close()            : 1 of 51 read back
+  treatment — booblikParticipant().stop() : 51 of 51 read back
+  mechanism — producer.close() + 500 ms   : 51 of 51 read back
+
+The batch is not thrown away by close() — it goes out on the producer's own coroutine, and what loses it is tearing the scope and the connection down before that coroutine has run. kore's contribution is the *waiting*, not the sending.
+
+SUPPORTED: tearing down without a flush loses the accumulated batch and kore's participant does not.
+
+BUILD SUCCESSFUL in 10s
+=== run 3 ===
+> Task :samples:oracle:brokerFlush
+control — close() then tear down: 50 records queued inside the linger window
+treatment — kore's participant: 50 records queued inside the linger window
+mechanism — close(), wait, then tear down: 50 records queued inside the linger window
+
+records sent without awaiting, per arm: 50 (plus one awaited warm-up)
+  control   — producer.close()            : 1 of 51 read back
+  treatment — booblikParticipant().stop() : 51 of 51 read back
+  mechanism — producer.close() + 500 ms   : 51 of 51 read back
+
+The batch is not thrown away by close() — it goes out on the producer's own coroutine, and what loses it is tearing the scope and the connection down before that coroutine has run. kore's contribution is the *waiting*, not the sending.
+
+SUPPORTED: tearing down without a flush loses the accumulated batch and kore's participant does not.
+
+BUILD SUCCESSFUL in 7s
+=== run 4 ===
+> Task :samples:oracle:brokerFlush
+control — close() then tear down: 50 records queued inside the linger window
+treatment — kore's participant: 50 records queued inside the linger window
+mechanism — close(), wait, then tear down: 50 records queued inside the linger window
+
+records sent without awaiting, per arm: 50 (plus one awaited warm-up)
+  control   — producer.close()            : 1 of 51 read back
+  treatment — booblikParticipant().stop() : 51 of 51 read back
+  mechanism — producer.close() + 500 ms   : 51 of 51 read back
+
+The batch is not thrown away by close() — it goes out on the producer's own coroutine, and what loses it is tearing the scope and the connection down before that coroutine has run. kore's contribution is the *waiting*, not the sending.
+
+SUPPORTED: tearing down without a flush loses the accumulated batch and kore's participant does not.
+
+BUILD SUCCESSFUL in 7s
+=== run 5 ===
+> Task :samples:oracle:brokerFlush
+control — close() then tear down: 50 records queued inside the linger window
+treatment — kore's participant: 50 records queued inside the linger window
+mechanism — close(), wait, then tear down: 50 records queued inside the linger window
+
+records sent without awaiting, per arm: 50 (plus one awaited warm-up)
+  control   — producer.close()            : 1 of 51 read back
+  treatment — booblikParticipant().stop() : 51 of 51 read back
+  mechanism — producer.close() + 500 ms   : 51 of 51 read back
+
+The batch is not thrown away by close() — it goes out on the producer's own coroutine, and what loses it is tearing the scope and the connection down before that coroutine has run. kore's contribution is the *waiting*, not the sending.
+
+SUPPORTED: tearing down without a flush loses the accumulated batch and kore's participant does not.
+
+BUILD SUCCESSFUL in 7s
