@@ -29,8 +29,24 @@ public class ResolvedValue(
     public val secret: Boolean,
     internal val value: Any?,
 ) {
-    /** Masked when the field was declared secret — rule 7, a property of the declaration. */
-    public val rendered: String get() = if (secret) "••••••" else value.toString()
+    /**
+     * Masked when the field was declared secret — rule 7, a property of the declaration.
+     *
+     * **Absence is checked before secrecy**, and the order is the whole content of this property.
+     * An absent secret carries nothing to leak, so saying it is absent discloses nothing; masking it
+     * answers *"I am not showing you"* to a question about **existence**, which is the question
+     * `--print-config` is asked when a [ConfigPair] is involved. It also made the two halves of one
+     * decision render differently — the endpoint `null` and the key `••••••` — so a reader could not
+     * tell "no agent here" from "an agent I am not printing the key of". Reported from the first
+     * consumer as [youndie/kore#62](https://github.com/youndie/kore/issues/62).
+     */
+    public val rendered: String
+        get() =
+            when {
+                value == null -> "null"
+                secret -> "••••••"
+                else -> value.toString()
+            }
 
     override fun toString(): String = "$variable = $rendered ($origin)"
 }

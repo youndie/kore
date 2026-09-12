@@ -140,6 +140,22 @@ class ConfigSchemaTest {
         assertEquals("s3cret", config[API_KEY], "masking changed the value the program reads")
     }
 
+    /**
+     * The question `--print-config` is asked when a pair is involved: *is there an agent here at all?*
+     * Masking an absent secret answers "I am not showing you" to a question about existence, and the
+     * endpoint half beside it says `null` — so the two halves of one decision render differently and
+     * only one of them is honest. Reported from konekt as youndie/kore#62.
+     */
+    @Test
+    fun `an unset optional secret renders as absent rather than masked`() {
+        val config = schema.read(env(*minimal))
+
+        val key = config.values().single { it.variable == "SAMPLE_TRACY_KEY" }
+        val endpoint = config.values().single { it.variable == "SAMPLE_TRACY_ENDPOINT" }
+        assertEquals("null", key.rendered, "an absent secret was masked, so absent and set look alike")
+        assertEquals(endpoint.rendered, key.rendered, "the two halves of one pair render differently")
+    }
+
     @Test
     fun `a blank value is an unset value`() {
         // A chart that renders an empty string for an absent setting is the ordinary case, and
