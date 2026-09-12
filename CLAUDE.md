@@ -211,6 +211,13 @@ LOCAL=1 make check
 
 `make check` is the gate and CI runs exactly it — on a GitHub runner, where no hook and no `LOCAL=1`
 are involved; the prefix above is only for running it here, beside a mutagen session. `make report`
-is the two non-blocking reports, and `code_anchors` reporting most paths as rotten is **correct**
-here: they are where the code will live, and the count going down is one way to watch the library
-arrive. It becomes a gate when it reaches zero, not before.
+is the two non-blocking reports, and **`code_anchors` has no zero to reach** — the sentence that used
+to promise a gate once it did was wrong twice over. It first said the rotten paths were *where the
+code will live*; the code arrived and the count did not move. It is now 14, of which **13 are inside a
+dependency's artefact** — Ktor's sources in a klib, sqlx4k's, the platform klibs, the Kubernetes
+website — verified by unpacking that artefact, which is what research §1 is, and unresolvable by any
+search over sibling repositories. The 14th was a layer-document row naming a file that had never
+existed, which is the kind of thing this report is genuinely for and the reason to keep reading one
+nothing gates on. Making the number mean something needs the checker to tell an artefact-internal
+address from a path, and the checker is a byte-identical copy of docs-bootstrap's — so that change
+belongs there: [B-51](docs/backlog/B-51-anchors-inside-artefacts.md).
