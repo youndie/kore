@@ -55,15 +55,54 @@ class BuildIdentityPlugin : Plugin<Project> {
         // Wired by the TASK PROVIDER, not by a path. Gradle infers the dependency from it, so the
         // compilation cannot run before the file exists — which is the difference between an input
         // and a side effect.
+        //
+        // BOTH KOTLIN PLUGINS, and the second one was missing until #70. A `kotlin("jvm")` module has
+        // no `commonMain`, so it never entered the block below, the task still ran, the file still
+        // appeared on disk with the right contents — and nothing compiled it. The only symptom was an
+        // import that would not resolve in a module where the plugin was applied and apparently
+        // working. Silence is what made it worth a report rather than a footnote.
+        var wired = false
         project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
-            val kotlin = project.extensions.getByName("kotlin")
-            val sourceSets = kotlin.javaClass.getMethod("getSourceSets").invoke(kotlin)
-            val commonMain =
-                sourceSets.javaClass.getMethod("getByName", String::class.java).invoke(sourceSets, "commonMain")
-            val kotlinSrc = commonMain.javaClass.getMethod("getKotlin").invoke(commonMain)
-            kotlinSrc.javaClass.getMethod("srcDir", Any::class.java).invoke(kotlinSrc, generate)
+            wired = true
+            addGeneratedSourceDirectory(project, "commonMain", generate)
+        }
+        project.plugins.withId("org.jetbrains.kotlin.jvm") {
+            wired = true
+            addGeneratedSourceDirectory(project, "main", generate)
+        }
+
+        // A REFUSAL RATHER THAN A FILE NOBODY COMPILES. Applied to a module with neither Kotlin
+        // plugin there is nothing to attach the source to, and the old behaviour — generate it
+        // anyway, say nothing — is the failure #70 reported one plugin at a time. `afterEvaluate`
+        // because "neither was applied" is only knowable once the build script has finished running;
+        // the wiring above is not deferred, only this check is.
+        project.afterEvaluate {
+            check(wired) {
+                "the io.github.youndie.kore.build plugin needs a Kotlin plugin to attach the generated " +
+                    "identity to: apply org.jetbrains.kotlin.multiplatform or org.jetbrains.kotlin.jvm " +
+                    "in ${project.path}, or remove this plugin — it would otherwise write a file that " +
+                    "nothing compiles"
+            }
         }
     }
+}
+
+/**
+ * Adds the generator's output as a source directory of [sourceSetName], through reflection.
+ *
+ * Reflection because `kore-build` must not depend on the Kotlin Gradle plugin's API: the plugin is
+ * applied by builds that pin their own Kotlin version, and a compile dependency here would decide
+ * that version for them. `sourceSets` and `getByName` are the same shape on the multiplatform and the
+ * JVM extension, so one helper serves both — which is also why the JVM case is one line rather than a
+ * second implementation.
+ */
+private fun addGeneratedSourceDirectory(project: Project, sourceSetName: String, generate: Any) {
+    val kotlin = project.extensions.getByName("kotlin")
+    val sourceSets = kotlin.javaClass.getMethod("getSourceSets").invoke(kotlin)
+    val sourceSet =
+        sourceSets.javaClass.getMethod("getByName", String::class.java).invoke(sourceSets, sourceSetName)
+    val kotlinSrc = sourceSet.javaClass.getMethod("getKotlin").invoke(sourceSet)
+    kotlinSrc.javaClass.getMethod("srcDir", Any::class.java).invoke(kotlinSrc, generate)
 }
 
 abstract class GenerateBuildIdentity : DefaultTask() {
@@ -76,12 +115,42 @@ abstract class GenerateBuildIdentity : DefaultTask() {
     @get:Input
     abstract val projectDirectory: Property<String>
 
+    /**
+     * The commit, when the thing driving the build knows it and git does not — #71.
+     *
+     * Unset, git is asked and an unreachable one degrades to `unknown`, which stays correct: an
+     * invented-looking hash would be worse than admitting the build could not tell. But `unknown` is
+     * often a value that **was** available and had no way in — a Docker build context usually
+     * excludes `.git`, a CI job has the sha in an environment variable long before it has a checkout,
+     * and a replicated working tree has neither.
+     *
+     * A property rather than a conventional environment variable read inside the plugin: which
+     * variable names the commit is the consumer's fact, and a plugin guessing wrong would compile a
+     * *different* commit into the binary, which is worse than `unknown`.
+     *
+     * ```kotlin
+     * tasks.named<GenerateBuildIdentity>("generateKoreBuildIdentity") {
+     *     commit.set(providers.environmentVariable("GITHUB_SHA"))
+     * }
+     * ```
+     *
+     * **Set, it also means `dirty = false`, and that is a claim rather than an omission.** An
+     * externally supplied commit is a statement about a commit, not about a working tree; the driver
+     * that knows the sha is building *that* sha. Asking git for the dirty half would defeat the point
+     * — the case this exists for is one where git cannot be asked at all.
+     */
+    @get:Input
+    @get:org.gradle.api.tasks.Optional
+    abstract val commit: Property<String>
+
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
     @TaskAction
     fun generate() {
-        val facts = readGitFacts(File(projectDirectory.get())) { message -> logger.info(message) }
+        val facts =
+            commit.orNull?.takeIf { it.isNotBlank() }?.let { supplied -> GitFacts(supplied, dirty = false) }
+                ?: readGitFacts(File(projectDirectory.get())) { message -> logger.info(message) }
         val out = outputDirectory.get().asFile
         val target = File(out, packageName.get().replace('.', '/'))
         val file = File(target, "KoreBuildIdentity.kt")
