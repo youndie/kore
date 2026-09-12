@@ -255,6 +255,27 @@ whose package name the project has abandoned.
 **What kore does meanwhile.** Pins 0.3.4 from the portfolio's repository and says so where a consumer
 meets it.
 
+### 7.3 The broker is not published in any runnable form
+
+**Claim.** booblik has a `Dockerfile` at its repository root and publishes no image; and its server
+module, `booblik-app`, is not published as an artefact either. Only the clients and the protocol are.
+
+**Verified against** the listings of `io/github/youndie/booblik/` on Maven Central and on the
+portfolio's own repository, read 2026-09-12, and the presence of `./Dockerfile` in the booblik working
+tree.
+
+**Why it matters here.** kore's booblik participant asserts an *order* — flush, then close — against
+a double, and that is the honest limit of what a double can show. The other half of the scenario, that
+a flush actually puts the records on a socket and that closing without one loses them, needs a broker.
+[B-45](../backlog/B-45-booblik-against-a-real-broker.md) is written and cannot run.
+
+**Proposed shape.** Publish the image the `Dockerfile` already describes, on any registry the
+portfolio can pull from. It is one CI step, and it turns a scenario that can only be modelled into one
+that can be run — not only here: anything that integrates with booblik has the same problem.
+
+**What kore does meanwhile.** Asserts the order against a double and says, on the scenario itself,
+exactly which half that covers.
+
 ---
 
 ## 6. How a proposal here is closed
