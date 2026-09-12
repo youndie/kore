@@ -1,7 +1,7 @@
 ---
 id: B-28
 title: "The three agents in one call, with three shutdown contracts"
-status: open
+status: wip
 priority: P1
 size: M
 stage: m5-wiring
