@@ -106,7 +106,28 @@ Method, raw output and the three things this harness got wrong first:
 
 ## What resolves from where
 
-`kore-core`, `kore-ktor` and the Gradle plugin resolve from Maven Central and depend on nothing else.
+**Everything resolves from [the portfolio's repository](https://reposilite.kotlin.website/snapshots)
+today, and nothing is on Maven Central yet.** This section used to say that `kore-core`, `kore-ktor`
+and the Gradle plugin resolved from Central. They do not, and had not when it was written — a
+sentence about a plan, in the tense of a fact, in the one place a stranger reads to find out whether
+they can use this. Reported from the first consumer as
+[#58](https://github.com/youndie/kore/issues/58). Central is still where the three
+dependency-free modules belong, and it is [B-37](docs/backlog/B-37-agents-not-on-central.md) that
+says which ones can go.
+
+```kotlin
+repositories {
+    maven("https://reposilite.kotlin.website/snapshots") {
+        content { includeGroupByRegex("io\\.github\\.youndie.*") }
+    }
+}
+```
+
+| | |
+|---|---|
+| `kore-core`, `kore-ktor`, `kore-booblik` | depend on nothing outside Kotlin, Ktor and coroutines |
+| `kore-build` — the Gradle plugin `/version` needs | published since #58; the identity it compiles in cannot be produced any other way |
+| `kore-observability` | **portfolio-only by construction** — see below |
 
 **`kore-observability` is portfolio-only.** The three agents it wires are not published to Maven
 Central, so that one module resolves against

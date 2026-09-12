@@ -59,7 +59,16 @@ jobs:
       # pre-flight below and the read-back at the end both walk, and producing it first is what makes
       # a refusal possible before the first PUT rather than after some of them.
       - name: Produce the publication locally
-        run: ./gradlew --no-daemon publishAllPublicationsToLocalCopyRepository
+        # TWO TASKS, and the second one is why #58 happened. `kore-build` is an INCLUDED build, not a
+        # `:kore-*` subproject — a plugin cannot be applied by the build that compiles it — so the
+        # root task does not reach it, and B-48's completeness check, which read `include(":kore-*")`
+        # out of settings.gradle.kts, could not see a form this build does not have. The check below
+        # walks the `kore-*` directories instead: the rule is "everything kore ships publishes", and a
+        # directory is what a module actually is, whichever way it gets into the build.
+        run: |
+          ./gradlew --no-daemon \
+            publishAllPublicationsToLocalCopyRepository \
+            :kore-build:publishAllPublicationsToLocalCopyRepository
         env:
           ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
 
@@ -91,7 +100,9 @@ jobs:
 
       - name: Publish
         run: |
-          ./gradlew --no-daemon publishAllPublicationsToWipRepository
+          ./gradlew --no-daemon \
+            publishAllPublicationsToWipRepository \
+            :kore-build:publishAllPublicationsToWipRepository
         env:
           ORG_GRADLE_PROJECT_VERSION: ${{ steps.ver.outputs.version }}
           ORG_GRADLE_PROJECT_REPOSILITE_USER: ${{ secrets.REPOSILITE_USER }}
@@ -110,14 +121,18 @@ jobs:
           [ -n "$poms" ] || { echo "::error::the publish produced no local copy to verify"; exit 1; }
           echo "verifying $(echo "$poms" | wc -l) coordinates"
 
-          # EVERY MODULE THE BUILD HAS, not a count. A floor on the number is vacuous in the way that
-          # matters: nineteen coordinates minus one whole module is still comfortably above any floor
-          # worth writing. The rule is that a `:kore-*` module publishes, so the rule is what is
-          # checked — against the only list that cannot drift from the build, which is the build's own.
+          # EVERY MODULE KORE SHIPS, and the list is the filesystem. A floor on the number is vacuous
+          # in the way that matters: a whole module missing still leaves a count above any floor worth
+          # writing.
+          #
+          # This read `include(":kore-*")` out of settings.gradle.kts until #58 — the shape four of the
+          # five modules happen to have. `kore-build` has the fifth, `includeBuild`, and was invisible
+          # to a check written by looking at the others.
           missing=0
-          for m in $(grep -o 'include(":kore-[a-z-]*")' settings.gradle.kts | sed 's/.*":\(.*\)")/\1/'); do
+          for d in kore-*/; do
+            m=${d%/}
             [ -d "build/published/io/github/youndie/$m/$v" ] || {
-              echo "::error::$m is in the build and published nothing"; missing=1; }
+              echo "::error::$m is in this repository and published nothing"; missing=1; }
           done
           [ "$missing" = 0 ] || exit 1
           fail=0
