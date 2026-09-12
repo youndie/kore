@@ -18,16 +18,26 @@ Every service ends up writing those five, slightly differently, and getting one 
 native targets decide the design, because every fact that makes this library necessary is invisible
 from the JVM.
 
-> **Status: all five features built, `0.1.3` published, first consumer mid-adoption.**
+> **Status: all five features built, published, first consumer mid-adoption.**
 >
-> 51 backlog items closed, 158 tests on `aarch64` and a suite on Apple silicon per pull request, an
-> end-to-end oracle that sends a real `SIGTERM` to a real container under load.
+> 51 backlog items closed, 42 BDD scenarios all automated, 158 tests on `aarch64` and a suite on
+> Apple silicon per pull request, an end-to-end oracle that sends a real `SIGTERM` to a real
+> container under load.
 >
 > What that does not cover, said out loud because a status line that only lists wins is not a status
-> line: **nothing is on Maven Central yet**, so an outside consumer resolves from the portfolio's
-> repository; the pre-drain default of five seconds is a hypothesis carrying the item that will
-> settle it; and the first real adoption found four defects in a day that none of the above caught —
-> a published example that cannot run on one platform among them.
+> line:
+>
+> - **nothing is on Maven Central yet** — an outside consumer resolves from the portfolio's
+>   repository;
+> - **the pre-drain default is measured on one node and only one.** Endpoint propagation came out at
+>   61 ms against a five-second default, so the measurement can refute and cannot confirm: one node
+>   is the optimistic end of every factor, and a real cluster adds to that number rather than
+>   subtracting. The default stays, and the five seconds it costs every rollout are named rather than
+>   assumed;
+> - **the first real adoption found seven defects in two days** that none of the above caught, among
+>   them a published example that could not run on one of the two platforms and a module that had
+>   never been published at all. That is the honest measure: the library works, and what a consumer
+>   trips over is still being found by consumers.
 
 ## The shape of the promise
 
@@ -164,16 +174,19 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.youndie:kore-core:0.1.3")
-    implementation("io.github.youndie:kore-ktor:0.1.3")        // probes, /version, drain, 503 refusal
-    implementation("io.github.youndie:kore-booblik:0.1.3")     // flush-then-close for a booblik producer
-    implementation("io.github.youndie:kore-observability:0.1.3")
+    implementation("io.github.youndie:kore-core:<VERSION>")
+    implementation("io.github.youndie:kore-ktor:<VERSION>")        // probes, /version, drain, 503 refusal
+    implementation("io.github.youndie:kore-booblik:<VERSION>")     // flush-then-close for a booblik producer
+    implementation("io.github.youndie:kore-observability:<VERSION>")
 }
 
 plugins {
-    id("io.github.youndie.kore.build") version "0.1.3"          // what /version reports
+    id("io.github.youndie.kore.build") version "<VERSION>"         // what /version reports
 }
 ```
+
+`<VERSION>` is the badge at the top of this file, which the repository serves — a number written out
+here would be one more thing that goes stale silently, and this README has had two of those already.
 
 **Nothing is on Maven Central yet**, and this section used to say that three of these resolved from
 there. They do not, and had not when it was written — a sentence about a plan in the tense of a fact,
