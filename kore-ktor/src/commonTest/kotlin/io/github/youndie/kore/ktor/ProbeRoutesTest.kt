@@ -113,15 +113,25 @@ class ProbeRoutesTest {
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get(KoreRoutes.READY).status)
     }
 
+    /**
+     * The forgotten call as an operator meets it: a stalled rollout and a probe body.
+     *
+     * The body has to name the missing call, because every other signal in this situation says
+     * "starting up" — the pod is running, the process is alive, liveness is `200`, and readiness is
+     * `503` with a reason that reads like a race about to resolve. It never resolves. B-41.
+     */
     @Test
-    fun `a process that has not run its first check is not ready`() = testApplication {
+    fun `a registry nobody started says so in the readiness body`() = testApplication {
         val registry = HealthRegistry(listOf(Check("store")))
         application { installKoreProbes(started(), ReadinessGate(registry)) }
 
         val ready = client.get(KoreRoutes.READY)
 
         assertEquals(HttpStatusCode.ServiceUnavailable, ready.status)
-        assertTrue(ready.bodyAsText().contains("has not run yet"), "the body did not say the check never ran")
+        assertTrue(
+            ready.bodyAsText().contains("HealthRegistry.start"),
+            "the body did not name the call that was missing: ${ready.bodyAsText()}",
+        )
     }
 
     @Test
