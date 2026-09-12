@@ -1,7 +1,7 @@
 ---
 id: B-37
 title: "Decide how a public kore resolves the three agents"
-status: question
+status: wip
 priority: P1
 size: S
 stage: m5-wiring

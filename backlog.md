@@ -103,7 +103,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-28](docs/backlog/B-28-observability-wiring.md) `[ ]` | The three agents in one call, with three shutdown contracts | P1 | M | B-11, B-21, B-37 |
 | [B-33](docs/backlog/B-33-publish-and-adopt.md) `[ ]` | Publish kore and adopt it in the first consumer | P1 | M | B-13, B-17, B-23, B-28 |
 | [B-36](docs/backlog/B-36-booblik-adapter-targets.md) `[?]` | Decide kore-booblik's target set — D5's premise is gone | P1 | S | - |
-| [B-37](docs/backlog/B-37-agents-not-on-central.md) `[?]` | Decide how a public kore resolves the three agents | P1 | S | - |
+| [B-37](docs/backlog/B-37-agents-not-on-central.md) `[~]` | Decide how a public kore resolves the three agents | P1 | S | - |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-30](docs/backlog/B-30-entry-point-question.md) `[?]` | Decide whether kore owns the entry point | P2 | S | B-33 |
 | [B-31](docs/backlog/B-31-first-consumer-findings.md) `[?]` | Findings against the first consumer, found by reading | P2 | S | - |
