@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | [B-33](docs/backlog/B-33-publish-and-adopt.md) `[ ]` | Publish kore and adopt it in the first consumer | P1 | M | B-13, B-17, B-23, B-28 |
 | [B-36](docs/backlog/B-36-booblik-adapter-targets.md) `[?]` | Decide kore-booblik's target set — D5's premise is gone | P1 | S | - |
 | [B-37](docs/backlog/B-37-agents-not-on-central.md) `[?]` | Decide how a public kore resolves the three agents | P1 | S | - |
-| [B-38](docs/backlog/B-38-native-dispatcher.md) `[ ]` | Decide where kore's background work runs on Kotlin/Native | P1 | S | B-04 |
+| [B-38](docs/backlog/B-38-native-dispatcher.md) `[~]` | Decide where kore's background work runs on Kotlin/Native | P1 | S | B-04 |
 | [B-19](docs/backlog/B-19-broker-check.md) `[ ]` | The broker check asks for metadata, not for a socket | P2 | S | B-16 |
 | [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[?]` | Decide what kore assumes when the grace period is not declared | P2 | XS | B-12 |
 | [B-27](docs/backlog/B-27-version-route.md) `[ ]` | GET /version and its reduction switch | P2 | XS | B-26 |

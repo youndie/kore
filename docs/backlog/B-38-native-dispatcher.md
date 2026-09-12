@@ -1,7 +1,7 @@
 ---
 id: B-38
 title: "Decide where kore's background work runs on Kotlin/Native"
-status: open
+status: wip
 priority: P1
 size: S
 stage: m2-shutdown
