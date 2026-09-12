@@ -1,7 +1,7 @@
 ---
 id: B-32
 title: "File the upstream proposals that are ready; ask before Ktor"
-status: question
+status: done
 priority: P2
 size: S
 stage: m6-release
@@ -42,7 +42,27 @@ trusted from this document — and that caught two things (below).
 
 Written in Russian, matching the prose of the repositories they were filed in.
 
-## The question — the two Ktor entries
+## Answered 2026-09-12 — not filing with Ktor
+
+**The owner decided not to approach Ktor's tracker.** So the AC's second branch applies: the two
+entries are recorded as deliberately not filed, with the reason, in
+[research-upstream-proposals](../research/research-upstream-proposals.md) §1 — which now describes
+that as their permanent state rather than as a queue, because §6's "how a proposal is closed" cannot
+apply to one that was never opened.
+
+Worth being exact about what is and is not lost. The finding is **not** unpublished: it is in this
+repository's research, its negative control and its measurements, all public, and anyone who meets
+the same behaviour and searches for it can find it. What it is not is in front of the people who
+could fix it — which is the weaker position, and a deliberate one.
+
+The workaround does not depend on the decision: kore never puts work in `ApplicationStopping`, and
+its release stage runs after `EmbeddedServer.stop` returns on both platforms. That was true before
+the question was asked and is why the question could wait.
+
+**What would reopen it** is recorded on the entry: somebody else reporting the same behaviour, or
+kore being published and its own users meeting it.
+
+## What the question was, before it was answered
 
 **Their evidence is now in.** [B-03](B-03-negative-control.md) turned §1.1 from a reading of the
 source into a result: same source, same configuration, same load, and on Kotlin/Native the idiomatic
