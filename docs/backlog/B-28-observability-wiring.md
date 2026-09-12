@@ -35,22 +35,24 @@ treatment each actually needs.
   endpoint does not delay the exit past the telemetry deadline.
 - Anchors: `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/`
 
-## Where it was verified, and where it was not
+## The build host went offline, and it hid a real defect behind an outage
 
-The build host went offline part-way through this item — the tunnel stopped answering and the
-machine behind it does not respond on port 22. So the split is worth stating rather than implying:
+Part-way through this item the tunnel stopped answering, and the native half went unverified. It
+looked like an environment problem and was partly a real one — but when the host came back, the
+native suite still did not finish. **`TracyFlushTest` was hanging on Kotlin/Native**, and had been
+hanging on CI at the same time: over thirty minutes in both places, against eighteen seconds for the
+other two suites.
 
-* **JVM: locally**, 13 tests across three suites, read from the result files.
-* **Kotlin/Native: by CI**, not locally. `ObservabilityKeysTest` and `ObservabilityInstallTest` were
-  green on `linuxX64` before the host went away; `TracyFlushTest` — the one that matters most, since
-  it is the test a mutation escaped without — was still linking when the connection dropped and has
-  never run there locally.
+It nested `testApplication { }` inside `runTest { }`. Two test scopes, one of them driving a real
+socket, and a virtual clock in a test whose subject is a network round trip. Rewritten with real
+engines and the work inside `Dispatchers.Default`, it takes fourteen seconds on `linuxX64`.
 
-CI builds all four targets on its own runners and resolves the agents from the portfolio repository
-(proved by [B-37](B-37-agents-not-on-central.md)'s own pull request), so it is an independent check
-rather than a weaker one — a clean checkout, which the local box is not. What it is not is *this*
-machine, and the difference is worth a line because a native link of three new klibs is exactly where
-a target-set problem would appear.
+Worth recording because the outage was a *plausible* explanation that happened to be wrong, and
+"the machine was down" would have closed the question. The test that was never confirmed on the
+target platform is precisely the one that turned out to be broken there.
+
+**Verified locally on both targets after the host returned:** 14 tests on `jvm` and 14 on
+`linuxX64`, read from the result files, plus the mutation re-killed on both.
 
 ## Findings
 
