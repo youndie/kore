@@ -6,8 +6,18 @@ kotlin {
     explicitApi()
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(libs.ktor.server.test.host)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
         commonMain.dependencies {
             api(project(":kore-core"))
+
+            // The agents' plugins are Ktor plugins, so wiring them needs the application. Declared
+            // rather than inherited through the agents: a dependency this module compiles against is
+            // one it should name.
+            implementation(libs.ktor.server.core)
 
             // THE THREE AGENTS. B-37 decided where they come from: the portfolio's own repository,
             // declared and filtered in `settings.gradle.kts`, rather than Maven Central where all
