@@ -46,13 +46,17 @@ public class KoreObservability internal constructor(
     override val name: String = "observability"
 
     /**
-     * Flushes what can be flushed: **tracy and katcher**. metrik still cannot be, and that reason is
-     * its own — the plugin constructs the agent internally and publishes only the counters, so there
-     * is no handle to stop even if stopping helped; `MetrikAgent.stop()` does not flush, so the open
-     * aggregation window is lost regardless of when it is called; and the plugin subscribes itself to
-     * `ApplicationStopping`, which on Kotlin/Native fires *before* the drain, so on a native binary
-     * the requests served during shutdown are not measured at all. None of that is fixable from here;
-     * it is `feature-observability-wiring` §7 and metrik's own issue.
+     * Flushes what can be flushed **from here**: tracy and katcher. metrik is not in this list and no
+     * longer needs to be — since agent 0.3.21 its plugin subscribes `stopAndFlush` to
+     * `ApplicationStopping` itself, so the open aggregation window is sent rather than dropped
+     * (youndie/metrik#29, reported from this file).
+     *
+     * What remains true, and is metrik's to decide rather than kore's: the plugin still constructs
+     * the agent internally and publishes only the counters, so there is no handle here to stop; and
+     * `ApplicationStopping` on Kotlin/Native fires *before* the drain, so requests served during the
+     * drain fall into a window that is never emitted. The size of that hole went from "up to a whole
+     * window, every time" to "whatever the drain measures", which is the difference between losing
+     * the minute a service was stopped in and losing the tail of it.
      *
      * katcher used to be in that paragraph — `start` was its only lifecycle function — and that is
      * what [youndie/katcher#50](https://github.com/youndie/katcher/issues/50) asked about. Since
