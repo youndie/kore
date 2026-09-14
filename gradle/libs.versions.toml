@@ -71,7 +71,7 @@ booblikClient = "0.3.4"
 booblikNative = "0.3.4"
 
 tracyAgent = "0.2.15"
-metrikAgent = "0.2.18"
+metrikAgent = "0.3.21"
 katcherClient = "0.7.47"
 
 [libraries]
