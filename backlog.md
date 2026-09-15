@@ -13,11 +13,15 @@ necessary is invisible from the JVM.
 
 ## The reality check
 
-There is **no code**. This repository currently holds the research, this backlog and the layer
-documents, and every layer document says `status: draft` because that is what it is. The entry point
-is [docs/research/research-architecture.md](docs/research/research-architecture.md), and the second
-thing to read is [docs/research/research-oracle.md](docs/research/research-oracle.md) — the
-acceptance experiment, written before the implementation on purpose.
+**All five features are built and `0.1.0` is published.** This section opened with *"there is no
+code"* long after four modules carried source, a sample shipped in two images and the oracle was
+running against them — the same sentence CLAUDE.md names as the thing it had to correct twice. A
+claim about the state of a repository has no way to go red; the items below and the build do.
+
+Still the two things to read before changing anything:
+[docs/research/research-architecture.md](docs/research/research-architecture.md), and then
+[docs/research/research-oracle.md](docs/research/research-oracle.md) — the acceptance experiment,
+written before the implementation on purpose.
 
 Three things about this backlog that are not obvious from the items:
 
@@ -98,7 +102,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 No open tasks.
 
-## Closed (51)
+## Closed (52)
 
 **Shape**
 
@@ -171,5 +175,6 @@ No open tasks.
 - [B-48](docs/backlog/B-48-publish-the-whole-module-set.md) `[x]` - The publish workflow names three modules and the build has four
 - [B-49](docs/backlog/B-49-arm64-suites-never-run.md) `[x]` - The priority target has never run a test
 - [B-51](docs/backlog/B-51-anchors-inside-artefacts.md) `[x]` - An address inside an artefact is not a rotten anchor
+- [B-52](docs/backlog/B-52-the-process-cannot-see-its-limit.md) `[x]` - A Kotlin/Native process cannot see the limit it will be killed on
 
 <!-- END INDEX -->

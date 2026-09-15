@@ -5,7 +5,7 @@ shutdown, three probes, a typed configuration from the environment, one-call obs
 and `/version`. **Native-first** — `linuxX64` and `linuxArm64` decide the design; `jvm` and
 `macosArm64` follow.
 
-**All five features are built.** Four modules carry source — `kore-core`, `kore-ktor`,
+**All six features are built.** Four modules carry source — `kore-core`, `kore-ktor`,
 `kore-booblik`, `kore-observability` — plus `samples/service` and `samples/oracle`, and `0.1.0` is
 published. A path under `kore-*/src/` or `samples/` named in a document is a path that exists unless
 the document says otherwise.
