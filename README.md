@@ -20,9 +20,9 @@ from the JVM.
 
 > **Status: six features built, published, first consumer mid-adoption.**
 >
-> 52 backlog items closed, 50 BDD scenarios all automated, a suite on `aarch64` and one on Apple
-> silicon per pull request, an end-to-end oracle that sends a real `SIGTERM` to a real container
-> under load.
+> 52 backlog items closed, 50 BDD scenarios all automated, 184 tests on `aarch64` and a suite on
+> Apple silicon per pull request, an end-to-end oracle that sends a real `SIGTERM` to a real
+> container under load.
 >
 > What that does not cover, said out loud because a status line that only lists wins is not a status
 > line:
