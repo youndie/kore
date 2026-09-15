@@ -25,6 +25,26 @@ kotlin {
     linuxX64 {
         binaries.executable {
             entryPoint = "io.github.youndie.kore.sample.main"
+
+            // THE IMAGE CARRIES THE BINARY AND NOTHING ELSE, and this is the line that earns it.
+            //
+            // `platform.posix`'s klib manifest passes `-lresolv -lm -lpthread -lutil -lcrypt -lrt`
+            // to every Linux link whether or not a symbol from them is used. Three of those are
+            // never referenced here, and one of the three — `libcrypt.so.1` — is not in
+            // `gcr.io/distroless/cc`, so the Dockerfile used to drag it across from a debian stage.
+            //
+            // What that copy cost is not the line: a file copied between images couples them by
+            // glibc, the builder's having to be no newer than the runtime's, and the failure when it
+            // is wrong is the container exiting with `GLIBC_2.38 not found` before any of the
+            // application's own logging has run. `--as-needed` lets the linker drop what nothing
+            // referenced, so there is no copy and no pairing rule to get wrong.
+            //
+            // LINUX ONLY: `ld64` and `lld-link` do not take this flag. Measured in sborka's
+            // `research-static-binary.md` §1.3–1.4 and taken there as D1 for the portfolio's
+            // conventions; kore applies no sborka convention (a settings plugin fetched in
+            // `pluginManagement` would make this repository unbuildable for an outside consumer), so
+            // the one line lives here instead.
+            linkerOpts("-Wl,--as-needed")
         }
     }
 

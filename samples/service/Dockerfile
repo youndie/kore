@@ -20,17 +20,22 @@ ENTRYPOINT ["java", "-jar", "/app/service.jar"]
 
 # --- the Kotlin/Native build -------------------------------------------------------------------
 #
-# `distroless/cc` and NOT `distroless/base`: the binary is dynamically linked against libgcc_s,
-# libm, libpthread and friends — read with `ldd`, not assumed.
+# `distroless/cc` and NOT `distroless/base`: Kotlin/Native's exception handling imports thirteen
+# `_Unwind_*` symbols from **libgcc_s**, which `base` does not carry. "It needs glibc" is the usual
+# shorthand and it is the wrong reason — `base` has glibc and still fails.
 #
-# It also needs **libcrypt.so.1**, which `cc` does not carry. That is copied in explicitly rather
-# than discovered as a container that will not start; the same gap has been paid for elsewhere in
-# this portfolio. `ldd` on the binary is the way to check it after any dependency change.
-FROM debian:trixie-slim AS native-libs
-RUN apt-get update && apt-get install -y --no-install-recommends libcrypt1 && rm -rf /var/lib/apt/lists/*
-
+# ONE STAGE AND ONE `COPY`. This file used to carry a debian stage whose only job was to hand over
+# `libcrypt.so.1`, which the binary asked the loader for and never called: `platform.posix`'s klib
+# manifest puts `-lcrypt` on every Linux link. `--as-needed` in `samples/service/build.gradle.kts`
+# drops it along with `libresolv` and `libutil` — ten NEEDED entries down to seven, read with
+# `readelf -d` before and after — so nothing is dragged across between images any more.
+#
+# What that removed is worth more than the two lines: a system library copied out of a builder
+# couples the two images by glibc, the builder's having to be no newer than the runtime's, and a
+# mismatch is invisible at build time and exits at startup with `GLIBC_2.38 not found` before any of
+# the application's logging has run. With no copy there is no pair to get wrong. Re-run `readelf -d`
+# after any dependency change; a new entry is a decision about the base image.
 FROM gcr.io/distroless/cc-debian13 AS native
-COPY --from=native-libs /lib/x86_64-linux-gnu/libcrypt.so.1 /lib/x86_64-linux-gnu/libcrypt.so.1
 COPY build/bin/linuxX64/releaseExecutable/service.kexe /app/service
 EXPOSE 8080
 ENTRYPOINT ["/app/service"]

@@ -178,9 +178,16 @@ docker run --rm -e SAMPLE_POOL_DSN=postgres://x/y kore-sample:native --print-con
   down instantly. Both stages use exec form; verified on 2026-09-11 by reading `/proc/<pid>/cmdline`
   of the container's init from the host — `/app/service` for the native image, `java -jar
   /app/service.jar` for the JVM one.
-* **`distroless/cc` does not carry `libcrypt.so.1`, and the binary needs it.** Read out of `ldd`
-  rather than discovered as a container that will not start. Re-run `ldd` after any dependency
-  change; the list is the image's real contract.
+* **`distroless/cc` does not carry `libcrypt.so.1`, and the binary asked for it without ever calling
+  it.** `platform.posix`'s klib manifest puts `-lresolv -lm -lpthread -lutil -lcrypt -lrt` on every
+  Linux link whatever the program uses, so the image carried a whole debian stage to hand one file
+  across. `-Wl,--as-needed` on the executable drops the three nothing references — ten `NEEDED`
+  entries down to seven, read with `readelf -d` before and after — and the copy went with them.
+  **What that removed matters more than the two lines:** a library copied between images couples
+  them by glibc, the builder's having to be no newer than the runtime's, and a mismatch exits at
+  startup with `GLIBC_2.38 not found` before any logging runs. Re-run `readelf -d` after any
+  dependency change; the list is the image's real contract, and a new entry is a decision about the
+  base image.
 * **The two platforms return different exit codes for the same clean shutdown** — `0` on
   Kotlin/Native, `143` on the JVM. Both are correct. This is what corrected oracle assertion A6,
   which used to demand `0` and would have failed every JVM run.
