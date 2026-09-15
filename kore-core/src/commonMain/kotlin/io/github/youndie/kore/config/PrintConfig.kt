@@ -1,6 +1,8 @@
 package io.github.youndie.kore.config
 
 import io.github.youndie.kore.korePlatform
+import io.github.youndie.kore.runtime.containerMemoryBudget
+import io.github.youndie.kore.runtime.render
 
 /** What `--print-config` produced: the text to print and the code to exit with. */
 public class PrintedConfig(
@@ -44,6 +46,15 @@ public fun ConfigSchema.printConfig(
 
     out.appendLine()
     out.append(unknownVariableSection(environment))
+
+    // THE NUMBER THE PROCESS IS JUDGED AGAINST, beside the ones it was configured with.
+    //
+    // `--print-config` is asked most often when a deployment behaves unlike the laptop it was
+    // written on, and "how much memory does this think it has" is exactly that kind of difference:
+    // unbounded here, 192 MiB there, and nothing in the output said so. It is one line and it is a
+    // fact rather than a setting — see `feature-memory-budget`.
+    out.appendLine()
+    out.appendLine("memory budget: ${containerMemoryBudget().render()}")
 
     extraSections.forEach { section ->
         out.appendLine()

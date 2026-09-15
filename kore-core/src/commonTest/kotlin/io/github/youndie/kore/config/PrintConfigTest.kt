@@ -103,4 +103,23 @@ class PrintConfigTest {
 
         assertContains(printed.text, "startupProbe: x")
     }
+
+    /**
+     * The budget line, and what it must never say.
+     *
+     * The assertion is not "it printed something": an unreadable cgroup rendered as "no limit" is
+     * the one failure this line could introduce, and it would be indistinguishable from a correct
+     * answer on the machine that wrote it.
+     */
+    @Test
+    fun `the budget the process is judged against is printed`() {
+        val printed = schema.printConfig(environment = env("SAMPLE_STORE_URL" to "x"))
+
+        assertContains(printed.text, "memory budget:")
+        val line = printed.text.lineSequence().first { it.startsWith("memory budget:") }
+        assertFalse(
+            line.contains("no limit") && line.contains("unknown"),
+            "the budget line says both that there is no limit and that it is unknown: $line",
+        )
+    }
 }

@@ -24,7 +24,9 @@ import kotlin.system.exitProcess
  *    observed and is not.
  *
  * Plus `--print-config`, in both verdicts, because a flag asked *because* the process will not start
- * has to work when it will not.
+ * has to work when it will not — and one case that is not about the schema at all: the container is
+ * given `--memory=192m` and the printed budget has to be that number (B-52). It is the only check
+ * anywhere that reads a cgroup the tests did not write themselves.
  */
 private const val DSN = "postgres://oracle/sample"
 
@@ -36,6 +38,8 @@ private class Case(
     val wantText: List<String>,
     /** Text that must NOT be there. A masked line for a secret nobody set is the case this exists for. */
     val wantAbsent: List<String> = emptyList(),
+    /** Flags for `docker run`, for the one case whose subject is what the runtime imposes. */
+    val runArgs: List<String> = emptyList(),
 )
 
 fun main() {
@@ -85,6 +89,24 @@ fun main() {
                 wantAbsent = listOf("••••••"),
             ),
             Case(
+                // B-52, and the one case in this file whose subject is not the schema.
+                //
+                // Every other check of the budget reading runs against a filesystem the test wrote:
+                // they decide what the content means and cannot decide that the files are where the
+                // code looks. A container is the opposite of the host the suites run on — the mount
+                // IS the container's own cgroup, so the limit is at the root of it — and this is the
+                // only place that difference is exercised. `--memory=192m` in, `192 MiB` out.
+                "the process reads the limit the runtime imposed on it",
+                mapOf("SAMPLE_POOL_DSN" to DSN),
+                args = listOf("--print-config"),
+                wantExit = 0,
+                wantText = listOf("memory budget: 192 MiB"),
+                // The failure this is really guarding: an unreadable cgroup rendered as an absent
+                // limit. It looks identical to a correct answer everywhere except under a limit.
+                wantAbsent = listOf("memory budget: no limit", "memory budget: unknown"),
+                runArgs = listOf("--memory=192m"),
+            ),
+            Case(
                 "--print-config on a configuration that will not start",
                 emptyMap(),
                 args = listOf("--print-config"),
@@ -118,7 +140,7 @@ fun main() {
 private class Outcome(val exit: Int, val running: Boolean, val output: String)
 
 private fun runCase(image: String, case: Case): Outcome {
-    val container = Container(image, case.args, case.env)
+    val container = Container(image, case.args, case.env, case.runArgs)
     return try {
         container.start()
         // A refusal is immediate; a start keeps running. Waiting a fixed moment and then asking is

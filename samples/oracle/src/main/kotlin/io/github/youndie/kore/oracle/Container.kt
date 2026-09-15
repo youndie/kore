@@ -21,6 +21,14 @@ class Container(
      * supplies it.
      */
     private val env: Map<String, String> = emptyMap(),
+    /**
+     * Flags for `docker run` itself rather than for the subject.
+     *
+     * Added for the memory budget (B-52): the only way to give a process a cgroup limit is to ask
+     * the runtime for one, and the whole question is what the process reads back from inside. A
+     * harness that could only set environment variables could not pose it at all.
+     */
+    private val runArgs: List<String> = emptyList(),
 ) {
     private var id: String? = null
 
@@ -52,7 +60,10 @@ class Container(
                 runCatching {
                     val envArgs = env.flatMap { (key, value) -> listOf("-e", "$key=$value") }
                     id = docker(
-                        *(listOf("run", "-d", "-p", "$chosen:8080") + envArgs + image + subjectArgs).toTypedArray(),
+                        *(
+                            listOf("run", "-d", "-p", "$chosen:8080") + runArgs + envArgs +
+                                image + subjectArgs
+                        ).toTypedArray(),
                     ).trim()
                     port = chosen
                 }
