@@ -85,6 +85,11 @@ Built from `samples/service/Dockerfile`, both entry points in exec form:
 | Image | Size |
 |---|---|
 | `kore-sample:native` (`distroless/cc-debian13` + `libcrypt.so.1`) | **47.7 MB** |
+
+> Measured before `--as-needed`. The `libcrypt.so.1` copy is gone as of 2026-09-15; the base image is
+> the same, and no before/after size is claimed here because the earlier image was overwritten rather
+> than kept. What the copy cost was never the megabytes — it was the glibc pairing between builder
+> and runtime, `docs/services/sample-service.md`.
 | `kore-sample:jvm` (`eclipse-temurin:25-jre`) | **493 MB** |
 
 `libcrypt.so.1` is copied in explicitly: `ldd` on the binary lists it and `distroless/cc` does not
