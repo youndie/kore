@@ -32,9 +32,13 @@ are one file each in [`backlog/`](backlog/), cited as
 
 ## Read this first
 
-**Nothing described in `features/`, `api/` or `services/` is built.** Every document there says
-`status: draft` or carries a note saying so, because the code does not exist. What *is* verified is
-`research/`: every fact in [research-architecture](research/research-architecture.md) §1 was read in
+**Every document in `features/`, `api/` and `services/` describes code that exists**, and each one
+opens with a note saying what is built and what it deliberately leaves to a consumer. This paragraph
+said the opposite — *"nothing described here is built"* — for weeks after it stopped being true, which
+is the failure CLAUDE.md warns about in its own words: a sentence about the state of a project has no
+way to fail. The documents and the build do; prefer them, and `backlog.md` for what is next.
+
+What is *verified* rather than merely built is `research/`: every fact in [research-architecture](research/research-architecture.md) §1 was read in
 an artefact that exists — the published sources of Ktor 3.5.2, the Kotlin/Native 2.4.10 platform
 klibs, sqlx4k 1.13.0, the Kubernetes documentation, and the code of the toolkits kore has to wire
 together.
@@ -96,7 +100,7 @@ no file behind it, fails `coverage_map.py`.
 - [x] [sample-service](services/sample-service.md) — one source, a JVM binary and a native one; the
   instrument the library is judged by rather than a demonstration
 
-### Features (5)
+### Features (6)
 
 The core, and the reason the library exists:
 - [x] [feature-ordered-shutdown](features/feature-ordered-shutdown.md) — five named stages with
@@ -113,6 +117,10 @@ What a deployment tells the process:
   refusal on an unknown variable under the declared prefix
 - [x] [feature-observability-wiring](features/feature-observability-wiring.md) — tracy, metrik and
   katcher in one call, with the three different shutdown contracts they actually have
+
+What the platform will not tell the process:
+- [x] [feature-memory-budget](features/feature-memory-budget.md) — the cgroup limit read and handed
+  over, because a Kotlin/Native binary has no `UseContainerSupport` of its own
 
 ### API (1)
 
