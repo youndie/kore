@@ -97,6 +97,23 @@ Everything the run asserts is derived from the client's own record plus the proc
 is asserted from the server's log, because a log line is written by the code under test and an
 oracle that trusts it can be satisfied by a comment.
 
+**"The slow route" is the consumer's, not kore's** — [B-54](../backlog/B-54-oracle-drives-any-path.md).
+The driven path is `--path`, defaulting to `/work?ms={work}` so `samples/service` is unchanged; the
+environment the subject needs is `--env`. Until then the path was written into the harness, which
+meant these assertions could only ever be made about kore's own sample — and the consumer adopting
+kore wants exactly them about **its** binary, because the interesting failures are in the wiring
+rather than in the library.
+
+The **probe** paths stay fixed. `/health/ready` and `/health` are what `installKoreProbes` mounts:
+they are kore's contract rather than the subject's choice.
+
+Driving a route that returns at once still answers the central questions — a closed loop has a
+request outstanding on every connection whatever the route costs — but A3 and A4 become
+`NOT_APPLICABLE`, because a request that was never refused carries no `Connection: close` and dates
+no readiness fall. Measured against kore's own sample on `/version`: 223 034 exchanges, A1 and A6
+pass, A3 and A4 not applicable. A consumer wanting those two needs a route that is still in flight
+when the signal lands.
+
 ### 2.3 What the run asserts
 
 | # | Assertion | Why it is the interesting one |
