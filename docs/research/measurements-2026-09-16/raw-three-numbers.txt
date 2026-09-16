@@ -1,0 +1,145 @@
+Calculating task graph as configuration cache cannot be reused because file 'settings.gradle.kts' has changed.
+
+> Configure project :kore-booblik
+w: ⚠️ Native task 'macosArm64Test' is disabled
+Task 'macosArm64Test' for target 'macos_arm64' cannot run on the current host (linux_x64).
+Reason: tests can only run on macos_arm64
+Solution: To suppress this warning, add 'kotlin.native.ignoreDisabledTargets=true' to gradle.properties.
+
+
+> Task :kore-build:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kore-build:compileKotlin UP-TO-DATE
+> Task :kore-build:compileJava NO-SOURCE
+> Task :kore-build:pluginDescriptors UP-TO-DATE
+> Task :kore-build:processResources UP-TO-DATE
+> Task :kore-build:classes UP-TO-DATE
+> Task :kore-build:jar UP-TO-DATE
+> Task :samples:oracle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kore-booblik:kmpPartiallyResolvedDependenciesChecker
+> Task :kore-booblik:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kore-core:jvmProcessResources NO-SOURCE
+> Task :kore-core:kmpPartiallyResolvedDependenciesChecker
+> Task :kore-core:processJvmMainResources SKIPPED
+> Task :kore-booblik:jvmProcessResources NO-SOURCE
+> Task :kore-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :samples:oracle:processResources NO-SOURCE
+> Task :kore-booblik:processJvmMainResources SKIPPED
+> Task :kore-core:compileKotlinJvm UP-TO-DATE
+> Task :kore-core:compileJvmMainJava NO-SOURCE
+> Task :kore-core:jvmMainClasses UP-TO-DATE
+> Task :kore-core:jvmJar UP-TO-DATE
+> Task :kore-booblik:compileKotlinJvm UP-TO-DATE
+> Task :kore-booblik:compileJvmMainJava NO-SOURCE
+> Task :kore-booblik:jvmMainClasses UP-TO-DATE
+> Task :kore-booblik:jvmJar UP-TO-DATE
+> Task :samples:oracle:compileKotlin UP-TO-DATE
+> Task :samples:oracle:compileJava NO-SOURCE
+> Task :samples:oracle:classes UP-TO-DATE
+
+> Task :samples:oracle:measure
+# the three numbers — research-oracle §4
+repeats=15 (plus one discarded warm-up per cell) work=3000ms connections=8 grace=20000ms
+images=kore-sample:jvm kore-sample:native
+
+warm-up kore-sample:jvm/control: discarded (first=1177ms stop=1521ms)
+warm-up kore-sample:jvm/kore: discarded (first=979ms stop=3554ms)
+
+round 1 kore-sample:jvm/control: first /health 949ms rss 110840kB stop 1503ms inFlight=8 dropped=8 finished=0 exit=143
+round 1 kore-sample:jvm/kore: first /health 1008ms first /health/startup 1012ms rss 117600kB stop 3565ms inFlight=8 dropped=0 finished=8 exit=143
+round 2 kore-sample:jvm/control: first /health 973ms rss 111200kB stop 1550ms inFlight=8 dropped=8 finished=0 exit=143
+round 2 kore-sample:jvm/kore: first /health 1028ms first /health/startup 1033ms rss 117596kB stop 3522ms inFlight=8 dropped=0 finished=8 exit=143
+round 3 kore-sample:jvm/control: first /health 959ms rss 111040kB stop 1488ms inFlight=8 dropped=8 finished=0 exit=143
+round 3 kore-sample:jvm/kore: first /health 1028ms first /health/startup 1032ms rss 117760kB stop 3537ms inFlight=8 dropped=0 finished=8 exit=143
+round 4 kore-sample:jvm/control: first /health 1009ms rss 110548kB stop 1541ms inFlight=8 dropped=8 finished=0 exit=143
+round 4 kore-sample:jvm/kore: first /health 955ms first /health/startup 958ms rss 116960kB stop 3546ms inFlight=8 dropped=0 finished=8 exit=143
+round 5 kore-sample:jvm/control: first /health 1054ms rss 110708kB stop 1501ms inFlight=8 dropped=8 finished=0 exit=143
+round 5 kore-sample:jvm/kore: first /health 968ms first /health/startup 971ms rss 111680kB stop 3508ms inFlight=8 dropped=0 finished=8 exit=143
+round 6 kore-sample:jvm/control: first /health 1004ms rss 109920kB stop 1501ms inFlight=8 dropped=8 finished=0 exit=143
+round 6 kore-sample:jvm/kore: first /health 1036ms first /health/startup 1038ms rss 111992kB stop 3529ms inFlight=8 dropped=0 finished=8 exit=143
+round 7 kore-sample:jvm/control: first /health 958ms rss 109400kB stop 1521ms inFlight=8 dropped=8 finished=0 exit=143
+round 7 kore-sample:jvm/kore: first /health 986ms first /health/startup 989ms rss 116320kB stop 3561ms inFlight=8 dropped=0 finished=8 exit=143
+round 8 kore-sample:jvm/control: first /health 1017ms rss 108624kB stop 1461ms inFlight=8 dropped=8 finished=0 exit=143
+round 8 kore-sample:jvm/kore: first /health 1006ms first /health/startup 1009ms rss 111520kB stop 3487ms inFlight=8 dropped=0 finished=8 exit=143
+round 9 kore-sample:jvm/control: first /health 1020ms rss 109076kB stop 1469ms inFlight=8 dropped=8 finished=0 exit=143
+round 9 kore-sample:jvm/kore: first /health 958ms first /health/startup 961ms rss 111680kB stop 3480ms inFlight=8 dropped=0 finished=8 exit=143
+round 10 kore-sample:jvm/control: first /health 914ms rss 109920kB stop 1784ms inFlight=8 dropped=8 finished=0 exit=143
+round 10 kore-sample:jvm/kore: first /health 1046ms first /health/startup 1048ms rss 111520kB stop 3550ms inFlight=8 dropped=0 finished=8 exit=143
+round 11 kore-sample:jvm/control: first /health 973ms rss 110060kB stop 1415ms inFlight=8 dropped=8 finished=0 exit=143
+round 11 kore-sample:jvm/kore: first /health 701ms first /health/startup 704ms rss 112320kB stop 3590ms inFlight=8 dropped=0 finished=8 exit=143
+round 12 kore-sample:jvm/control: first /health 1053ms rss 110708kB stop 1451ms inFlight=8 dropped=8 finished=0 exit=143
+round 12 kore-sample:jvm/kore: first /health 998ms first /health/startup 1001ms rss 115976kB stop 3491ms inFlight=8 dropped=0 finished=8 exit=143
+round 13 kore-sample:jvm/control: first /health 927ms rss 110536kB stop 1435ms inFlight=8 dropped=8 finished=0 exit=143
+round 13 kore-sample:jvm/kore: first /health 967ms first /health/startup 971ms rss 117120kB stop 3517ms inFlight=8 dropped=0 finished=8 exit=143
+round 14 kore-sample:jvm/control: first /health 931ms rss 110560kB stop 1448ms inFlight=8 dropped=8 finished=0 exit=143
+round 14 kore-sample:jvm/kore: first /health 933ms first /health/startup 936ms rss 117560kB stop 3535ms inFlight=8 dropped=0 finished=8 exit=143
+round 15 kore-sample:jvm/control: first /health 991ms rss 111032kB stop 1472ms inFlight=8 dropped=8 finished=0 exit=143
+round 15 kore-sample:jvm/kore: first /health 970ms first /health/startup 973ms rss 116960kB stop 3537ms inFlight=8 dropped=0 finished=8 exit=143
+
+warm-up kore-sample:native/control: discarded (first=844ms stop=1456ms)
+warm-up kore-sample:native/kore: discarded (first=658ms stop=3451ms)
+
+round 1 kore-sample:native/control: first /health 636ms rss 8800kB stop 1454ms inFlight=8 dropped=8 finished=0 exit=0
+round 1 kore-sample:native/kore: first /health 645ms first /health/startup 646ms rss 9280kB stop 3448ms inFlight=8 dropped=0 finished=8 exit=0
+round 2 kore-sample:native/control: first /health 674ms rss 8960kB stop 1425ms inFlight=8 dropped=8 finished=0 exit=0
+round 2 kore-sample:native/kore: first /health 401ms first /health/startup 402ms rss 9280kB stop 3460ms inFlight=8 dropped=0 finished=8 exit=0
+round 3 kore-sample:native/control: first /health 630ms rss 8640kB stop 1487ms inFlight=8 dropped=8 finished=0 exit=0
+round 3 kore-sample:native/kore: first /health 645ms first /health/startup 646ms rss 9440kB stop 3433ms inFlight=8 dropped=0 finished=8 exit=0
+round 4 kore-sample:native/control: first /health 658ms rss 8800kB stop 1483ms inFlight=8 dropped=8 finished=0 exit=0
+round 4 kore-sample:native/kore: first /health 648ms first /health/startup 649ms rss 9120kB stop 3442ms inFlight=8 dropped=0 finished=8 exit=0
+round 5 kore-sample:native/control: first /health 660ms rss 8640kB stop 1421ms inFlight=8 dropped=8 finished=0 exit=0
+round 5 kore-sample:native/kore: first /health 633ms first /health/startup 634ms rss 9280kB stop 3443ms inFlight=8 dropped=0 finished=8 exit=0
+round 6 kore-sample:native/control: first /health 662ms rss 9120kB stop 1475ms inFlight=8 dropped=8 finished=0 exit=0
+round 6 kore-sample:native/kore: first /health 647ms first /health/startup 648ms rss 9120kB stop 3409ms inFlight=8 dropped=0 finished=8 exit=0
+round 7 kore-sample:native/control: first /health 623ms rss 9280kB stop 1441ms inFlight=8 dropped=8 finished=0 exit=0
+round 7 kore-sample:native/kore: first /health 660ms first /health/startup 661ms rss 9760kB stop 3443ms inFlight=8 dropped=0 finished=8 exit=0
+round 8 kore-sample:native/control: first /health 634ms rss 9120kB stop 1458ms inFlight=8 dropped=8 finished=0 exit=0
+round 8 kore-sample:native/kore: first /health 432ms first /health/startup 432ms rss 9280kB stop 3419ms inFlight=8 dropped=0 finished=8 exit=0
+round 9 kore-sample:native/control: first /health 642ms rss 9440kB stop 1488ms inFlight=8 dropped=8 finished=0 exit=0
+round 9 kore-sample:native/kore: first /health 680ms first /health/startup 681ms rss 9280kB stop 3423ms inFlight=8 dropped=0 finished=8 exit=0
+round 10 kore-sample:native/control: first /health 624ms rss 8800kB stop 1480ms inFlight=8 dropped=8 finished=0 exit=0
+round 10 kore-sample:native/kore: first /health 661ms first /health/startup 662ms rss 9280kB stop 3468ms inFlight=8 dropped=0 finished=8 exit=0
+round 11 kore-sample:native/control: first /health 672ms rss 8960kB stop 1492ms inFlight=8 dropped=8 finished=0 exit=0
+round 11 kore-sample:native/kore: first /health 627ms first /health/startup 628ms rss 9600kB stop 3449ms inFlight=8 dropped=0 finished=8 exit=0
+round 12 kore-sample:native/control: first /health 639ms rss 8320kB stop 1452ms inFlight=8 dropped=8 finished=0 exit=0
+round 12 kore-sample:native/kore: first /health 455ms first /health/startup 456ms rss 9280kB stop 3485ms inFlight=8 dropped=0 finished=8 exit=0
+round 13 kore-sample:native/control: first /health 648ms rss 8800kB stop 1471ms inFlight=8 dropped=8 finished=0 exit=0
+round 13 kore-sample:native/kore: first /health 658ms first /health/startup 658ms rss 9280kB stop 3428ms inFlight=8 dropped=0 finished=8 exit=0
+round 14 kore-sample:native/control: first /health 639ms rss 8800kB stop 1441ms inFlight=8 dropped=7 finished=0 exit=0
+round 14 kore-sample:native/kore: first /health 659ms first /health/startup 660ms rss 8800kB stop 3438ms inFlight=8 dropped=0 finished=8 exit=0
+round 15 kore-sample:native/control: first /health 645ms rss 8800kB stop 1454ms inFlight=8 dropped=8 finished=0 exit=0
+round 15 kore-sample:native/kore: first /health 643ms first /health/startup 644ms rss 9280kB stop 3456ms inFlight=8 dropped=0 finished=8 exit=0
+
+## summary — median (min–max), n=15 per cell
+
+| image | number | control | kore | difference |
+|---|---|---|---|---|
+| kore-sample:jvm | time to first /health | 973 ms (914–1054) | 986 ms (701–1046) | +13 ms (+1%) |
+| kore-sample:jvm | RSS at ready | 110548 kB (108624–111200) | 116320 kB (111520–117760) | +5772 kB (+5%) |
+| kore-sample:jvm | stop under load | 1488 ms (1415–1784) | 3535 ms (3480–3590) | +2047 ms (+138%) |
+| kore-sample:native | time to first /health | 642 ms (623–674) | 645 ms (401–680) | +3 ms (+0%) |
+| kore-sample:native | RSS at ready | 8800 kB (8320–9440) | 9280 kB (8800–9760) | +480 kB (+5%) |
+| kore-sample:native | stop under load | 1458 ms (1421–1492) | 3443 ms (3409–3485) | +1985 ms (+136%) |
+
+## what happened to the work that was in flight at the signal
+
+| image | arm | spanning the signal | finished | dropped |
+|---|---|---|---|---|
+| kore-sample:jvm | control | 120 | 0 | **120** |
+| kore-sample:jvm | kore | 120 | 120 | **0** |
+| kore-sample:native | control | 119 | 0 | **119** |
+| kore-sample:native | kore | 120 | 120 | **0** |
+
+kore-sample:jvm: kore's own `/health/startup` first answered 200 at 989 ms (704–1048) — the control has no such route, so this one has no comparison and is reported alone.
+kore-sample:native: kore's own `/health/startup` first answered 200 at 646 ms (402–681) — the control has no such route, so this one has no comparison and is reported alone.
+
+[Incubating] Problems report is available at: file:///home/youndie/kore/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 7m 36s
+12 actionable tasks: 3 executed, 9 up-to-date
+Configuration cache entry stored.

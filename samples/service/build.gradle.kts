@@ -45,6 +45,29 @@ kotlin {
             // `pluginManagement` would make this repository unbuildable for an outside consumer), so
             // the one line lives here instead.
             linkerOpts("-Wl,--as-needed")
+
+            // THE ALLOCATOR'S PAGE SIZE, and it is the largest single number in this sample's
+            // memory profile — four times larger than everything kore adds put together.
+            //
+            // Resident memory on this platform follows the THREAD count rather than the live heap:
+            // the Kotlin/Native runtime keeps a per-thread page cache, and the default page is large
+            // enough that a few dozen Ktor threads cost more than the program. Measured on this
+            // subject (B-55), five runs a cell:
+            //
+            //     idle          17 440 kB  ->   6 560 kB
+            //     under load   ~110 000 kB  ->  ~27 000 kB
+            //
+            // Both arms move together — it is a property of the binary, not of kore — so it changes
+            // none of the kore-versus-control differences this sample exists to measure, and all of
+            // the absolute numbers.
+            //
+            // `sborka.native-service` sets exactly this for every service it configures; kore applies
+            // no sborka convention (a settings plugin in `pluginManagement` would make this
+            // repository unbuildable for an outside consumer), so the line lives here. The property
+            // is what made the A/B possible and what keeps the number re-checkable:
+            // `-PallocatorPageSize=0` opts out and rebuilds the variant these figures came from.
+            val allocatorPageSize = (project.findProperty("allocatorPageSize") as String?) ?: "16"
+            if (allocatorPageSize != "0") binaryOption("fixedBlockPageSize", allocatorPageSize)
         }
     }
 
