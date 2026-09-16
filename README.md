@@ -130,10 +130,10 @@ Measured 2026-09-12, not estimated: `samples/service` as one binary with two arm
 
 | | time to first `/health` | RSS at ready | stop under load |
 |---|---|---|---|
-| JVM, without kore | 1171 ms | 111 180 kB | 1491 ms |
-| JVM, with kore | 1201 ms (*noise*) | 116 788 kB (**+5 %**) | 3498 ms (**+135 %**) |
-| native, without kore | 727 ms | 25 920 kB | 1523 ms |
-| native, with kore | 717 ms (*noise*) | 27 520 kB (**+6 %**) | 3499 ms (**+130 %**) |
+| JVM, without kore | 973 ms | 110 548 kB | 1488 ms |
+| JVM, with kore | 986 ms (*noise*) | 116 320 kB (**+5 %**) | 3535 ms (**+138 %**) |
+| native, without kore | 642 ms | 8 800 kB | 1458 ms |
+| native, with kore | 645 ms (*noise*) | 9 280 kB (**+5 %**) | 3443 ms (**+136 %**) |
 
 **The third column is not a cost.** In those same runs, of every request in flight when the signal
 arrived, the arm without kore finished **none and dropped all of them** — both platforms, all fifteen
@@ -145,9 +145,23 @@ difference at +12 ms, −23 ms and +30 ms — the sign flips in both directions,
 spread of 250 ms. An earlier version of this table printed that column as **+1 %**, which read as a
 measured cost and was an artefact of which afternoon the run happened on.
 
-So the only cost that survives more samples is **RSS: +1.6 MB on native, +5.6 MB on the JVM** — a
-band a few hundred kilobytes wide across all three runs, holding its sign while the startup column
-changed sign twice.
+So the only cost that survives more samples is **RSS: +0.5 MB on native, +5.8 MB on the JVM** — a
+band that holds its sign across every run while the startup column has changed sign twice.
+
+**The native figure was three times larger until the binary was built the way this portfolio ships
+one.** `fixedBlockPageSize=16` — the Kotlin/Native allocator's page, which the runtime holds per
+thread — takes this sample from 17 440 kB idle to 6 560, and from ~110 MB to ~27 MB under eight
+connections. It moves the control arm identically, so it changes none of the differences above and all
+of the absolutes; kore's own cost went from +1 600 kB to +480 kB at an unchanged **+5 %**, which is
+what a percentage does while the absolute under it goes stale.
+`MALLOC_ARENA_MAX=2`, the other recipe, measured as doing **nothing** here and is not applied
+([the report](docs/research/measurements-2026-09-16/allocator-page-size.md)).
+
+> **`RSS at ready` is not the number to set a container limit from.** It answers *how big is it when
+> it starts*: 8.8 MB here. Under eight connections the same process touches ~27 MB. A limit taken
+> from the column above is a limit the service walks through on its first burst of traffic — the
+> figure a chart needs is the cgroup's peak, and the harness does not report it yet
+> ([B-56](docs/backlog/B-56-peak-under-load.md)).
 
 And the thing the release stage exists for, measured against a real broker: a producer closed and
 torn down in the same breath reads back **1 of 51** records, the same producer through kore's
@@ -161,6 +175,7 @@ Re-measure rather than trust the table — a number in a README has no way to go
 ```
 
 Method, raw output and the four things this harness got wrong first:
+[allocator-page-size.md](docs/research/measurements-2026-09-16/allocator-page-size.md),
 [three-numbers.md](docs/research/measurements-2026-09-12/three-numbers.md),
 [broker-flush.md](docs/research/measurements-2026-09-12/broker-flush.md).
 

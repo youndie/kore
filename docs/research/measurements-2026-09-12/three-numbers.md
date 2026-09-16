@@ -1,5 +1,12 @@
 # The three numbers — [B-34](../../backlog/B-34-the-three-numbers.md), 2026-09-12
 
+> **Superseded on 2026-09-16 for the absolute figures, not for the method.**
+> `samples/service` was built without the allocator page size this portfolio sets for every
+> Kotlin/Native service, so the native RSS column here — 25 920 / 27 520 kB — describes a binary
+> nobody would ship. Re-taken at 8 800 / 9 280 kB in
+> [allocator-page-size.md](../measurements-2026-09-16/allocator-page-size.md). Everything below
+> about *how* to take the measurement, and the four things this harness got wrong first, stands.
+
 The measurement plan of [research-oracle](../research-oracle.md) §4, taken as comparisons: the same
 binary with kore and without it, alternating, in one run.
 
