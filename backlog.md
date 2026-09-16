@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
 
-## Closed (55)
+## Closed (57)
 
 **Shape**
 
@@ -181,5 +181,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-53](docs/backlog/B-53-stopping-the-registry-does-not-wait.md) `[x]` - Stopping the check registry does not wait for the check in flight
 - [B-54](docs/backlog/B-54-oracle-drives-any-path.md) `[x]` - The oracle can only be pointed at kore's own sample
 - [B-55](docs/backlog/B-55-allocator-page-size.md) `[x]` - Re-measure the published numbers against the runtime recipes
+- [B-57](docs/backlog/B-57-a4-brackets-the-fall.md) `[x]` - A4 compares an instant against a poll, and fails any fast route
+- [B-58](docs/backlog/B-58-oracle-drives-a-process.md) `[x]` - Should the oracle drive a distribution as well as an image?
 
 <!-- END INDEX -->

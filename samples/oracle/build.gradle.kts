@@ -6,7 +6,13 @@ kotlin {
     jvmToolchain(libs.versions.jvmToolchain.get().toInt())
 }
 
+// THE ASSERTIONS ARE THE SPECIFICATION, so they get a suite of their own — and they had none until
+// #83, which is why an assertion that failed every fast subject deterministically could only be found
+// by a consumer running it. `evaluate()` reads `Observations` and nothing else, so a case is a
+// constructed record: no container, no Docker, and it runs inside `check` like anything else.
 dependencies {
+    testImplementation(kotlin("test"))
+
     // B-47 only. See the catalogue for why a driver appears in this repository at all.
     implementation(libs.sqlx4k.postgres)
     // B-45 only: the end-to-end run drives a real broker with the same JVM client kore's adapter

@@ -97,7 +97,12 @@ Everything the run asserts is derived from the client's own record plus the proc
 is asserted from the server's log, because a log line is written by the code under test and an
 oracle that trusts it can be satisfied by a comment.
 
-**"The slow route" is the consumer's, not kore's** — [B-54](../backlog/B-54-oracle-drives-any-path.md).
+**The subject is a container or a local process**, and "the slow route" is the consumer's, not
+kore's — [B-54](../backlog/B-54-oracle-drives-any-path.md),
+[B-58](../backlog/B-58-oracle-drives-a-process.md). `--image` runs a container; `--command` runs an
+executable, which is what a JVM **distribution** is and what nothing containerises by default. That
+half matters because kore's central finding is that the stop order differs between the platforms, so
+a consumer's JVM artefact is exactly where a defect can hide that the native run cannot see.
 The driven path is `--path`, defaulting to `/work?ms={work}` so `samples/service` is unchanged; the
 environment the subject needs is `--env`. Until then the path was written into the harness, which
 meant these assertions could only ever be made about kore's own sample — and the consumer adopting
@@ -121,7 +126,7 @@ when the signal lands.
 | A1 | **Every request that had been accepted before the signal received a response.** No connection ends with a reset, a truncated body, or a read timeout. | This is the whole claim. It is also the one that fails on Kotlin/Native today for the reason in research-architecture §1.1. |
 | A2 | **Every response is either a normal status or `503`.** No `500`. | A `500` means a handler ran against something that had already been closed — the release stage overtaking the drain. A `503` is a refusal kore *chose*; a `500` is one it suffered. |
 | A3 | **Every `503` carries `Connection: close`.** | So a client that honours the header does not put the connection back in its pool. Deliberately *not* "the server closed the socket" — see research-architecture D6. **Against a service without kore this has no subject and reports NOT_APPLICABLE**: Ktor refuses nothing while it drains (research §1.13), which is itself the finding. |
-| A4 | **`GET /health/ready` answered `503` strictly before the first request was refused**, and strictly before the first `503` of any kind. | Readiness falls before the drain begins. This is the ordering claim, checked from outside the process. |
+| A4 | **A refusal never precedes the last moment readiness was observed answering `200`.** | Readiness falls before the drain begins — the ordering claim, checked from outside. Stated against the **bracket** and not the sample: see below. |
 | A5 | **The interval between the readiness signal and the first refusal is at least the configured pre-drain wait.** | The wait is the stage that does the work (research-architecture §1.10); without this assertion it can be deleted and everything else still passes. |
 | A6 | **The process exited on its own, inside the grace period, without being `SIGKILL`ed.** | A sequence that is correct and slower than its budget is a sequence that never runs to the end in production. |
 | A7 | **The `jvm` and `linuxX64` runs agree on A1–A6.** | Stated as an assertion so a platform-specific regression is a red run rather than a difference somebody notices later. |
@@ -136,6 +141,32 @@ So the assertion is about *how* the process ended, not about a number: it ended 
 budget, and was not killed. `137` (`128 + SIGKILL`) is the failure this is looking for. The exit code
 is still recorded in the run's output, because a change in it is worth seeing even when it is not a
 failure.
+
+**A4 compares against an interval, because that is what the instrument gives.** The readiness poller
+samples every 100 ms, so the flag flipped somewhere in `(last 200, first non-200]` — while a refusal
+is a real exchange with a real timestamp. Comparing the two directly made the assertion **fail
+deterministically for any subject whose route answers in about a millisecond**: such a driver issues
+its next request microseconds after the signal and is refused before the poller samples again
+([#83](https://github.com/youndie/kore/issues/83), found by a consumer the moment `--path` let one
+point the oracle at its own service).
+
+So the assertion has three answers, and each is reachable:
+
+| Where the first refusal lands | Verdict |
+|---|---|
+| before the **last** `200` that was observed | **FAIL** — a violation no sampling error explains |
+| after the **first** non-`200` | **PASS** |
+| between the two | **NOT_APPLICABLE**, naming the width of the interval |
+
+Measured on `samples/service` both ways: `/work?ms=3000` passes by 2944 ms, and `/work?ms=1` with 32
+connections produces 3325 refusals and reports the middle case across a 112 ms interval — the run that
+used to be a red A4. Tightening the poll does not move it: the race is against a route that answers in
+a millisecond, and no interval beats that.
+
+**A5 reads the same `fell` and inherits the same error**, conservatively: a late sample makes the
+measured pre-drain gap *shorter* than the true one, so it can fail a run that honoured the wait and
+cannot pass one that did not. Left as it is — the waits it checks are seconds and the error is one
+poll — and written down rather than fixed silently.
 
 ### 2.4 What the run deliberately does not assert
 
