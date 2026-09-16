@@ -29,11 +29,11 @@ class Container(
      * harness that could only set environment variables could not pose it at all.
      */
     private val runArgs: List<String> = emptyList(),
-) {
+) : Subject {
     private var id: String? = null
 
     /** The host port the container's 8080 was published on. */
-    var port: Int = 0
+    override var port: Int = 0
         private set
 
     /**
@@ -45,7 +45,7 @@ class Container(
      * subject. Retried a few times and then given up on loudly — a retry that hides a real inability
      * to start would be the same mistake in the other direction.
      */
-    fun start() {
+    override fun start() {
         var lastFailure: Throwable? = null
         repeat(START_ATTEMPTS) { attempt ->
             // A port BELOW the ephemeral range, not `-p 0`, and that is the fix rather than the
@@ -78,12 +78,12 @@ class Container(
     }
 
     /** `SIGTERM` to PID 1, which is what a kubelet does. */
-    fun sigterm() {
+    override fun sigterm() {
         docker("kill", "-s", "TERM", requireId())
     }
 
     /** Blocks until the container exits; returns its exit code. */
-    fun awaitExit(timeout: Long, unit: TimeUnit): Int? {
+    override fun awaitExit(timeout: Long, unit: TimeUnit): Int? {
         val process = ProcessBuilder("docker", "wait", requireId()).redirectErrorStream(true).start()
         if (!process.waitFor(timeout, unit)) {
             process.destroyForcibly()
@@ -99,7 +99,7 @@ class Container(
      * check written that way cannot run on one of the two variants — and a check that cannot run on
      * half its subjects is not a check.
      */
-    fun pid1(): String =
+    override fun pid1(): String =
         docker("inspect", "-f", "{{json .Config.Entrypoint}}", requireId()).trim()
 
     /**
@@ -133,10 +133,12 @@ class Container(
         runCatching { docker("inspect", "-f", "{{.State.ExitCode}}", requireId()).trim().toInt() }.getOrElse { -1 }
 
     /** Whether it is still up — which is how a refusal is told from a start (B-50). */
+    override fun isAlive(): Boolean = isRunning()
+
     fun isRunning(): Boolean =
         runCatching { docker("inspect", "-f", "{{.State.Running}}", requireId()).trim() == "true" }.getOrElse { false }
 
-    fun remove() {
+    override fun remove() {
         id?.let { runCatching { docker("rm", "-f", it) } }
         id = null
     }

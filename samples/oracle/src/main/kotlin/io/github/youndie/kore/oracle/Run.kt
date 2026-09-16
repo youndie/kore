@@ -29,9 +29,29 @@ class Observations(
 
     val afterSignal: List<Exchange> get() = exchanges.filter { it.sentAtNanos > signalAtNanos }
 
-    /** The first moment readiness reported anything other than healthy. */
+    /**
+     * The first moment readiness reported anything other than healthy.
+     *
+     * An **upper bound** on when the fall happened, not the moment itself: the poller samples on an
+     * interval, so the flag flipped somewhere in `(readinessUpUntilNanos, readinessFellAtNanos]`.
+     * Treating it as the moment is what made A4 fail every fast subject (#83).
+     */
     val readinessFellAtNanos: Long?
         get() = readiness.firstOrNull { it.status != 200 }?.atNanos
+
+    /**
+     * The last moment readiness was demonstrably still healthy — the **lower** bound of the same
+     * bracket, and the only instant an ordering violation can be proved against.
+     *
+     * A refusal earlier than this one happened while readiness was observed answering `200`, which no
+     * sampling error can explain away. A refusal after it and before [readinessFellAtNanos] is inside
+     * the interval the instrument cannot resolve.
+     */
+    val readinessUpUntilNanos: Long?
+        get() =
+            readinessFellAtNanos?.let { fell ->
+                readiness.lastOrNull { it.atNanos < fell && it.status == 200 }?.atNanos
+            }
 
     /**
      * True when the subject has no readiness endpoint at all — the control does not.
@@ -52,7 +72,7 @@ class Observations(
  * queue behind the subject and the numbers would describe the queue.
  */
 class OracleRun(
-    private val container: Container,
+    private val container: Subject,
     private val workMillis: Long,
     /** See `Options.path`. `{work}` is substituted here, once, rather than in every driver. */
     private val path: String = "/work?ms={work}",
@@ -166,9 +186,18 @@ class OracleRun(
                 client.close()
                 return
             }
+            // A SUBJECT THAT DIED IS REPORTED AS HAVING DIED. Without this the wait runs its full
+            // thirty seconds and says "never answered /health", which reads as a subject that will
+            // not start and says nothing about why — and that message has already hidden two
+            // different failures: a required configuration key nobody supplied, and an executable
+            // path that did not resolve.
+            if (!container.isAlive()) {
+                client.close()
+                error("the subject exited before it served — its own output above says why")
+            }
             Thread.sleep(250)
         }
         client.close()
-        error("the container never answered /health")
+        error("the subject never answered /health within 30s")
     }
 }

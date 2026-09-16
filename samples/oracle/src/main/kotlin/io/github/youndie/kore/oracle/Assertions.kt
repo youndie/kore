@@ -116,15 +116,44 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
             fell == null -> Finding("A4 readiness fell before the first refusal", Verdict.FAIL, "readiness never stopped answering 200")
             else -> {
                 val firstRefusal = refusals.minOfOrNull { it.finishedAtNanos }
+                // THE FALL IS AN INTERVAL, NOT AN INSTANT, and comparing an instant against it is
+                // what made this assertion fail every fast subject deterministically (#83). The
+                // poller samples every 100 ms, so the flag flipped somewhere in
+                // `(upUntil, fell]` — while a refusal is a real exchange with a real timestamp.
+                //
+                // With a route that answers in a millisecond a driver issues its next request
+                // microseconds after the signal and is refused at once, so the refusal precedes the
+                // *sample* essentially always. `samples/service` hid this for as long as it was the
+                // only subject: `/work?ms=3000` keeps every driver busy for three seconds after the
+                // signal, and the poller has thirty samples of margin.
+                //
+                // So the comparison is against the bound that can carry it. Only a refusal earlier
+                // than the last observed `200` proves an ordering violation; a refusal inside the
+                // bracket is a question this instrument cannot answer, and saying so is not the same
+                // as passing it. Tightening the interval does not help — the race is against a
+                // route that answers in a millisecond, and no poll beats that.
+                val upUntil = observations.readinessUpUntilNanos
                 when {
                     // Nothing was refused, so there is no "before" to be on the right side of. Not a
                     // pass: an assertion with no subject has not been evaluated.
                     firstRefusal == null ->
                         Finding("A4 readiness fell before the first refusal", Verdict.NOT_APPLICABLE, "nothing was refused with 503")
-                    fell < firstRefusal ->
+                    fell <= firstRefusal ->
                         Finding("A4 readiness fell before the first refusal", Verdict.PASS, "by ${(firstRefusal - fell) / 1_000_000}ms")
+                    upUntil != null && firstRefusal < upUntil ->
+                        Finding(
+                            "A4 readiness fell before the first refusal",
+                            Verdict.FAIL,
+                            "a request was refused ${(upUntil - firstRefusal) / 1_000_000}ms before readiness was last seen answering 200",
+                        )
                     else ->
-                        Finding("A4 readiness fell before the first refusal", Verdict.FAIL, "a request was refused before readiness fell")
+                        Finding(
+                            "A4 readiness fell before the first refusal",
+                            Verdict.NOT_APPLICABLE,
+                            "the first refusal landed inside the ${(fell - (upUntil ?: fell)) / 1_000_000}ms " +
+                                "between the last 200 and the first non-200 — this run cannot place the two, " +
+                                "which a route that answers in about a millisecond will do every time",
+                        )
                 }
             }
         }

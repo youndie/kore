@@ -12,14 +12,14 @@ fun main(args: Array<String>) {
     val options = Options.parse(args)
 
     println(
-        "oracle: image=${options.image} path=${options.path} work=${options.workMillis}ms " +
+        "oracle: ${options.describeSubject()} path=${options.path} work=${options.workMillis}ms " +
             "connections=${options.connections} grace=${options.graceMillis}ms " +
             "subject-args=${options.subjectArgs} env=${options.subjectEnv.keys}",
     )
 
     val observations =
         OracleRun(
-            container = Container(options.image, options.subjectArgs, options.subjectEnv),
+            container = options.subject(),
             workMillis = options.workMillis,
             path = options.path,
             connections = options.connections,
@@ -53,7 +53,25 @@ fun main(args: Array<String>) {
 }
 
 class Options(
+    /**
+     * The image to run, or empty when [command] names a local process instead.
+     *
+     * Exactly one of the two, and the run says which it took. See [Subject] for why there are two
+     * ([#85](https://github.com/youndie/kore/issues/85)).
+     */
     val image: String,
+    /**
+     * The executable and its arguments, **comma-separated** — `--command=bin/keel,--flag`.
+     *
+     * Commas for the same reason `--subject-args` uses them, and the first draft of this flag was
+     * written with spaces and met it within the hour: Gradle's `--args` splits on spaces, so
+     * `--command=java -jar app.jar` reaches the oracle as three arguments and the subject is `java`
+     * with nothing to run. It failed as `the container never answered /health`, which names neither
+     * the splitting nor this flag.
+     */
+    val command: List<String>,
+    /** Only for [command]: a container publishes a port the harness can read back, a process does not. */
+    val port: Int,
     val workMillis: Long,
     /**
      * The route the load drives, and the only part of the subject the oracle has to be told about.
@@ -100,6 +118,24 @@ class Options(
      */
     val subjectEnv: Map<String, String>,
 ) {
+    /**
+     * The subject this run drives.
+     *
+     * The refusal is here rather than in `parse` because "exactly one of two" is a property of the
+     * pair, and a message naming both is what a caller who gave neither needs.
+     */
+    fun subject(): Subject =
+        when {
+            image.isNotBlank() && command.isNotEmpty() ->
+                error("--image and --command are two subjects; give one")
+            image.isNotBlank() -> Container(image, subjectArgs, subjectEnv)
+            command.isNotEmpty() -> LocalProcess(command + subjectArgs, port, subjectEnv)
+            else -> error("one of --image=<tag> or --command=\"<executable> <args>\" is required")
+        }
+
+    fun describeSubject(): String =
+        if (image.isNotBlank()) "image=$image" else "command=${command.joinToString(" ")} port=$port"
+
     companion object {
         fun parse(args: Array<String>): Options {
             val map = HashMap<String, String>()
@@ -109,7 +145,9 @@ class Options(
                 if (equals > 0) map[clean.take(equals)] = clean.drop(equals + 1)
             }
             return Options(
-                image = map["image"] ?: error("--image=<tag> is required"),
+                image = map["image"].orEmpty(),
+                command = map["command"]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
+                port = map["port"]?.toInt() ?: 8080,
                 workMillis = map["work"]?.toLong() ?: 3_000,
                 path = map["path"] ?: "/work?ms={work}",
                 connections = map["connections"]?.toInt() ?: 8,
