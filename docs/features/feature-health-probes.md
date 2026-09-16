@@ -158,7 +158,7 @@ five-second initial delay had made invisible (research §1.11) — it is inherit
 
 ## 7. Scenarios (BDD)
 
-**All eight are automated (six as of B-18, then B-41 and B-19).** The last one runs against a double that reproduces the
+**All nine are automated (six as of B-18, then B-41, B-19 and B-53).** The last one runs against a double that reproduces the
 documented failure rather than a real driver — that distinction is on the scenario itself, and a real
 store in the sample is [B-40](../backlog/B-40-sample-pooled-store.md). A scenario gains its line when a test covers **all** of
 it; where a clause is a consequence rather than a second observable, the scenario says so instead of
@@ -173,6 +173,20 @@ quietly counting it.
 * **Automated:** `ProbeRoutesTest` (jvm and linuxX64), with `HealthRegistryTest` covering the
   distinction that makes it worth saying: a registry that *was* started and has not finished its
   first pass still reports a startup race, and stopping one is not un-starting it
+
+### Scenario: stopping the checks waits for the check that is running
+* **Given:** a registry whose check is inside a call cancellation does not reach — an FFI call, a
+  blocking driver — and a shutdown participant that is about to release what that check is reading
+* **When:** the participant calls `stopAndJoin()`
+* **Then:** it does not return until the check has finished
+* **And:** `stop()`, which is deprecated for this reason, returns while the check is still running —
+  the two are not synonyms, and the difference is what
+  [B-53](../backlog/B-53-stopping-the-registry-does-not-wait.md) was filed for
+* **And:** the wait is bounded by the stage's own deadline rather than outliving it: a stage that has
+  run out of time cancels its participants, and this one suspends
+* **Automated:** `HealthRegistryTest` (jvm and linuxX64), two tests — the wait and the contrast.
+  Shown able to fail rather than assumed to work: replacing the join with a bare cancel fails the
+  first and only the first
 
 ### Scenario: the process is up but its store is unreachable
 * **Given:** the service has started and its pooled store is unreachable
@@ -242,6 +256,13 @@ quietly counting it.
   a controller.
 
 ## 9. Quirks
+
+* **`HealthRegistry.stop()` is deprecated and still there.** It cancels the refresh loop without
+  waiting for it, which is what [B-53](../backlog/B-53-stopping-the-registry-does-not-wait.md)
+  removed from the happy path — but deleting a published method on a patch release is a different
+  kind of harm, and a caller that genuinely does not care when the last pass ends has a use for it.
+  Two tests in this repository suppress the warning on purpose: they measure a check *not* being
+  waited for, so the deprecated behaviour is their subject.
 
 * **`/health` remains an alias of `/health/live`.** Every chart in the portfolio names it. A chart
   that points readiness at it gets a probe that cannot fail while the process is alive — which is

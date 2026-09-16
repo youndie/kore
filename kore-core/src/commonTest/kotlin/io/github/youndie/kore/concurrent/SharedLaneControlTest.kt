@@ -69,6 +69,9 @@ class SharedLaneControlTest {
                 startedAt.elapsedNow()
             }
 
+        // `stop`, not `stopAndJoin`: this suite measures a check holding a thread, so waiting for it
+        // is the thing being measured rather than the thing being tidied up.
+        @Suppress("DEPRECATION")
         registry.stop()
         lane.cancel()
         oneThread.close()
