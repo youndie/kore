@@ -3,6 +3,7 @@ package io.github.youndie.kore.health
 import io.github.youndie.kore.concurrent.KoreDispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -69,6 +70,39 @@ public class HealthRegistry(
         loop = scope.launch(context) { refreshForever() }
     }
 
+    /**
+     * Stops the refresh loop and **waits for the pass in flight to finish**.
+     *
+     * This is the one to call from a shutdown participant, and the reason is what a check usually
+     * *is*: a statement against the very resource a later stage is about to release. Cancelling the
+     * loop says it must stop; only the join says it has. Between the two, a check can still be
+     * inside a call that cancellation does not reach — an FFI call, a blocking driver — and it then
+     * runs on into the next stage and holds what that stage is closing.
+     *
+     * **It cannot hang the sequence.** A stage that has run out of time cancels its participants, so
+     * a join that is waiting on a check which ignores cancellation is cut short by that deadline
+     * rather than outliving it. The stage records what happened; the process still leaves.
+     */
+    public suspend fun stopAndJoin() {
+        val running = loop
+        loop = null
+        running?.cancelAndJoin()
+    }
+
+    /**
+     * Stops the refresh loop without waiting for it.
+     *
+     * Kept for a caller that cannot suspend and genuinely does not care when the last pass ends.
+     * Anything releasing a resource the checks touch wants [stopAndJoin] — see kore#79 for the
+     * failure this shape produced in a consumer: a truncating SQLite checkpoint in the stage after
+     * the one that called `stop()`, waiting on a `SELECT 1` that `stop()` had only asked to end.
+     */
+    @Deprecated(
+        "Cancelling the loop does not wait for the check in flight, and a check is usually a " +
+            "statement against the resource the next stage releases.",
+        ReplaceWith("stopAndJoin()"),
+        DeprecationLevel.WARNING,
+    )
     public fun stop() {
         loop?.cancel()
         loop = null

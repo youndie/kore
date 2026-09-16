@@ -140,6 +140,17 @@ in a way `withTimeout` cannot interrupt, which on Kotlin/Native is not hypotheti
 Risk 3). A shutdown that overruns its grace period is killed mid-drain; a leaked coroutine in a
 process that is exiting costs nothing.
 
+**The stages are ordered; the participants inside one are not** *(said out loud after
+[B-53](../backlog/B-53-stopping-the-registry-does-not-wait.md), where a consumer read registration
+order as an ordering)*. A stage launches all of its participants and waits for them together, which
+is the point — they are the things that may happen at once. Registration order is the order of a
+list, not of execution, so `consumer(a)` before `consumer(b)` promises nothing about which finishes
+first even though it reads like two steps. An order needed **within** a stage is written as
+composition — one participant that calls two things in sequence — and an order needed between
+resources is written as a **later stage**, which is what the stages are for. Getting this wrong is
+quiet: the stage still completes, and the collision shows up as an intermittent deadline on a
+machine slower than the one it was written on.
+
 **One stage spends its duration; the rest bound work** *(found by implementing, B-11)*. A stage with
 nothing to do takes no time — waiting out a pool-closing deadline with no pools registered would be
 absurd. The **announce** stage is the exception: its entire job is to wait, and the machine's obvious
