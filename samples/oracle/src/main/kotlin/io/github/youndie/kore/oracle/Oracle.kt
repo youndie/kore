@@ -12,14 +12,16 @@ fun main(args: Array<String>) {
     val options = Options.parse(args)
 
     println(
-        "oracle: image=${options.image} work=${options.workMillis}ms connections=${options.connections} " +
-            "grace=${options.graceMillis}ms subject-args=${options.subjectArgs}",
+        "oracle: image=${options.image} path=${options.path} work=${options.workMillis}ms " +
+            "connections=${options.connections} grace=${options.graceMillis}ms " +
+            "subject-args=${options.subjectArgs} env=${options.subjectEnv.keys}",
     )
 
     val observations =
         OracleRun(
-            container = Container(options.image, options.subjectArgs),
+            container = Container(options.image, options.subjectArgs, options.subjectEnv),
             workMillis = options.workMillis,
+            path = options.path,
             connections = options.connections,
             readTimeoutMillis = options.readTimeoutMillis,
             graceMillis = options.graceMillis,
@@ -53,12 +55,50 @@ fun main(args: Array<String>) {
 class Options(
     val image: String,
     val workMillis: Long,
+    /**
+     * The route the load drives, and the only part of the subject the oracle has to be told about.
+     *
+     * Hardcoded to `samples/service`'s `/work?ms=` until [#81](https://github.com/youndie/kore/issues/81),
+     * which is to say the assertions could only ever be made about kore's own sample — and a consumer
+     * adopting kore wants exactly these assertions about **its** binary, because the interesting
+     * failures are in the wiring: a pool closed in `ApplicationStopping`, a `runUntilSignal` installed
+     * before the server is serving, a participant that ignores cancellation.
+     *
+     * `{work}` is substituted with [workMillis], so the default reproduces the old behaviour exactly
+     * and a consumer's own route needs no placeholder at all:
+     *
+     * ```
+     * --path=/items
+     * --path=/work?ms={work}      # the default
+     * ```
+     *
+     * **The probe paths stay fixed on purpose.** `/health/ready` and `/health` are what
+     * `installKoreProbes` mounts — they are kore's contract rather than the subject's choice, and a
+     * consumer that moved them has a different problem than this flag solves.
+     */
+    val path: String,
     val connections: Int,
     val graceMillis: Long,
     val readTimeoutMillis: Int,
     val preDrainWaitMillis: Long?,
     /** Passed to the container's entry point, so one image can be run in several configurations. */
     val subjectArgs: List<String>,
+    /**
+     * The subject's environment, `NAME=value` separated by commas.
+     *
+     * **The oracle was unable to start its own sample for four days without this.** B-50 gave
+     * `samples/service` a configuration schema with a required key, so the kore arm refuses to start
+     * unconfigured — which is the feature. `Container` grew environment support in the same change
+     * and `measure` was taught to pass it; this harness was not, and nothing said so, because the
+     * oracle is invoked by name and is in neither `build` nor `check`. The failure was
+     * `the container never answered /health`, which reads as a subject that would not start — and it
+     * was, for a reason the harness could have supplied.
+     *
+     * A flag rather than kore's own variables written in here: an oracle that knew which variables
+     * `samples/service` needs would be the same defect [#81](https://github.com/youndie/kore/issues/81)
+     * reports about the route.
+     */
+    val subjectEnv: Map<String, String>,
 ) {
     companion object {
         fun parse(args: Array<String>): Options {
@@ -71,6 +111,7 @@ class Options(
             return Options(
                 image = map["image"] ?: error("--image=<tag> is required"),
                 workMillis = map["work"]?.toLong() ?: 3_000,
+                path = map["path"] ?: "/work?ms={work}",
                 connections = map["connections"]?.toInt() ?: 8,
                 graceMillis = map["grace"]?.toLong() ?: 30_000,
                 readTimeoutMillis = map["read-timeout"]?.toInt() ?: 60_000,
@@ -80,6 +121,18 @@ class Options(
                 // silently, and the run then measures a subject that was never configured. That
                 // happened once and produced a cell of four green results about nothing.
                 subjectArgs = map["subject-args"]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
+                // Comma-separated for the same reason as `--subject-args` above, and split on the
+                // FIRST `=` only, so a value may contain one — a DSN usually does.
+                subjectEnv =
+                    map["env"]
+                        ?.split(',')
+                        ?.filter { it.isNotBlank() }
+                        ?.associate { entry ->
+                            val equals = entry.indexOf('=')
+                            require(equals > 0) { "--env entries are NAME=value, got \"$entry\"" }
+                            entry.take(equals) to entry.drop(equals + 1)
+                        }
+                        ?: emptyMap(),
             )
         }
     }

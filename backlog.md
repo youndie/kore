@@ -102,7 +102,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 
 No open tasks.
 
-## Closed (53)
+## Closed (54)
 
 **Shape**
 
@@ -177,5 +177,6 @@ No open tasks.
 - [B-51](docs/backlog/B-51-anchors-inside-artefacts.md) `[x]` - An address inside an artefact is not a rotten anchor
 - [B-52](docs/backlog/B-52-the-process-cannot-see-its-limit.md) `[x]` - A Kotlin/Native process cannot see the limit it will be killed on
 - [B-53](docs/backlog/B-53-stopping-the-registry-does-not-wait.md) `[x]` - Stopping the check registry does not wait for the check in flight
+- [B-54](docs/backlog/B-54-oracle-drives-any-path.md) `[x]` - The oracle can only be pointed at kore's own sample
 
 <!-- END INDEX -->

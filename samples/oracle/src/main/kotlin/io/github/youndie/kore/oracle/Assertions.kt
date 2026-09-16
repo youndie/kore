@@ -39,7 +39,11 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
 
     findings +=
         if (observations.exchanges.isNotEmpty()) {
-            Finding("G2 the load ran", Verdict.PASS, "${observations.exchanges.size} exchanges, work=${observations.workMillis}ms")
+            Finding(
+                "G2 the load ran",
+                Verdict.PASS,
+                "${observations.exchanges.size} exchanges against ${observations.path}",
+            )
         } else {
             Finding("G2 the load ran", Verdict.INCONCLUSIVE, "no request was ever made")
         }

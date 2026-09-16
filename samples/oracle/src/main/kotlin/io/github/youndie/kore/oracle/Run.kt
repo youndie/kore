@@ -18,6 +18,8 @@ class Observations(
     val exitCode: Int?,
     val exitAfterSignalMillis: Long?,
     val workMillis: Long,
+    /** The route that was driven — reported, because `work=3000ms` says nothing about `/items`. */
+    val path: String,
     val connections: Int,
     val pid1: String,
 ) {
@@ -52,6 +54,8 @@ class Observations(
 class OracleRun(
     private val container: Container,
     private val workMillis: Long,
+    /** See `Options.path`. `{work}` is substituted here, once, rather than in every driver. */
+    private val path: String = "/work?ms={work}",
     private val connections: Int,
     private val readTimeoutMillis: Int,
     private val graceMillis: Long,
@@ -97,6 +101,7 @@ class OracleRun(
                 exitCode = exit,
                 exitAfterSignalMillis = if (exit == null) null else exitAfter,
                 workMillis = workMillis,
+                path = driven,
                 connections = connections,
                 pid1 = pid1,
             )
@@ -104,6 +109,12 @@ class OracleRun(
             container.remove()
         }
     }
+
+    /**
+     * The route with `{work}` resolved. Computed once: a driver that substituted per request would
+     * be doing string work inside the loop the run is timing.
+     */
+    private val driven: String get() = path.replace("{work}", workMillis.toString())
 
     private fun driverThread(
         index: Int,
@@ -116,7 +127,7 @@ class OracleRun(
         var first = true
         while (!stop.get()) {
             outstanding.incrementAndGet()
-            val exchange = client.get("/work?ms=$workMillis")
+            val exchange = client.get(driven)
             outstanding.decrementAndGet()
             into += exchange
             if (first) {
