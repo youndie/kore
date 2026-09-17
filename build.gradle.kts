@@ -1,7 +1,7 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(wip.plugins.kotlinMultiplatform) apply false
     // The oracle is the one module that is not multiplatform; it drives the others from outside.
-    alias(libs.plugins.kotlin.jvm) apply false
+    alias(wip.plugins.kotlinJvm) apply false
 }
 
 // THE COORDINATES, and the version comes from a property because CI composes it.

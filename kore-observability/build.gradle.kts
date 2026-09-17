@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    alias(wip.plugins.kotlinMultiplatform)
 }
 
 kotlin {

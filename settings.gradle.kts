@@ -21,7 +21,8 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
 
-        // THE PORTFOLIO'S OWN REPOSITORY, for the three observability agents and nothing else.
+        // THE PORTFOLIO'S OWN REPOSITORY, for the three observability agents and the shared version
+        // catalog below.
         //
         // B-37 decided this: tracy, metrik and katcher are not on Maven Central and are not being
         // moved there for kore's sake. The cost is stated rather than hidden — `kore-observability`
@@ -36,6 +37,22 @@ dependencyResolutionManagement {
         maven("https://reposilite.kotlin.website/snapshots") {
             name = "portfolio"
             content { includeGroupByRegex("io\\.github\\.youndie.*") }
+        }
+    }
+
+    // THE PORTFOLIO'S COMPILER VERSION, as a catalog rather than a number repeated here.
+    //
+    // kore does not apply sborka's settings plugin and does not use its conventions — it has its own
+    // `kore-build` — so it does not get `wip` the way the rest of the portfolio does. It takes the
+    // catalog directly instead, which is all it wants from sborka: the version of the compiler the
+    // portfolio agrees on, so that a library meant to resolve beside those toolkits is built by the
+    // same one.
+    //
+    // The release is named here because this build has nowhere else to name it: unlike every other
+    // consumer, kore has no sborka pin to read it from. One place, and it is this one.
+    versionCatalogs {
+        create("wip") {
+            from("io.github.youndie.sborka:catalog:0.4.0.89")
         }
     }
 }

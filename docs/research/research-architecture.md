@@ -155,7 +155,7 @@ allocation, locks and the coroutine machinery are all reachable from it. kore's 
 the minimum a signal handler may do — set a flag and wake something — and let an ordinary coroutine
 on an ordinary thread run the sequence. `platform.posix` exposes `sigaction`, `sigemptyset` and
 `sigfillset` on `linux_x64` and `linux_arm64` (verified by dumping
-`kotlin-native-2.4.10!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix`).
+`kotlin-native-2.4.20!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix`).
 
 **Amended while implementing (B-08): kore uses `signal()`, not `sigaction()`, and the choice is not
 the interesting one.** `struct sigaction` has a different shape on Linux and on Darwin —
@@ -199,8 +199,8 @@ ability to list what is in the environment, not just to ask for names one at a t
 | Fact | Where verified |
 |---|---|
 | Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | [tracy](https://github.com/youndie/tracy) `server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
-| `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.10 distribution, `klib dump-metadata` against `kotlin-native-2.4.10!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
-| `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `kotlin-native-2.4.10!/klib/platform/macos_arm64/...posix`; both greps are empty |
+| `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.20 distribution, `klib dump-metadata` against `kotlin-native-2.4.20!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
+| `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `kotlin-native-2.4.20!/klib/platform/macos_arm64/...posix`; both greps are empty |
 | `_NSGetEnviron`, the documented macOS replacement, is not in `platform.posix`, `platform.darwin` or `platform.Foundation` either — reaching it needs a cinterop `.def` of one's own | the same `klib dump-metadata` against those three klibs; all three greps return 0 |
 
 **Consequence 1.** The strict-unknown check is a capability of the **JVM and Linux native** targets.
