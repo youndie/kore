@@ -69,15 +69,15 @@ and a placeholder skipped as a pattern.
 
 ### Rewriting the addresses found a claim the document could not support
 
-§1.3 opened with *"Verified against `ktor-server-core-linuxx64-3.5.2-sources.jar`"* and then cited
+§1.3 opened with *"Verified against `ktor-server-core-linuxx64-3.6.0-sources.jar`"* and then cited
 `jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt`. A target's sources jar carries `commonMain` plus
 **that target's** source sets, so the named artefact cannot contain a `jvmMain` file. Unpacked both
 to check rather than guessing:
 
 | Artefact | Holds |
 |---|---|
-| `ktor-server-core-linuxx64-3.5.2-sources.jar` | `commonMain/…/ShutdownHook.kt`, `posixMain/…/ShutdownHookNative.kt` |
-| `ktor-server-core-jvm-3.5.2-sources.jar` | `commonMain/…/ShutdownHook.kt`, `jvmMain/…/ShutdownHookJvm.kt` |
+| `ktor-server-core-linuxx64-3.6.0-sources.jar` | `commonMain/…/ShutdownHook.kt`, `posixMain/…/ShutdownHook.posix.kt` |
+| `ktor-server-core-jvm-3.6.0-sources.jar` | `commonMain/…/ShutdownHook.kt`, `jvmMain/…/ShutdownHookJvm.kt` |
 
 The facts were right and the attribution was not — which is the point of making an address name its
 own artefact instead of inheriting one from a sentence above the table.

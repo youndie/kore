@@ -62,8 +62,8 @@ drain on one platform and before it on the other, from identical common code, wi
 documentation saying so.
 
 **Verified against** `ktor-server-core` 3.5.2 published sources:
-`jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:404-412` against
-`posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:84-94`. See
+`jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` against
+`posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94`. See
 [research-architecture](research-architecture.md) §1.1 for the full table.
 
 **Why it is worth an issue rather than only a workaround.** The idiom it breaks is the one every
@@ -93,8 +93,8 @@ the entry stays as the record — see the head of this section.
 with `signal()`, so it runs arbitrary Kotlin — allocation, locks, `runBlocking` — on the
 signal-handler stack, which is not async-signal-safe.
 
-**Verified against** `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` and
-`ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`. Ktor's own KDoc states the
+**Verified against** `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHook.posix.kt` and
+`ktor-server-core-linuxx64-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`. Ktor's own KDoc states the
 first half plainly, which is a point in its favour and also the reason the second half is worth
 raising separately: the replacement behaviour is documented, the signal-safety is not.
 
