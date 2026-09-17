@@ -6,20 +6,17 @@
 
 [versions]
 
-# NOT 2.4.20, which is the current release. Three reasons, and none of them is caution:
+# NOT HERE ANY MORE. `wip`, the catalog a sborka release publishes, carries `kotlin`, and the three
+# reasons this line used to give for staying on 2.4.10 were all re-checked before it moved:
 #
-#   * every fact in `docs/research/research-architecture.md` §1.3 and §1.5 was verified by dumping
-#     the platform klibs of the 2.4.10 distribution — `__environ`, `sigaction`, the absence of
-#     `environ` on macOS. Pinning a different compiler makes those verification addresses point at
-#     a distribution this build does not use, and a research document whose addresses cannot be
-#     re-checked is a document that has to be believed;
-#   * it is the version the portfolio's toolkits are built with, and kore is meant to resolve
-#     beside them;
-#   * it is the Kotlin/Native distribution already on both machines, so a build here does not
-#     start with a gigabyte of download.
-#
-# Bumping it means re-running the klib dumps, not just editing this line.
-kotlin = "2.4.10"
+#   * the verification addresses in `docs/research/research-architecture.md` §1.3 and §1.5 were
+#     re-dumped against the 2.4.20 distribution and every one of them still holds — `__environ` on
+#     linux_x64, neither global on macos_arm64, `_NSGetEnviron` in none of the three klibs. The
+#     document now names the distribution it was re-checked in;
+#   * "the version the portfolio's toolkits are built with" now argues the other way: the portfolio
+#     moved, and kore resolving beside it means moving too;
+#   * the 2.4.20 distribution is already on both machines, so the download it warned about is not
+#     ahead of anyone.
 
 # The current release, and also the exact artefact §1.1-§1.4 of the research were read in:
 # `EmbeddedServerJvm.kt:404`, `EmbeddedServerNix.kt:84`, `CIOApplicationEngine.kt:91`,
@@ -106,5 +103,3 @@ katcher-client = { module = "io.github.youndie.katcher:client", version.ref = "k
 sqlx4k-postgres = { module = "io.github.smyrgeorge:sqlx4k-postgres", version.ref = "sqlx4k" }
 
 [plugins]
-kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

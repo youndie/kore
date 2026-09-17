@@ -1,7 +1,7 @@
 import org.gradle.api.file.FileCollection
 
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    alias(wip.plugins.kotlinMultiplatform)
     // Generates the object /version serves. Applied here because the sample is what proves the
     // generated file is an INPUT of the compilation rather than something the build wrote first.
     id("io.github.youndie.kore.build")
