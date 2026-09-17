@@ -22,7 +22,7 @@
 # `EmbeddedServerJvm.kt:404`, `EmbeddedServerNix.kt:84`, `CIOApplicationEngine.kt:91`,
 # `ServerPipeline.kt`. The whole reason kore exists is a difference between two files in THIS
 # version; a bump is a re-read of those four places before anything else.
-ktor = "3.5.2"
+ktor = "3.6.0"
 
 # The current release. `api` rather than `implementation` wherever it appears: kore hands back and
 # takes in coroutine types, so they are part of the surface rather than a detail behind it.

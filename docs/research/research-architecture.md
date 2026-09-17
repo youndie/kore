@@ -42,9 +42,9 @@ Verified against the published sources of `io.ktor:ktor-server-core` **3.5.2** �
 
 | Fact | Where verified |
 |---|---|
-| On JVM, `EmbeddedServer.stop` calls `engine.stop(grace, timeout)` **first** and `destroyApplication()` **second** | `ktor-server-core-jvm-3.5.2-sources.jar` → `jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:404-412` |
+| On JVM, `EmbeddedServer.stop` calls `engine.stop(grace, timeout)` **first** and `destroyApplication()` **second** | `ktor-server-core-jvm-3.6.0-sources.jar` → `jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` |
 | `destroyApplication()` raises `ApplicationStopping`, calls `application.disposeAndJoin()`, then raises `ApplicationStopped` | same file, `293-306` |
-| On Kotlin/Native, `EmbeddedServer.stop` calls `destroyBlocking(application)` **first** and `engine.stop(grace, timeout)` **second** | `ktor-server-core-linuxx64-3.5.2-sources.jar` → `posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:84-94` |
+| On Kotlin/Native, `EmbeddedServer.stop` calls `destroyBlocking(application)` **first** and `engine.stop(grace, timeout)` **second** | `ktor-server-core-linuxx64-3.6.0-sources.jar` → `posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94` |
 | `disposeAndJoin()` is `applicationJob.cancelAndJoin()` followed by `uninstallAllPlugins()` | `commonMain/io/ktor/server/application/Application.kt:162-165` |
 
 So the same three lines of user code mean two different things:
@@ -104,7 +104,7 @@ Verified against `io.ktor:ktor-server-cio` 3.5.2.
 
 | Fact | Where verified |
 |---|---|
-| `stopSuspend` completes `stopRequest`, waits `gracePeriodMillis` for the server job, then cancels it and waits `timeoutMillis - gracePeriodMillis` | `ktor-server-cio-jvm-3.5.2-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:91-107` |
+| `stopSuspend` completes `stopRequest`, waits `gracePeriodMillis` for the server job, then cancels it and waits `timeoutMillis - gracePeriodMillis` | `ktor-server-cio-jvm-3.6.0-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:91-107` |
 | The server job, on `stopRequest`, cancels each connector's `acceptJob`, **then** raises `ApplicationStopPreparing`, **then** joins the connectors' root jobs | same file, `250-260` |
 | The default idle timeout for a kept-alive connection is 45 seconds | same file, `Configuration.connectionIdleTimeoutSeconds = 45` |
 
@@ -128,19 +128,19 @@ rather than a formality — and the reason kore installs a refusal of its own.
 
 ### 1.3 On Kotlin/Native the shutdown hook is a single global slot, and it runs inside a POSIX signal handler
 
-Verified by unpacking `ktor-server-core-linuxx64-3.5.2-sources.jar` — and, for the JVM row,
-`ktor-server-core-jvm-3.5.2-sources.jar`, because a target's sources jar carries `commonMain` plus
+Verified by unpacking `ktor-server-core-linuxx64-3.6.0-sources.jar` — and, for the JVM row,
+`ktor-server-core-jvm-3.6.0-sources.jar`, because a target's sources jar carries `commonMain` plus
 **that target's** source sets and no others. This section used to name only the first, which was
 true of two of its three rows; each address below now carries the artefact it was read out of.
 
 | Fact | Where verified |
 |---|---|
-| `addShutdownHook` is common API with a per-platform actual | `ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt` |
-| On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
+| `addShutdownHook` is common API with a per-platform actual | `ktor-server-core-linuxx64-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt` |
+| On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHook.posix.kt` |
 | The handler is installed with `signal(SIGINT, …)` / `signal(SIGTERM, …)` and a `staticCFunction` that reads that global | same file |
-| `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `posixMain/io/ktor/server/engine/EmbeddedServerNix.kt:48-49` |
-| Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `ktor-server-core-linuxx64-3.5.2-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`, `ktor-server-core-linuxx64-3.5.2-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHookNative.kt` |
-| On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `ktor-server-core-jvm-3.5.2-sources.jar!/jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
+| `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:49-50` |
+| Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `ktor-server-core-linuxx64-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`, `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHook.posix.kt` |
+| On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `ktor-server-core-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
 | On JVM the mechanism can be switched off entirely by the system property `io.ktor.server.engine.ShutdownHook` | same file, `SHUTDOWN_HOOK_ENABLED` |
 
 **Consequence 1.** kore may not deliver its shutdown through `addShutdownHook`. On Native it would
@@ -179,9 +179,9 @@ header be set, and does setting it do what the name suggests.
 
 | Fact | Where verified |
 |---|---|
-| Ktor's unsafe-header list is exactly `Transfer-Encoding` and `Upgrade`, so `Connection` may be appended by ordinary application code | `ktor-http-jvm-3.5.2-sources.jar!/commonMain/io/ktor/http/HttpHeaders.kt`, `UnsafeHeadersArray` |
-| CIO writes the response headers to the wire verbatim and adds no `Connection` logic of its own | `ktor-server-cio-jvm-3.5.2-sources.jar!/commonMain/io/ktor/server/cio/CIOApplicationResponse.kt`, `sendResponseMessage` |
-| Whether CIO ends the connection after a response is decided by `isLastHttpRequest(version, connectionOptions)`, where `connectionOptions` is parsed from the **request's** `Connection` header | `ktor-server-cio-jvm-3.5.2-sources.jar!/commonMain/io/ktor/server/cio/backend/ServerPipeline.kt` |
+| Ktor's unsafe-header list is exactly `Transfer-Encoding` and `Upgrade`, so `Connection` may be appended by ordinary application code | `ktor-http-jvm-3.6.0-sources.jar!/commonMain/io/ktor/http/HttpHeaders.kt`, `UnsafeHeadersArray` |
+| CIO writes the response headers to the wire verbatim and adds no `Connection` logic of its own | `ktor-server-cio-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/cio/CIOApplicationResponse.kt`, `sendResponseMessage` |
+| Whether CIO ends the connection after a response is decided by `isLastHttpRequest(version, connectionOptions)`, where `connectionOptions` is parsed from the **request's** `Connection` header | `ktor-server-cio-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/cio/backend/ServerPipeline.kt` |
 
 **Consequence.** The header is emitted and a well-behaved client honours it, but the *server* keeps
 the keep-alive connection in its pipeline loop regardless. The socket goes away when the client
