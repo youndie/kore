@@ -1,32 +1,36 @@
 package io.github.youndie.kore.signal
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import io.github.youndie.kore.signal.native.kore_handler_is_installed
-import io.github.youndie.kore.signal.native.kore_install_signal_handlers
-import io.github.youndie.kore.signal.native.kore_raised_signal
-import io.github.youndie.kore.signal.native.kore_reset_raised_signal
 import kotlinx.coroutines.delay
 import platform.posix.SIGINT
 import platform.posix.SIGTERM
 import kotlin.time.Duration
 
-@OptIn(ExperimentalForeignApi::class)
 public actual fun installShutdownSignalWatch(
     pollInterval: Duration,
     releaseTimeout: Duration,
 ): ShutdownSignalWatch {
-    // THE HANDLER IS C (`koreSignal.def`), and that is the whole of B-64. It used to be a
-    // `staticCFunction`, whose body did nothing but a compare-and-set — and whose *bridge* initialised
-    // the Kotlin/Native runtime on whichever thread the kernel picked. When that was a worker thread in
-    // its first instructions, the runtime came up there before `workerRoutine` could bring it up itself,
-    // and the worker died on a null memory state: 18 crashes out of 18 had the receiving thread as the
-    // crashing one. A C handler runs no Kotlin, so no thread is ever initialised by a signal.
-    //
-    // First signal wins, as before: the C side does a lock-free compare-and-set.
-    kore_install_signal_handlers()
-
+    installSignalHandlers()
     return PosixShutdownSignalWatch(pollInterval)
 }
+
+/**
+ * Installs the `SIGTERM` and `SIGINT` handler, which records the first signal and does nothing else.
+ *
+ * **Per platform, because the language of the handler is the fix (B-64).** A handler written in Kotlin
+ * is a `staticCFunction`, a C-to-Kotlin bridge that initialises the runtime on whichever thread the
+ * kernel picks. When that was a worker thread in its first instructions, the runtime came up there
+ * before `workerRoutine` could bring it up, and the worker died on a null memory state: in 18 crashes
+ * out of 18 the receiving thread was the crashing one. On Linux the handler is C (`koreSignal.def`).
+ * On macOS it is still Kotlin, because cinterop for an Apple target cannot be built on the Linux host
+ * kore is released from: macOS is a development target, and the defect stays there, named.
+ */
+internal expect fun installSignalHandlers()
+
+/** The first signal recorded, or `0`. */
+internal expect fun raisedSignal(): Int
+
+/** Test-only: puts the flag back so a second case can raise again. */
+internal expect fun resetRaisedSignalForTest()
 
 /**
  * Polls the flag.
@@ -38,11 +42,10 @@ public actual fun installShutdownSignalWatch(
  * a dispatcher kore does not own — `KoreDispatchers.lifecycle`, which is `Dispatchers.IO` on every
  * target (research D9, corrected by B-42).
  */
-@OptIn(ExperimentalForeignApi::class)
 private class PosixShutdownSignalWatch(private val pollInterval: Duration) : ShutdownSignalWatch {
     override suspend fun awaitSignal(): ShutdownSignal {
         while (true) {
-            when (kore_raised_signal()) {
+            when (raisedSignal()) {
                 SIGTERM -> return ShutdownSignal.SIGTERM
                 SIGINT -> return ShutdownSignal.SIGINT
                 else -> delay(pollInterval)
@@ -56,12 +59,3 @@ private class PosixShutdownSignalWatch(private val pollInterval: Duration) : Shu
     override fun close(): Unit = Unit
 }
 
-/** Test-only, and only meaningful in-process: puts the flag back so a second case can raise again. */
-@OptIn(ExperimentalForeignApi::class)
-internal fun resetRaisedSignalForTest() {
-    kore_reset_raised_signal()
-}
-
-/** Test-only: whether the handler installed for [signo] is kore's C one — the property B-64 depends on. */
-@OptIn(ExperimentalForeignApi::class)
-internal fun koreHandlerIsInstalled(signo: Int): Boolean = kore_handler_is_installed(signo) != 0

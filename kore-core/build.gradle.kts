@@ -23,9 +23,13 @@ kotlin {
     }
 }
 
-// THE SIGNAL HANDLER IS C, on every native target (B-64). A handler written in Kotlin is a C-to-Kotlin
+// THE SIGNAL HANDLER IS C, on the Linux targets (B-64). A handler written in Kotlin is a C-to-Kotlin
 // bridge that initialises the runtime on a thread without one — and the kernel may pick a worker thread
 // in its first instructions. `src/nativeInterop/cinterop/koreSignal.def` carries the C inline.
-kotlin.targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
-    compilations.getByName("main").cinterops.create("koreSignal")
-}
+//
+// LINUX ONLY: cinterop for an Apple target needs the macOS SDK, so on the Linux host kore is released
+// from it is SKIPPED — and takes the whole macosArm64 compilation with it, inside a green build and a
+// publication that quietly lacks the target. macOS keeps a Kotlin handler, named as the limitation.
+kotlin.targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>()
+    .matching { it.konanTarget.family == org.jetbrains.kotlin.konan.target.Family.LINUX }
+    .configureEach { compilations.getByName("main").cinterops.create("koreSignal") }
