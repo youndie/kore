@@ -97,8 +97,8 @@ busy port does not weaken.
 | busy port, JVM after | — | refused, exit 1, naming `SAMPLE_PORT` |
 
 One restart in that run died with `SIGSEGV` instead. It was signalled the moment `/health` answered,
-and `main` does the same about once in 200 such starts: filed as
-[B-63](B-63-sigterm-right-after-start-segfaults.md), because it is not this item's.
+and `main` does the same about once in 200 such starts: not this item's. Filed as B-63, and placed
+by B-63's investigation in [B-64](B-64-new-worker-thread-segfaults-at-birth.md).
 
 The upgrade row is the cost the kernel's rule sets, and the check turns it from the abort into the
 one-line refusal. It lasts until the old `TIME_WAIT` expires, about a minute.

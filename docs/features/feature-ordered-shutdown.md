@@ -354,6 +354,16 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
   corrected the premise this scenario used to state: `close()` does not fail the batch — it sends it
   without waiting, and a teardown that does not wait either is what loses it (research §1.8)
 
+### Scenario: a signal in the first moments of serving is kore's, on Kotlin/Native
+* **Given:** a native service that has just returned from `startForKore()` and has not yet reached
+  `runUntilSignal`
+* **When:** the process receives `SIGTERM`
+* **Then:** the signal is recorded for kore's watch, which reports it
+* **And:** Ktor's handler — `stop()` and `runBlocking` on the signal stack — does not run
+* **Automated:** `StartForKoreSignalTest`, on linuxX64. End to end, the sample with the window
+  widened to a second — 30 of 30 hung before, 30 of 30 stopped in order after — in
+  [B-63](../backlog/B-63-sigterm-right-after-start-segfaults.md)
+
 ### Scenario: two signals run the sequence once
 * **Given:** the sequence has begun
 * **When:** a second `SIGTERM` arrives
@@ -406,6 +416,12 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
   built while it is on. Ktor fixes the switch on the first `start()` in the process, so a service that
   started another server first has to pass `-Dio.ktor.server.engine.ShutdownHook=false` instead
   ([B-60](../backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
+* **On Kotlin/Native, a signal before kore's handler meets Ktor's, which hangs the process.** Ktor's
+  handler runs `stop()` and `runBlocking` on the signal stack. `startForKore()` installs kore's
+  handler before `start`, at `ApplicationStarted` and after `start`, so from the first byte served a
+  signal is only recorded, and `runUntilSignal` acts on it. A native service that calls
+  `startForKore()` therefore has to go on to `runUntilSignal`, or `SIGTERM` is recorded and nothing
+  else ([B-63](../backlog/B-63-sigterm-right-after-start-segfaults.md)).
 * **The refusal must not refuse the liveness probe.** A `503` from `/health/live` is a failed
   liveness probe, and enough of them restart the pod **in the middle of the shutdown it is
   reporting** — turning the orderly stop into the abrupt one this feature exists to prevent. Startup,

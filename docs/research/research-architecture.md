@@ -184,6 +184,17 @@ The switch is read into a top-level `val` on the first line of `EmbeddedServerJv
 first `start()` in the process — a module or `installKoreProbes` runs too late. `startForKore()` in
 `kore-ktor` sets it and then starts.
 
+**Amended 2026-09-27 (B-63): "kore registers after `start()`" left a window, and consequence 2 is what
+happens in it.** Between `start` and `runUntilSignal` the server already answers, and the handler a
+`SIGTERM` meets is Ktor's. Widened to a second in a throwaway build, **30 of 30** early signals hung
+the process: `gdb` showed the main thread inside `platformAddShutdownHook` → `EmbeddedServer.stop` →
+`CIOApplicationEngine.stop` → `runBlocking`, parked, while every coroutine worker waited on a runtime
+mutex held by the code the signal had interrupted. (The rare segfault that led here is a different
+defect, in a worker thread's first instructions — [B-64](../backlog/B-64-new-worker-thread-segfaults-at-birth.md).)
+`startForKore()` now installs kore's handler before `start`, again
+at `ApplicationStarted` — raised after Ktor's handler goes in and before the engine starts — and once
+more when `start` returns. What is left is module loading, before anything is served.
+
 ### 1.4 `Connection: close` on a response does not make CIO close the connection
 
 The brief's oracle asks for a 503 carrying `Connection: close`. Two separate questions: may the
