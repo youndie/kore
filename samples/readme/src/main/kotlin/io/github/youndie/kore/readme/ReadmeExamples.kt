@@ -11,11 +11,13 @@ import io.github.youndie.kore.health.StartupGate
 import io.github.youndie.kore.ktor.EngineDrain
 import io.github.youndie.kore.ktor.installKoreProbes
 import io.github.youndie.kore.ktor.installKoreVersion
+import io.github.youndie.kore.ktor.installShutdownRefusal
 import io.github.youndie.kore.ktor.startForKore
 import io.github.youndie.kore.observability.ObservabilitySettings
 import io.github.youndie.kore.observability.installKoreObservability
 import io.github.youndie.kore.version.BuildIdentity
 import io.github.youndie.kore.lifecycle.AnnounceNotReady
+import io.github.youndie.kore.lifecycle.DrainGate
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
 import io.github.youndie.kore.lifecycle.runUntilSignal
@@ -45,6 +47,7 @@ internal fun readmeShutdown(
     server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>,
     deadlines: ShutdownDeadlines,
     readiness: ReadinessGate,
+    draining: DrainGate,
     startup: StartupGate,
     producer: FlushThenClose,
     myPool: ShutdownParticipant,
@@ -58,7 +61,7 @@ internal fun readmeShutdown(
             onFinished = { run -> println(run.transcript) },
         ) {
             announce(AnnounceNotReady(readiness))
-            drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
+            drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds, draining))
             consumer(booblikParticipant("events", producer))
             pool(myPool)
         }
@@ -79,9 +82,11 @@ internal fun Application.readmeInstalls(
     startup: StartupGate,
     readiness: ReadinessGate,
     liveness: LivenessGate,
+    draining: DrainGate,
     settings: ObservabilitySettings,
     myKeys: List<ConfigKey<*>>,
 ) {
+    installShutdownRefusal(draining)
     installKoreProbes(startup, readiness, liveness)
     installKoreVersion(HandMade)
     installKoreObservability(settings)

@@ -10,6 +10,7 @@ import io.github.youndie.kore.ktor.installKoreVersion
 import io.github.youndie.kore.ktor.installShutdownRefusal
 import io.github.youndie.kore.ktor.startForKore
 import io.github.youndie.kore.lifecycle.AnnounceNotReady
+import io.github.youndie.kore.lifecycle.DrainGate
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
 import io.github.youndie.kore.lifecycle.ShutdownTranscript
@@ -40,6 +41,9 @@ import kotlin.time.Duration.Companion.seconds
  */
 public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
     val readiness = ReadinessGate()
+    // A latch of its own, not readiness: the announce flips readiness and goes on serving, and only
+    // the drain refuses. One flag for both refused through the whole pre-drain wait (B-61).
+    val draining = DrainGate()
     val startup = StartupGate()
     val liveness = LivenessGate()
     val consumer = StandInConsumer()
@@ -74,7 +78,7 @@ public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
                 shutdownTimeout = options.deadlines.drain.inWholeMilliseconds + 5_000
             },
             module = {
-                koreSampleModule(readiness, startup, liveness, resource, settings.workMillis)
+                koreSampleModule(readiness, draining, startup, liveness, resource, settings.workMillis)
             },
         )
 
@@ -101,7 +105,7 @@ public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
             onFinished = { run -> println(run.transcript.describe()) },
         ) {
             announce(AnnounceNotReady(readiness))
-            drain(EngineDrain(server, options.deadlines.drain, options.deadlines.drain + 5.seconds))
+            drain(EngineDrain(server, options.deadlines.drain, options.deadlines.drain + 5.seconds, draining))
             consumer(consumer)
             // The same close the control does in `ApplicationStopping` — here, after the drain.
             // This is the treatment the experiment is testing, not a detail.
@@ -124,6 +128,8 @@ private fun ShutdownTranscript.describe(): String =
 /** The sample's routes plus everything kore mounts. */
 public fun Application.koreSampleModule(
     readiness: ReadinessGate,
+    /** The same instance [EngineDrain] opens. Readiness here instead is the defect B-61 fixed. */
+    draining: DrainGate,
     startup: StartupGate,
     liveness: LivenessGate,
     resource: FragileResource = FragileResource(),
@@ -132,7 +138,10 @@ public fun Application.koreSampleModule(
 ) {
     // BEFORE the probes and the routes: an interceptor installed later would let calls through that
     // arrived first, and the one thing this must never miss is the first request after the announce.
-    installShutdownRefusal(isShuttingDown = { readiness.isShuttingDown })
+    // On the DRAIN, not on readiness. This line read `{ readiness.isShuttingDown }` until B-61 and
+    // answered 503 from the first millisecond of the announce; every service built from this sample
+    // copied it. A5 passed only while the oracle's requests outlasted the pre-drain wait.
+    installShutdownRefusal(draining)
     installKoreProbes(startup, readiness, liveness)
 
     // The identity the Gradle plugin compiled in (B-26), served by the route (B-27). The sample sets
