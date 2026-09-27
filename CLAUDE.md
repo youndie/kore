@@ -110,6 +110,10 @@ covers more than it does.
 - **Never put shutdown work in `ApplicationStopping`.** Research §1.1. On Kotlin/Native it runs
   before the drain. kore's release stage runs after `EmbeddedServer.stop` returns, and that is a
   specification rather than an implementation detail.
+- **The refusal is gated on the drain, never on readiness.** Readiness falls at the announce, and the
+  announce serves. `installShutdownRefusal(drainGate)` with the same `DrainGate` handed to
+  `EngineDrain`. The sample gated on readiness for a month, every consumer copied it, and A5 saw it
+  only once `--pre-drain` outlasted `--work` ([B-61](docs/backlog/B-61-refusal-starts-at-the-announce.md)).
 - **Never call `addShutdownHook`.** Research §1.3. One global slot on Native, last registration wins.
 - **Start the server with `startForKore()`, never `start()`.** On the JVM `start()` adds Ktor's own
   shutdown hook, the JVM runs it beside kore's, and it stops the engine at the signal — mid-announce.

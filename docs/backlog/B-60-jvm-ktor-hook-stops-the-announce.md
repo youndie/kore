@@ -95,7 +95,7 @@ default pre-drain. The same pattern as #90: the instrument passed by coincidence
 end inside the announce, every driver gets `503` + `Connection: close`, reconnects, and is refused
 again. That is about 4 000 exchanges in two seconds on the JVM and 7 000 on native. The JVM's one
 or two late A8 refusals happen inside that storm; native absorbs it. The timing of the refusal is
-its own item, not this one.
+its own item, not this one: [B-61](B-61-refusal-starts-at-the-announce.md).
 
 **Three native starts died at bind with `EADDRINUSE`** — CIO's own bind (`tcpBind` in `httpServer`'s
 accept job). None was on a fresh port. One was on the port the previous JVM run had just used. The other
@@ -112,7 +112,9 @@ side. The three deaths are consistent with the mechanism, and they are not prove
   in `DRAIN`, the same as on `linuxX64`. **Met** for the engine: no refusal at the signal on either
   platform. Under the oracle's reconnect storm the JVM still refuses about one new connection in 47
   late in a long announce. That storm exists only because the refusal starts at the announce, so it
-  is left open with that item rather than closed here.
+  is left open with that item rather than closed here. **Closed by
+  [B-61](B-61-refusal-starts-at-the-announce.md):** with the refusal moved to the drain, the JVM's two
+  five-second runs answered 46 of 46 new connections each, where this item's had 45 and 46 of 47.
 - Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt`,
   `kore-ktor/src/jvmMain/kotlin/io/github/youndie/kore/ktor/StartForKore.jvm.kt`,
   `kore-ktor/src/jvmTest/kotlin/io/github/youndie/kore/ktor/KtorShutdownHookJvmTest.kt`,

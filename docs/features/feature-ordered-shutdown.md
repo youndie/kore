@@ -53,12 +53,17 @@ Each rule is checkable, and each has a reason that is not "it seems tidier".
    threshold, plus propagation — and stated in §4 of
    [feature-health-probes](feature-health-probes.md), not chosen to look round.
 3. **A request accepted before the signal gets a response.** Not a reset, not a truncated body.
-4. **A request arriving after the announce stage is refused with `503` and `Connection: close` —
-   and kore is what refuses it.** Ktor does not, and this was measured rather than assumed: with a
+4. **A request arriving after the announce stage — during the drain — is refused with `503` and
+   `Connection: close`, and kore is what refuses it.** A request arriving *during* the announce is
+   served: the announce exists to go on serving while the news reaches every node, and a `503` there
+   is the dropped request the wait was for. Ktor does not, and this was measured rather than assumed: with a
    grace period long enough to observe, CIO served 48 further requests on already-open connections
    after `SIGTERM` and refused none of them (research §1.13). "Stop accepting" stops new
-   *connections*, not new *requests*. So the refusal is a plugin kore installs, gated on the sequence
-   having begun; without it there is no refusal anywhere and the oracle's A3 has no subject.
+   *connections*, not new *requests*. So the refusal is a plugin kore installs, gated on the **drain**
+   having begun — a `DrainGate` that `EngineDrain` opens as its first act. Without the plugin there is
+   no refusal anywhere and the oracle's A3 has no subject. This rule used to say "gated on the sequence
+   having begun", the sample read that as readiness, and every consumer refused through its whole
+   announce ([B-61](../backlog/B-61-refusal-starts-at-the-announce.md)).
    The header is a promise to the client that the connection is finished. It is deliberately *not* a
    promise that the server hangs up: on CIO the keep-alive decision is read from the **request's**
    `Connection` header (research §1.4), and kore will not assert what the engine does not do.
@@ -100,9 +105,10 @@ SIGTERM / SIGINT
       │       (research §1.3: Ktor's native handler runs runBlocking on the signal stack)
       ▼
   announce    readiness → false            deadline: none; then wait preDrainDelay
-      │       /health/ready answers 503; /health/live still answers 200
+      │       /health/ready answers 503; /health/live still answers 200;
+      │       everything else is still SERVED — nothing is refused yet
       ▼
-  drain       EmbeddedServer.stop(grace, timeout)          deadline: drainDeadline
+  drain       DrainGate opens, then EmbeddedServer.stop(grace, timeout)   deadline: drainDeadline
       │       accept stops (new CONNECTIONS only); in-flight finishes;
       │       kore's own plugin answers 503 + Connection: close to anything new
       ▼
@@ -278,6 +284,17 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 > jar in B-58 — while this one would have failed: its poller rides one keep-alive connection, which
 > the engine keeps serving after the listener is gone.
 > The oracle's A8 asks the same question on a new connection ([B-60](../backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
+
+### Scenario: a request arriving during the announce is served
+* **Given:** the process has received `SIGTERM` and readiness answers `503`
+* **When:** a request arrives before the pre-drain wait is over — on an open connection or a new one
+* **Then:** it is answered by its route, not refused
+* **And:** once the drain has begun, the same open connection is refused with `503` and `Connection: close`
+* **Automated:** `RefusalOpensAtTheDrainTest` (jvm and linuxX64), and end to end by the oracle's A5
+  whenever `--pre-drain` is longer than `--work`
+
+> Every consumer failed this until B-61, and nothing saw it: A5 needs the pre-drain wait to outlast
+> the drivers' requests, and the default wait did not.
 
 ### Scenario: a request arriving during the drain is refused, and says so
 * **Given:** the process has entered the drain stage

@@ -242,6 +242,7 @@ red. A mutation that survives is a gap in the property, and the item is not done
 |---|---|
 | Swap the release stage and the drain stage | 1 |
 | Drop the pre-drain wait to zero | this one is invisible here by design — it is A5 in §2. Named so that the gap is recorded rather than discovered. |
+| Open the refusal at the announce instead of the drain | invisible here too: the machine does not know what a refusal is. `RefusalOpensAtTheDrainTest`, and A5 only when `--pre-drain` is longer than `--work` — which is why it shipped (B-61) |
 | Run the release stage's participants concurrently with the drain | 2 |
 | Let a participant's overrun extend its stage | 3, 5 |
 | Join the stage's scope instead of detaching it | 5, and only against an uncooperative participant — killed by hand in B-04 |
