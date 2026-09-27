@@ -22,6 +22,16 @@ class Observations(
     val path: String,
     val connections: Int,
     val pid1: String,
+    /**
+     * Readiness polled on a **new connection every time**, the way a kubelet probes.
+     *
+     * [readiness] rides one keep-alive connection, and that connection outlives the listener: an
+     * engine that stops accepting keeps serving the sockets it already has for its whole grace period.
+     * So a subject whose listener closed at the signal still answers `503` on it, and the only
+     * observer that could tell went unasked — A4 passed on the JVM sample while every new
+     * connection was being refused (#90). A8 reads this list.
+     */
+    val freshReadiness: List<ProbeSample> = emptyList(),
 ) {
     /** Requests that were already outstanding when the signal was sent. */
     val spanningSignal: List<Exchange>
@@ -88,6 +98,7 @@ class OracleRun(
 
             val exchanges = ConcurrentLinkedQueue<Exchange>()
             val readiness = ConcurrentLinkedQueue<ProbeSample>()
+            val freshReadiness = ConcurrentLinkedQueue<ProbeSample>()
             val stop = AtomicBoolean(false)
             val outstanding = AtomicInteger(0)
             val steady = CountDownLatch(connections)
@@ -95,8 +106,10 @@ class OracleRun(
 
             val drivers = (1..connections).map { driverThread(it, exchanges, stop, outstanding, steady) }
             val poller = readinessThread(readiness, stop)
+            val freshPoller = freshReadinessThread(freshReadiness, stop)
             drivers.forEach { it.start() }
             poller.start()
+            freshPoller.start()
 
             // Steady state is every connection having completed at least one request. Sending the
             // signal before that measures a warm-up.
@@ -112,6 +125,7 @@ class OracleRun(
             stop.set(true)
             drivers.forEach { it.join(10_000) }
             poller.join(5_000)
+            freshPoller.join(5_000)
 
             return Observations(
                 exchanges = exchanges.toList().sortedBy { it.sentAtNanos },
@@ -124,6 +138,7 @@ class OracleRun(
                 path = driven,
                 connections = connections,
                 pid1 = pid1,
+                freshReadiness = freshReadiness.toList().sortedBy { it.atNanos },
             )
         } finally {
             container.remove()
@@ -178,6 +193,25 @@ class OracleRun(
             }
             client.close()
         }, "oracle-readiness").apply { isDaemon = true }
+
+    /**
+     * Polls readiness every 100 ms on a **new connection each time**, and keeps going after a refusal.
+     *
+     * The opposite of [readinessThread] on both counts, on purpose. A kubelet opens a connection per
+     * probe, so a listener that closed is a readiness the cluster reads as a dead pod rather than as a
+     * `503` — and only a new connection can see that. It keeps polling after a failure because a
+     * refused connection is the observation, not the end of the conversation.
+     */
+    private fun freshReadinessThread(into: ConcurrentLinkedQueue<ProbeSample>, stop: AtomicBoolean) =
+        Thread({
+            while (!stop.get()) {
+                val client = KeepAliveClient("127.0.0.1", container.port, readTimeoutMillis)
+                val exchange = client.get("/health/ready")
+                client.close()
+                into += ProbeSample(exchange.finishedAtNanos, exchange.status)
+                Thread.sleep(100)
+            }
+        }, "oracle-readiness-fresh").apply { isDaemon = true }
 
     private fun awaitServing() {
         val client = KeepAliveClient("127.0.0.1", container.port, readTimeoutMillis)

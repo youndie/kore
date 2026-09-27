@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
 
-## Closed (58)
+## Closed (59)
 
 **Shape**
 
@@ -184,5 +184,6 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-55](docs/backlog/B-55-allocator-page-size.md) `[x]` - Re-measure the published numbers against the runtime recipes
 - [B-57](docs/backlog/B-57-a4-brackets-the-fall.md) `[x]` - A4 compares an instant against a poll, and fails any fast route
 - [B-58](docs/backlog/B-58-oracle-drives-a-process.md) `[x]` - Should the oracle drive a distribution as well as an image?
+- [B-60](docs/backlog/B-60-jvm-ktor-hook-stops-the-announce.md) `[x]` - On the JVM, Ktor's own shutdown hook stops the engine at SIGTERM, before kore's announce
 
 <!-- END INDEX -->

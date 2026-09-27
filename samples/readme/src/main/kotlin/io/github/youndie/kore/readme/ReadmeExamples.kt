@@ -11,6 +11,7 @@ import io.github.youndie.kore.health.StartupGate
 import io.github.youndie.kore.ktor.EngineDrain
 import io.github.youndie.kore.ktor.installKoreProbes
 import io.github.youndie.kore.ktor.installKoreVersion
+import io.github.youndie.kore.ktor.startForKore
 import io.github.youndie.kore.observability.ObservabilitySettings
 import io.github.youndie.kore.observability.installKoreObservability
 import io.github.youndie.kore.version.BuildIdentity
@@ -48,7 +49,7 @@ internal fun readmeShutdown(
     producer: FlushThenClose,
     myPool: ShutdownParticipant,
 ) {
-    server.start(wait = false)
+    server.startForKore()
     startup.markStarted()
 
     runBlocking {

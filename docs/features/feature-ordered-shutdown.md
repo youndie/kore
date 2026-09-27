@@ -180,7 +180,7 @@ silently absorbed.
 are the service's:
 
 ```kotlin
-server.start(wait = false)
+server.startForKore()
 startup.markStarted()
 runBlocking {
     runUntilSignal(
@@ -206,10 +206,23 @@ Native has no such hook and carries on, so the documented example worked on the 
 designed for and failed on the other. That is the same shape as research §1.1, which is why this
 library exists — reproduced in its own example, and caught by a consumer rather than by a test.
 
+**`startForKore()`, not `start(wait = false)`, and the JVM is again the platform where it matters.**
+`EmbeddedServer.start` registers Ktor's own shutdown hook. On Native that is the one global slot, and
+kore's handler, installed later, takes it. On the JVM it is one more `Runtime` hook, the JVM runs them
+concurrently, and Ktor's stops the engine the moment `SIGTERM` lands: the announce is spent with the
+listener already gone, so a kubelet's probe gets a refused connection instead of a `503`. Measured on
+the sample's JVM jar: **48 of 48** new connections refused inside a five-second announce, the first
+13 ms after the signal; with `startForKore()`, every one answered `503`. `startForKore()` sets
+Ktor's switch (`io.ktor.server.engine.ShutdownHook=false`) before `start()` reads it, and
+`EngineDrain` refuses to be built beside a hook that is on, naming the fix
+([B-60](../backlog/B-60-jvm-ktor-hook-stops-the-announce.md), reported as
+[#90](https://github.com/youndie/kore/issues/90)).
+
 kore does **not** own `main` — [B-30](../backlog/B-30-entry-point-question.md), decided on the shape
 of a real service whose entry point runs migrations and composes its own DI before any route exists.
 What it owns is the stretch from the signal to the exit, and each of those three steps is one a
-consumer gets wrong in a way that looks like it works: `start(wait = true)` never reaches the await, a
+consumer gets wrong in a way that looks like it works: `start(wait = true)` never reaches the await,
+plain `start()` on the JVM lets Ktor stop the engine mid-announce, a
 missing `releaseProcess()` costs latency nobody attributes to it, and a watch installed before the
 server is serving catches a signal whose sequence has nothing to drain.
 
@@ -225,6 +238,7 @@ server is serving catches a signal whose sequence has nothing to drain.
 | kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `signal()`, and a handler that writes one integer |
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/signal/` — the hook thread that must not return until the sequence is done |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
+| kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt` — **built (B-60)**, `start` with Ktor's JVM hook off |
 | kore-library | `kore-booblik/` — flush-then-close; **not built yet**, its target set is [B-36](../backlog/B-36-booblik-adapter-targets.md) |
 | sample-service | `samples/oracle/` — the load driver and the assertions |
 
@@ -251,6 +265,19 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **And:** the interval between that `503` and the first refusal is at least the configured
   pre-drain wait
 * **Automated:** `negative-control.sh`
+
+### Scenario: readiness is a 503 on a new connection for the whole announce
+* **Given:** a JVM service started with `startForKore()` and serving
+* **When:** the process receives `SIGTERM`
+* **Then:** every probe of `/health/ready` on a **new** connection during the pre-drain wait answers `503`
+* **And:** none of them is a refused connection — the engine stops in the drain, not at the signal
+* **And:** the same service started with plain `start()` is refused, or the probe proves nothing
+* **Automated:** `KtorShutdownHookJvmTest`
+
+> "Readiness falls before the drain begins" passed on the JVM — the image in B-39, 9 of 9, and the
+> jar in B-58 — while this one would have failed: its poller rides one keep-alive connection, which
+> the engine keeps serving after the listener is gone.
+> The oracle's A8 asks the same question on a new connection ([B-60](../backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
 
 ### Scenario: a request arriving during the drain is refused, and says so
 * **Given:** the process has entered the drain stage
@@ -356,6 +383,12 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
   registers after `EmbeddedServer.start` and therefore wins today. A library added later that also
   calls `addShutdownHook` would take it back silently. Risk 2 of the research; it is why the oracle
   asserts the *sequence* and not merely the exit code.
+* **On the JVM, Ktor's own hook is not replaced but joined, and it stops the engine at the signal.**
+  The JVM runs every shutdown hook concurrently, so the one `EmbeddedServer.start` registers races
+  kore's sequence and wins the listener. `startForKore()` switches it off; `EngineDrain` refuses to be
+  built while it is on. Ktor fixes the switch on the first `start()` in the process, so a service that
+  started another server first has to pass `-Dio.ktor.server.engine.ShutdownHook=false` instead
+  ([B-60](../backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
 * **The refusal must not refuse the liveness probe.** A `503` from `/health/live` is a failed
   liveness probe, and enough of them restart the pod **in the middle of the shutdown it is
   reporting** — turning the orderly stop into the abrupt one this feature exists to prevent. Startup,

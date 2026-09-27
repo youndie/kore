@@ -90,6 +90,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt` | **built (B-60)** — `startForKore()`: `start(wait = false)` with Ktor's JVM shutdown hook switched off first, and the guard `EngineDrain` refuses to be built without |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` | **built (B-17)** — the three probes and the `/health` alias |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeBlock.kt` | **built (B-23)** — the chart block `--print-config` prints |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` | **built (B-59)** — `requireListenable`: the configured port bound once before the engine, so a busy port is a configuration refusal and not a native `SIGABRT`. The bind is per platform — `ktor-network` on the JVM, posix on native — and closed before it returns |
@@ -142,6 +143,12 @@ Research D3. On Kotlin/Native the hook is a single global slot and the last regi
 registering there means either replacing Ktor's own hook or being replaced by it, decided by an
 ordering nobody writes down. Calling `stop` directly also buys the thing the announce stage needs:
 somewhere to run *before* the engine begins stopping, which no Ktor event offers (research §1.2).
+
+**That only holds on the JVM once Ktor's own hook is off**, and for two weeks it was not. There the
+hooks are a list the JVM runs concurrently, so the hook `start()` registers stopped the engine at the
+signal while kore was announcing. `startForKore()` sets Ktor's switch before `start()` reads it, and
+`EngineDrain` checks the value Ktor actually read — not the property, which is only what it *would*
+read — and refuses to be built beside a hook that is on (B-60, #90).
 
 **Why the version is generated source and not a resource.** Research D7: Kotlin/Native has no
 JVM-style resources and no manifest. The generated file is an input of the compilation rather than a
@@ -240,6 +247,11 @@ they were found:
 - a `503` from kore carries `Connection: close` and the CIO server still does not hang up
   (research §1.4) — a consumer that expects the socket to close is expecting something Ktor does not
   offer;
+- on the JVM, `EmbeddedServer.start` adds a shutdown hook the JVM runs **beside** kore's, and it stops
+  the engine at the signal: the announce happens with the listener gone. Found by a consumer built
+  from keel ([#90](https://github.com/youndie/kore/issues/90)), invisible to the oracle because its
+  readiness poller rode a keep-alive connection the engine kept serving. `startForKore()` is the fix
+  and `EngineDrain` the guard (B-60);
 - on Kotlin/Native, anything else in the process that calls `EmbeddedServer.addShutdownHook` silently
   takes the single global slot (research §1.3). kore registers after `start()` and therefore wins
   today; a library added later that registers after kore would take it back, and nothing would say

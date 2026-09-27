@@ -18,7 +18,7 @@ public class ShutdownRun(
  * register, in [register].
  *
  * ```kotlin
- * server.start(wait = false)
+ * server.startForKore()          // kore-ktor: `start(wait = false)` with Ktor's JVM hook off (#90)
  * startup.markStarted()
  * runBlocking {
  *     runUntilSignal(
