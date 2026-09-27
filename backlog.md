@@ -103,9 +103,9 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
-| [B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md) `[ ]` | A SIGTERM in the first moments of serving segfaults the native sample | P2 | S | - |
+| [B-64](docs/backlog/B-64-new-worker-thread-segfaults-at-birth.md) `[ ]` | A Kotlin/Native worker thread started during an early shutdown segfaults on its first instructions | P3 | M | - |
 
-## Closed (61)
+## Closed (62)
 
 **Shape**
 
@@ -188,5 +188,6 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-58](docs/backlog/B-58-oracle-drives-a-process.md) `[x]` - Should the oracle drive a distribution as well as an image?
 - [B-60](docs/backlog/B-60-jvm-ktor-hook-stops-the-announce.md) `[x]` - On the JVM, Ktor's own shutdown hook stops the engine at SIGTERM, before kore's announce
 - [B-61](docs/backlog/B-61-refusal-starts-at-the-announce.md) `[x]` - The 503 refusal starts at the announce instead of the drain
+- [B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md) `[x]` - A SIGTERM before kore's handler meets Ktor's native handler, which hangs the process
 
 <!-- END INDEX -->

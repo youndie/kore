@@ -124,7 +124,9 @@ covers more than it does.
   shutdown hook, the JVM runs it beside kore's, and it stops the engine at the signal — mid-announce.
   The sample did this for two weeks and passed the oracle, whose readiness poller rode a keep-alive
   connection the engine kept serving. **Probe readiness on a new connection**, as a kubelet does (A8,
-  [B-60](docs/backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
+  [B-60](docs/backlog/B-60-jvm-ktor-hook-stops-the-announce.md)). On native it also takes the signal
+  from Ktor's handler around `start`; a `SIGTERM` there hung the process
+  ([B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md)).
 - **A signal handler sets a flag and wakes something. Nothing else.** Allocation, locks and
   `runBlocking` are not async-signal-safe, and Ktor's native hook does all three.
 - **`__environ`, not `environ`**, on the Linux native targets — and neither exists on macOS native.

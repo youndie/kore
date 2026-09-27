@@ -34,8 +34,8 @@ import io.ktor.server.engine.EmbeddedServer
  * `start` installs Ktor's handler, and until `runUntilSignal` installed kore's there was a window —
  * the server already answering — in which a `SIGTERM` ran Ktor's: `stop()` and `runBlocking` on the
  * signal stack, interrupting whatever the thread held. Measured on the sample with the window widened
- * to a second, **30 of 30** early signals hung the process inside that handler; unwidened, about one
- * in 200 segfaulted (B-63). So this installs kore's handler before `start`, again at
+ * to a second, **30 of 30** early signals hung the process inside that handler (B-63). So this
+ * installs kore's handler before `start`, again at
  * `ApplicationStarted` — after Ktor's, before the engine serves — and once more when `start` returns.
  * A signal from then on is recorded, and the sequence runs when `runUntilSignal` asks.
  *

@@ -103,6 +103,12 @@ with `signal()`, and that handler does nothing but set a flag and wake a parked 
 (research D3, and the module reasoning in
 [services/kore-library](../services/kore-library.md) §3).
 
+**The signal-safety half is now measured, not argued** ([B-63](../backlog/B-63-sigterm-right-after-start-segfaults.md)).
+A `SIGTERM` that meets Ktor's handler — in the window before kore's replaced it — hung the process in
+30 of 30 runs with the window widened to a second (main thread parked in `runBlocking` inside the
+handler, the workers blocked on a mutex the interrupted code held). `startForKore()` takes the signal before `start`, at `ApplicationStarted`, and
+after; the part of `start` before `ApplicationStarted` remains Ktor's.
+
 > **Corrected 2026-09-12 while preparing to file.** This paragraph said `sigaction`. kore used to
 > intend that and does not use it: the `sigaction` struct differs between Linux and Darwin, so B-08
 > switched to ANSI `signal()` with a handler that only sets a flag (research §1.3 carries the

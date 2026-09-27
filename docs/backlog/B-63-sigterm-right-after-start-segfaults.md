@@ -1,7 +1,7 @@
 ---
 id: B-63
-title: "A SIGTERM in the first moments of serving segfaults the native sample"
-status: open
+title: "A SIGTERM before kore's handler meets Ktor's native handler, which hangs the process"
+status: done
 priority: P2
 size: S
 stage: m6-release
@@ -9,58 +9,64 @@ epic: feature-ordered-shutdown
 blocked_by: []
 ---
 
-# B-63 — A SIGTERM in the first moments of serving segfaults the native sample
+# B-63 — A SIGTERM before kore's handler meets Ktor's native handler, which hangs the process
 
-Found while measuring B-62: one restart run of the native sample was signalled the moment `/health`
-first answered, and it died with `Segmentation fault`, exit 139.
+**Filed as a segfault, and the segfault turned out to be another defect.** The item was opened
+because about one start in 200, signalled the moment `/health` answered, died with exit 139. Its
+hypothesis was the window between `EmbeddedServer.start` and kore's handler, where Ktor's is armed.
+Testing the hypothesis found a real defect in that window — **a hang, not a crash** — and it is
+fixed here. The segfault survived the fix at the same rate, and the evidence places it elsewhere: it
+is [B-64](B-64-new-worker-thread-segfaults-at-birth.md). The title was changed; the filename was
+kept so links hold.
 
-## Measured
+## The window, established
 
-On the build box, the sample's native debug binary, `--kore=true`, a fresh port per start. Each start
-was signalled as soon as `/health` answered, polled every 10 ms. The two binaries were alternated:
+Ktor's native `start` installs its handler on `ApplicationStarting`. The handler's body is `stop()`,
+which runs `runBlocking`, and it runs on the signal stack (research §1.3, consequence 2). kore's
+handler replaced it only inside `runUntilSignal`, after the server was already answering.
 
-| binary | starts | exit 0 | exit 139 |
-|---|---|---|---|
-| `main` @ `8aae43a` (before B-62) | 200 | 199 | **1** |
-| B-62 branch | 200 | 198 | **2** |
+**Widened on purpose:** a throwaway build pausing one second after `startForKore()`, signalled as soon
+as `/health` answered — **30 of 30 hung** and did not exit within five seconds. `/proc` showed the
+main thread with `SIGTERM` in its blocked mask, which is the kernel's sign that a thread is inside a
+handler for it. Run as a child of `gdb`, the main thread's stack read
+`platformAddShutdownHook$1.invoke` → `EmbeddedServer.stop` → `CIOApplicationEngine.stop` →
+`runBlocking` → `Worker.park`. Every coroutine worker was blocked on one runtime mutex in
+`Worker.executeAfter`, held by the code the signal had interrupted.
 
-So it is **not** B-62's: `main` does it too, and one against two in 200 decides nothing between them.
-Signalled half a second or more after serving, 40 of 40 stops were clean. Every crash log is the same
-four lines — the build line, the configuration line, `Application started`, `Responding at` — and
-then nothing. There is no shutdown transcript, so the crash came before kore's sequence printed
-anything.
+## Fix
 
-## Hypothesis, not established
+`startForKore()`, on Kotlin/Native, installs kore's handler — the one that only sets a flag —
+**before** `start`, **again at `ApplicationStarted`**, and **once more** when `start` returns.
+`ApplicationStarted` is raised after Ktor's handler goes in and before `engine.start`, so from before
+the first byte is served, a signal is recorded for `runUntilSignal`'s watch and acted on there. On the
+JVM it is a no-op: the watch there is a shutdown hook, and a second one would be a second to release.
 
-There is a window between `EmbeddedServer.start` and kore's watch being installed inside
-`runUntilSignal`. In it, the server already answers `/health`, and the handler armed for `SIGTERM` is
-**Ktor's**. `start` installs it on native (research §1.3), and it runs `runBlocking` and `stop()` on
-the signal stack — consequence 2 of that section, the thing kore's own handler exists to avoid. A
-signal inside that window would run exactly that code.
+**What remains:** module loading, between `ApplicationStarting` and `ApplicationStarted`. Nothing has
+been served yet, and a signal there still meets Ktor's handler. Ktor's side is research-upstream-
+proposals §1.2, now with this measurement.
 
-To establish it rather than infer it: a core under `gdb` (the box's `core_pattern` pipes cores to
-WSL's crash capture, so run the binary under `gdb` directly), or a build whose watch is installed
-before `start`. If the crashes go to zero there, the window is the cause.
+**The price, stated where it is paid:** a native service that calls `startForKore()` has to go on to
+`runUntilSignal`, or install the watch itself. kore's handler only records the signal. The KDoc and
+the feature document say so.
 
-## Why it matters, and why it is small
+- **Rejected: blocking `SIGTERM` and `SIGINT` around `start`.** Threads created before it, the GC's
+  among them, do not block the signal, and the kernel may deliver a process-directed signal to any
+  of them — to Ktor's handler, on that thread.
 
-A pod that is stopped in the first fraction of a second of serving — a rollout that changes its mind,
-a failing startup probe racing a stop — crashes instead of stopping. The sequence would have had
-nothing to drain, so what is lost is the clean exit, not a request. Kubernetes reports it as a crash
-all the same.
+## Verified
 
-## Directions, to be decided in this item
+- **`StartForKoreSignalTest`** (linuxX64): `raise(SIGTERM)` straight after `startForKore()`, and
+  kore's watch reports it within two seconds. **Mutation:** removing the three installs made it red in
+  one second — `Expected <SIGTERM>, actual <null>` — with no hang, because `raise` runs the handler on
+  a thread that holds nothing.
+- **End to end, widened window:** the same throwaway build on the fixed code — **30 of 30 exited 0
+  with a shutdown transcript**, against 30 of 30 hung before.
+- `./gradlew :kore-ktor:jvmTest :kore-ktor:linuxX64Test` green; `KtorShutdownHookJvmTest` unchanged.
 
-- Install kore's watch **before** `start`. On native this would be replaced by Ktor's, which `start`
-  installs later, so it would need re-installing after `start` as well. The window then belongs to
-  kore's handler, which only sets a flag.
-- Block `SIGTERM` and `SIGINT` around `start` and unblock them once kore's handler is in place, so a
-  signal in the window stays pending and is delivered to kore's handler. Threads created by `start`
-  inherit the mask, so this needs care.
-- `startForKore()` (B-60) is where either would live, since it already owns "starting the way kore
-  needs".
-
-- AC: 400 early-signalled starts of the native sample, with no exit 139, and each one ends with a
-  shutdown transcript. The cause is established by one of the two checks above, not inferred.
+- AC, as corrected: a signal in the window between `start` and `runUntilSignal` is recorded for kore
+  and never runs Ktor's handler — established by a stack, not inferred; widened, 0 hangs in 30 where
+  there were 30. **Met.** The AC as first written — "400 early-signalled starts, no exit 139" — was
+  about B-64's defect and is carried there.
 - Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt`,
-  `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/RunUntilSignal.kt`
+  `kore-ktor/src/nativeMain/kotlin/io/github/youndie/kore/ktor/StartForKore.native.kt`,
+  `kore-ktor/src/nativeTest/kotlin/io/github/youndie/kore/ktor/StartForKoreSignalTest.kt`
