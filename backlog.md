@@ -103,9 +103,9 @@ exit codes, and two are now rules in `CLAUDE.md`.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
-| [B-62](docs/backlog/B-62-native-restart-meets-time-wait.md) `[ ]` | A native restart on the same port meets TIME_WAIT, because CIO listens without SO_REUSEADDR there | P2 | S | - |
+| [B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md) `[ ]` | A SIGTERM in the first moments of serving segfaults the native sample | P2 | S | - |
 
-## Closed (60)
+## Closed (61)
 
 **Shape**
 
@@ -156,6 +156,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[x]` - Decide what kore assumes when the grace period is not declared
 - [B-50](docs/backlog/B-50-sample-uses-the-config-schema.md) `[x]` - The sample does not use the configuration schema
 - [B-59](docs/backlog/B-59-a-busy-port-aborts-the-native-build.md) `[x]` - A busy port aborts a Kotlin/Native service instead of refusing to start
+- [B-62](docs/backlog/B-62-native-restart-meets-time-wait.md) `[x]` - A native restart on the same port meets TIME_WAIT, because CIO listens without SO_REUSEADDR there
 
 **Wiring and identity**
 

@@ -40,6 +40,13 @@ public object SampleConfig {
     public val PORT: ConfigKey<Int> = ConfigKey.int("PORT", default = 8080)
 
     /**
+     * `SO_REUSEADDR` for the engine **and** for the listen check — one value, because a check that
+     * binds differently from the engine answers a different question (B-62). `true` so a restart in
+     * place binds over its own `TIME_WAIT` on native as it always did on the JVM.
+     */
+    public const val REUSE_ADDRESS: Boolean = true
+
+    /**
      * How long `/work` takes when the request does not say.
      *
      * The name a deployment gets wrong: `_MSEC` for `_MS`. See the class KDoc.

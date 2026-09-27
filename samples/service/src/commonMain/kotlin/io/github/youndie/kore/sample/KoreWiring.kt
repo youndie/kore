@@ -76,6 +76,11 @@ public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
                 // because `stopSuspend` is given them explicitly and a caller elsewhere might not be.
                 shutdownGracePeriod = options.deadlines.drain.inWholeMilliseconds
                 shutdownTimeout = options.deadlines.drain.inWholeMilliseconds + 5_000
+                // CIO's default is `false`, which native applies and the JVM ignores: the JDK opens
+                // every server channel with the flag on. Without it a native restart in place meets
+                // the last run's TIME_WAIT and aborts (B-62). The check in `readSampleSettings` binds
+                // with the same value.
+                reuseAddress = SampleConfig.REUSE_ADDRESS
             },
             module = {
                 koreSampleModule(readiness, draining, startup, liveness, resource, settings.workMillis)

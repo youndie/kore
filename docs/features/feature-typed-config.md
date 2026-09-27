@@ -69,6 +69,14 @@ starts.
     when it cannot — because the engine's own failure on Kotlin/Native is `SIGABRT`, not a sentence
     ([B-59](../backlog/B-59-a-busy-port-aborts-the-native-build.md)). It narrows the problem: the port
     can still be taken between that bind and the engine's.
+11. **The check and the engine bind with the same `SO_REUSEADDR`, and kore's value is `true`.** CIO's
+    default `false` is written into the socket on Kotlin/Native and left to the JDK on the JVM, which
+    turns it on — so only a native restart in place met its own `TIME_WAIT` and aborted. Linux lets a
+    bind share a port with `TIME_WAIT` only when the old socket *and* the new one set the flag, and
+    never with a listener, so the refusal of rule 10 keeps working and the first restart after turning
+    it on still meets the old process's `TIME_WAIT` — as a refusal, not an abort. `requireListenable`
+    defaults to `true`; the engine needs `reuseAddress = true` in its configuration
+    ([B-62](../backlog/B-62-native-restart-meets-time-wait.md)).
 
 ## 3. Why a flag and not a route
 
@@ -212,6 +220,17 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **Automated:** `ListenCheckTest`, on jvm and linuxX64, and `ListenCheckDescriptorTest` on linuxX64 for
   "leaves the port free". End to end — exit 1 and one line instead of
   `SIGABRT` — measured in the consumer that found it, [keel#49](https://github.com/youndie/keel/issues/49)
+
+### Scenario: a restart in place binds over its own TIME_WAIT
+* **Given:** a previous process on `SVC_PORT` listened with `SO_REUSEADDR` and closed its connections
+  first, leaving `TIME_WAIT` on the port
+* **When:** the configuration is read and `requireListenable(PORT)` is called with its default
+* **Then:** it throws nothing, and the engine can bind the port with the same flag
+* **And:** the same `TIME_WAIT` refuses a bind without the flag — the control
+* **And:** a `TIME_WAIT` left by a listener **without** the flag refuses even with it — the first
+  restart after the flag is turned on
+* **Automated:** `ReuseAddressTimeWaitTest`, on linuxX64. End to end on the sample's native binary,
+  before and after, in [B-62](../backlog/B-62-native-restart-meets-time-wait.md)
 
 ## 7. Out of scope
 

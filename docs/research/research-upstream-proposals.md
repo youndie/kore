@@ -140,6 +140,27 @@ close it — the port can be taken between the two binds — which is why the en
 should reach the caller of `start` — through `resolvedConnectors()` or `startSuspend` — rather than a
 coroutine root with no handler.
 
+### 1.4 CIO's `reuseAddress = false` is applied on Kotlin/Native and ignored on the JVM
+
+**Claim.** One setting, two behaviours. CIO defaults `reuseAddress` to `false`. `ktor-network` on
+native writes that value into the socket; on the JVM it sets the flag only when it is `true`, and the
+JDK has already opened the server channel with it on. So a JVM service restarts in place over its own
+`TIME_WAIT` and a native one with the identical configuration aborts (§1.3), and nothing a reader of
+the setting sees says so.
+
+**Verified against** `ktor-server-cio-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:54`,
+`ktor-network-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/network/sockets/NativeSocketOptions.kt:11-12`,
+`ktor-network-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/network/sockets/JavaSocketOptions.kt:84-90`, and
+`openjdk-25.0.2 src.zip!/java.base/sun/nio/ch/Net.java` (`serverSocket` opens with `reuse = true`).
+Measured on the sample's native binary: 8 server-side `TIME_WAIT`, restart exit 134
+([B-62](../backlog/B-62-native-restart-meets-time-wait.md)).
+
+**What kore does meanwhile.** Recommends `reuseAddress = true` on the engine and defaults
+`requireListenable` to it (B-62).
+
+**Not filed**, under the same decision. The shape it would take: either apply the JVM's effective
+value on native too, or document on the setting that the JVM ignores `false`.
+
 ---
 
 ## 2. metrik — **filed as [youndie/metrik#29](https://github.com/youndie/metrik/issues/29)**, 2026-09-12
