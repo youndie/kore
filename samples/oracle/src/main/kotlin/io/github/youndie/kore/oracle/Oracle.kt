@@ -33,6 +33,7 @@ fun main(args: Array<String>) {
     println("PID 1: ${observations.pid1}")
     println("exchanges: ${observations.exchanges.size}, spanning the signal: ${observations.spanningSignal.size}, after it: ${observations.afterSignal.size}")
     println("readiness samples: ${observations.readiness.size}${if (observations.readinessAbsent) " (all 404 - no readiness endpoint)" else ""}")
+    println("readiness samples on new connections: ${observations.freshReadiness.size}")
     println()
     findings.forEach { println("  ${it.verdict.name.padEnd(15)} ${it.id} — ${it.detail}") }
     println()

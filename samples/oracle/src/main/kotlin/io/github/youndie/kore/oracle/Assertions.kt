@@ -62,7 +62,7 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
             )
         }
 
-    // --- A1-A7 -----------------------------------------------------------------------------------
+    // --- A1-A8 -----------------------------------------------------------------------------------
 
     val spanning = observations.spanningSignal
     val broken = spanning.filter { it.status == null || !it.bodyComplete }
@@ -178,6 +178,8 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
             }
         }
 
+    findings += announceHeldTheListener(observations, preDrainWaitMillis)
+
     // A6 asserts HOW the process ended, not a number: a clean SIGTERM shutdown exits 0 on
     // Kotlin/Native and 143 on the JVM, and both are correct (measured in B-05). 137 is SIGKILL,
     // which is the failure this is looking for.
@@ -194,4 +196,59 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
         }
 
     return findings
+}
+
+/**
+ * How close to the end of the announce A8 stops looking. Two poll intervals: the last sample before
+ * the drain may land a few milliseconds after it began, and a refusal there is the drain doing its job.
+ */
+private const val ANNOUNCE_TAIL_MILLIS = 200L
+
+/**
+ * **A8 — a new connection is answered, not refused, for as long as the announce lasts.**
+ *
+ * The announce is the stage in which the process says "not ready" while it still serves, so that the
+ * cluster stops sending before the listener closes. A listener that is gone during it turns the
+ * readiness a kubelet reads from `503` into a refused connection, and in-flight rerouting into
+ * whatever the client does with a reset.
+ *
+ * A4 and A5 cannot see this, and did not: they read [Observations.readiness], one keep-alive
+ * connection that the engine keeps serving through its grace period after the listener has gone. On
+ * the JVM Ktor's own shutdown hook stopped the engine at the signal, concurrently with kore's
+ * sequence, and the sample passed both (#90). So this one reads [Observations.freshReadiness] and
+ * asks the only question a new connection can answer.
+ */
+internal fun announceHeldTheListener(observations: Observations, preDrainWaitMillis: Long?): Finding {
+    val id = "A8 new connections were answered through the announce"
+    if (observations.readinessAbsent) return Finding(id, Verdict.NOT_APPLICABLE, "no readiness endpoint")
+    if (preDrainWaitMillis == null) return Finding(id, Verdict.NOT_APPLICABLE, "--pre-drain not given")
+
+    val from = observations.signalAtNanos
+    val until = from + (preDrainWaitMillis - ANNOUNCE_TAIL_MILLIS) * 1_000_000
+    val inside = observations.freshReadiness.filter { it.atNanos in from..until }
+    val refused = inside.filter { it.status == null }
+    val millis = { sample: ProbeSample -> (sample.atNanos - from) / 1_000_000 }
+
+    return when {
+        // An assertion that visited nothing has not been evaluated — the vacuity rule of §2.5.
+        inside.isEmpty() ->
+            Finding(id, Verdict.INCONCLUSIVE, "no new-connection probe landed inside the ${preDrainWaitMillis}ms announce")
+        refused.isNotEmpty() ->
+            Finding(
+                id,
+                Verdict.FAIL,
+                "${refused.size} of ${inside.size} new connections were refused inside the ${preDrainWaitMillis}ms " +
+                    "announce, the first ${millis(refused.first())}ms after the signal — the listener closed " +
+                    "before the drain",
+            )
+        inside.none { it.status == 503 } ->
+            Finding(id, Verdict.FAIL, "no new connection saw 503 inside the announce: ${inside.map { it.status }.distinct()}")
+        else ->
+            Finding(
+                id,
+                Verdict.PASS,
+                "${inside.size} new connections inside the ${preDrainWaitMillis}ms announce, all answered, " +
+                    "503 from ${millis(inside.first { it.status == 503 })}ms",
+            )
+    }
 }
