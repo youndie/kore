@@ -97,10 +97,16 @@ again. That is about 4 000 exchanges in two seconds on the JVM and 7 000 on nati
 or two late A8 refusals happen inside that storm; native absorbs it. The timing of the refusal is
 its own item, not this one.
 
-**Unexplained, and recorded as such:** a native run started on a port the previous JVM run had just
-used, and two more on a port nobody had used, died at bind with `EADDRINUSE`. The bind is CIO's own
-(`tcpBind` in `httpServer`'s accept job), and that SIGABRT is what B-59 is about. The next two
-fresh ports started normally.
+**Three native starts died at bind with `EADDRINUSE`** — CIO's own bind (`tcpBind` in `httpServer`'s
+accept job). None was on a fresh port. One was on the port the previous JVM run had just used. The other
+two were on a port that, it turned out, had carried a full native run moments earlier, in an attempt
+whose output `set -e` swallowed. The likely mechanism was measured on keel rather than here: CIO
+defaults to `reuseAddress = false`, and on native Ktor applies that literally, while the JVM's NIO sets
+`SO_REUSEADDR` on its own. So a `TIME_WAIT` left on the service port refuses the native bind and not
+the JVM one. Here it did **not** reproduce: two back-to-back native runs on one port showed no
+`TIME_WAIT` before the second, which then started. That fits research §1.4 — CIO does not hang up on
+`Connection: close`, so the oracle's client closes first and the `TIME_WAIT` sits on the client's
+side. The three deaths are consistent with the mechanism, and they are not proven by it.
 
 - AC: on the JVM, after `SIGTERM`, readiness answers `503` for the announce and the engine stops only
   in `DRAIN`, the same as on `linuxX64`. **Met** for the engine: no refusal at the signal on either
