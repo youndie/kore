@@ -1,5 +1,6 @@
 package io.github.youndie.kore.ktor
 
+import io.github.youndie.kore.lifecycle.DrainGate
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import kotlin.test.Test
@@ -14,7 +15,7 @@ class EngineDrainTest {
     fun `a timeout shorter than the grace period is refused where it is written`() {
         val failure =
             assertFailsWith<IllegalArgumentException> {
-                EngineDrain(server(), grace = 10.seconds, timeout = 5.seconds)
+                EngineDrain(server(), grace = 10.seconds, timeout = 5.seconds, gate = DrainGate())
             }
 
         // The acceptance criterion is that the message names both numbers: the reader has to be able
@@ -28,20 +29,20 @@ class EngineDrainTest {
         // Equal is the interesting boundary: it leaves a hard-kill window of exactly zero, so the
         // engine cancels and then does not wait at all. It looks configured and does nothing.
         assertFailsWith<IllegalArgumentException> {
-            EngineDrain(server(), grace = 5.seconds, timeout = 5.seconds)
+            EngineDrain(server(), grace = 5.seconds, timeout = 5.seconds, gate = DrainGate())
         }
     }
 
     @Test
     fun `a negative grace period is refused`() {
         assertFailsWith<IllegalArgumentException> {
-            EngineDrain(server(), grace = (-1).seconds, timeout = 5.seconds)
+            EngineDrain(server(), grace = (-1).seconds, timeout = 5.seconds, gate = DrainGate())
         }
     }
 
     @Test
     fun `a sane pair is accepted and the participant names itself`() {
-        val drain = EngineDrain(server(), grace = 15.seconds, timeout = 20.seconds)
+        val drain = EngineDrain(server(), grace = 15.seconds, timeout = 20.seconds, gate = DrainGate())
 
         assertTrue(drain.name.isNotBlank())
     }

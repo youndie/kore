@@ -1,5 +1,6 @@
 package io.github.youndie.kore.ktor
 
+import io.github.youndie.kore.lifecycle.DrainGate
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
@@ -18,10 +19,12 @@ import kotlin.test.assertEquals
  * common test source set.
  */
 class ShutdownRefusalTest {
+    private fun draining(): DrainGate = DrainGate().apply { beginDrain() }
+
     @Test
     fun `nothing is refused while the process is not shutting down`() = testApplication {
         application {
-            installShutdownRefusal(isShuttingDown = { false })
+            installShutdownRefusal(DrainGate())
             routing { get("/work") { call.respondText("worked\n") } }
         }
 
@@ -34,7 +37,7 @@ class ShutdownRefusalTest {
     @Test
     fun `a request during the shutdown is refused with 503 and Connection close`() = testApplication {
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             routing { get("/work") { call.respondText("worked\n") } }
         }
 
@@ -49,7 +52,7 @@ class ShutdownRefusalTest {
     fun `the route does not also run`() = testApplication {
         var routeRan = false
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             routing { get("/work") { routeRan = true; call.respondText("worked\n") } }
         }
 
@@ -75,7 +78,7 @@ class ShutdownRefusalTest {
     fun `nothing later in the pipeline runs for a refused call`() = testApplication {
         var laterPluginRan = false
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             intercept(ApplicationCallPipeline.Call) { laterPluginRan = true }
             routing { get("/work") { call.respondText("worked\n") } }
         }
@@ -95,7 +98,7 @@ class ShutdownRefusalTest {
     @Test
     fun `liveness keeps answering during the shutdown`() = testApplication {
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             routing {
                 get(KoreRoutes.LIVE) { call.respondText("alive\n") }
                 get(KoreRoutes.HEALTH) { call.respondText("alive\n") }
@@ -116,7 +119,7 @@ class ShutdownRefusalTest {
     @Test
     fun `readiness answers for itself rather than being refused`() = testApplication {
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             routing {
                 get(KoreRoutes.READY) {
                     call.respondText("draining\n", status = HttpStatusCode.ServiceUnavailable)
@@ -133,10 +136,25 @@ class ShutdownRefusalTest {
     @Test
     fun `an unknown path during the shutdown is refused rather than answered 404`() = testApplication {
         application {
-            installShutdownRefusal(isShuttingDown = { true })
+            installShutdownRefusal(draining())
             routing { get("/work") { call.respondText("worked\n") } }
         }
 
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/nothing-here").status)
+    }
+
+    /**
+     * The deprecated form still refuses on its predicate — a consumer on it keeps the behaviour it
+     * had until it moves, and gets the warning that says why to.
+     */
+    @Test
+    @Suppress("DEPRECATION")
+    fun `the predicate form still refuses on its predicate`() = testApplication {
+        application {
+            installShutdownRefusal(isShuttingDown = { true })
+            routing { get("/work") { call.respondText("worked\n") } }
+        }
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/work").status)
     }
 }

@@ -28,7 +28,7 @@ public class ShutdownRun(
  *         onFinished = { run -> println(run.transcript) },
  *     ) {
  *         announce(AnnounceNotReady(readiness))
- *         drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
+ *         drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds, draining))
  *         pool(myPool)
  *     }
  * }

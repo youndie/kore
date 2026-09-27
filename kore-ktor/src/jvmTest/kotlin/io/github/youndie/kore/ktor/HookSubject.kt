@@ -3,6 +3,7 @@ package io.github.youndie.kore.ktor
 import io.github.youndie.kore.health.ReadinessGate
 import io.github.youndie.kore.health.StartupGate
 import io.github.youndie.kore.lifecycle.AnnounceNotReady
+import io.github.youndie.kore.lifecycle.DrainGate
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
 import io.github.youndie.kore.lifecycle.runUntilSignal
@@ -50,7 +51,7 @@ internal object HookSubject {
                     }
                 else ->
                     try {
-                        EngineDrain(server, grace = 1.seconds, timeout = 2.seconds)
+                        EngineDrain(server, grace = 1.seconds, timeout = 2.seconds, gate = DrainGate())
                     } catch (refused: IllegalStateException) {
                         println("REFUSED ${refused.message}")
                         System.out.flush()
