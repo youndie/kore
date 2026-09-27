@@ -4,10 +4,6 @@ import io.github.youndie.kore.config.ConfigKey
 import io.github.youndie.kore.config.ConfigProblem
 import io.github.youndie.kore.config.Configuration
 import io.github.youndie.kore.config.ConfigurationException
-import io.ktor.network.selector.SelectorManager
-import io.ktor.network.sockets.aSocket
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.runBlocking
 
 /**
  * Refuses the start when the port in [port] cannot be listened on, the way a missing variable does.
@@ -28,8 +24,9 @@ import kotlinx.coroutines.runBlocking
  * bind and the engine's; the common case — something already holds it — becomes a sentence, and the
  * race stays Ktor's.
  *
- * The bind goes through `ktor-network`, the library CIO binds with, so it fails where the engine
- * would. [reuseAddress] is there to match an engine configured with it; CIO's default is `false`.
+ * The bind is the one CIO makes — the same address resolution, the same `SO_REUSEADDR` — so it fails
+ * where the engine would. [reuseAddress] is there to match an engine configured with it; CIO's
+ * default is `false`.
  */
 public fun Configuration.requireListenable(
     port: ConfigKey<Int>,
@@ -41,21 +38,19 @@ public fun Configuration.requireListenable(
     throw ConfigurationException(prefix, listOf(ConfigProblem(variableOf(port), "$value cannot be listened on: $reason")))
 }
 
-/** Why [host]:[port] cannot be listened on, or `null` when it can. */
-internal fun listenProblem(
+/**
+ * Why [host]:[port] cannot be listened on, or `null` when it can — and when it returns, the socket
+ * is **closed**, not scheduled to close. The engine binds the same port next, so a close that lands
+ * later is a check that makes the failure it was written to prevent.
+ *
+ * That is why this is per platform. `ktor-network`'s native server socket does not close its
+ * descriptor in `close()`: it queues it for the selector thread (`TCPServerSocketNative.close` →
+ * `notifyClosed`), and the port stays bound until that thread gets to it. CI caught it as a flaky
+ * `the check leaves the port free for the engine` on linuxX64. The JVM's `close()` is the channel's,
+ * and synchronous.
+ */
+internal expect fun listenProblem(
     host: String,
     port: Int,
     reuseAddress: Boolean = false,
-): String? =
-    runBlocking {
-        try {
-            SelectorManager().use { selector ->
-                aSocket(selector).tcp().bind(host, port) { this.reuseAddress = reuseAddress }.close()
-            }
-            null
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Exception) {
-            failure.message ?: failure::class.simpleName ?: "unknown failure"
-        }
-    }
+): String?
