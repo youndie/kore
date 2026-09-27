@@ -242,6 +242,7 @@ server is serving catches a signal whose sequence has nothing to drain.
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/health/ReadinessGate.kt` — **built (B-09)**, where readiness lives |
 | kore-library | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatch.kt` — the contract, and why kore never calls `addShutdownHook` |
 | kore-library | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` — `signal()`, and a handler that writes one integer |
+| kore-library | `kore-core/src/nativeInterop/cinterop/koreSignal.def` — **built (B-64)**, that handler in C on Linux, because a Kotlin one is a bridge that initialises the runtime on the receiving thread; `linuxMain/.../signal/SignalHandler.linux.kt` installs it, `macosMain/.../signal/SignalHandler.macos.kt` keeps the Kotlin one |
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/signal/` — the hook thread that must not return until the sequence is done |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/` — the wrapper that calls `EmbeddedServer.stop` itself |
 | kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt` — **built (B-60)**, `start` with Ktor's JVM hook off |
@@ -363,6 +364,15 @@ scenario gains its line when a test covers **all** of it; the absence is the hon
 * **Automated:** `StartForKoreSignalTest`, on linuxX64. End to end, the sample with the window
   widened to a second — 30 of 30 hung before, 30 of 30 stopped in order after — in
   [B-63](../backlog/B-63-sigterm-right-after-start-segfaults.md)
+
+### Scenario: a signal that lands on a newborn worker thread does not kill it, on Linux
+* **Given:** a native service stopped by `SIGTERM` at the moment a new `Dispatchers.IO` worker is starting
+* **When:** the kernel delivers the signal to that worker thread
+* **Then:** the handler that runs is kore's C function, and no Kotlin runs on that thread
+* **And:** the worker starts and the process stops in order
+* **Automated:** `SignalHandlerLinuxTest`, which asserts the installed handler is the C function.
+  The crash itself is timing, so end to end it is a count in
+  [B-64](../backlog/B-64-new-worker-thread-segfaults-at-birth.md)
 
 ### Scenario: two signals run the sequence once
 * **Given:** the sequence has begun

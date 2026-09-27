@@ -1,0 +1,40 @@
+# kore's signal handler, in C — B-64.
+#
+# A handler written in Kotlin (`staticCFunction`) is a C-to-Kotlin bridge, and a bridge initialises the
+# Kotlin/Native runtime on a thread that has none. The kernel delivers a process-directed SIGTERM to any
+# thread that does not block it, including a Dispatchers.IO worker in its first instructions: the bridge
+# then initialised the runtime before `workerRoutine` did, which skipped its own initialisation and died
+# on a null memory state. Measured on the sample: in 18 of 18 crashes the thread that received SIGTERM
+# was the thread that crashed. So the handler is C, and runs nothing but an atomic store.
+package = io.github.youndie.kore.signal.native
+---
+#include <signal.h>
+
+static int kore_raised_value = 0;
+
+/* The handler. A lock-free compare-and-set: the FIRST signal names the shutdown. */
+static void kore_on_signal(int signo) {
+    int expected = 0;
+    __atomic_compare_exchange_n(&kore_raised_value, &expected, signo, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+}
+
+static inline void kore_install_signal_handlers(void) {
+    signal(SIGTERM, kore_on_signal);
+    signal(SIGINT, kore_on_signal);
+}
+
+static inline int kore_raised_signal(void) {
+    return __atomic_load_n(&kore_raised_value, __ATOMIC_SEQ_CST);
+}
+
+/* Test-only: put the flag back so a second case can raise again. */
+static inline void kore_reset_raised_signal(void) {
+    __atomic_store_n(&kore_raised_value, 0, __ATOMIC_SEQ_CST);
+}
+
+/* Whether the handler installed for `signo` is this file's — the property B-64 depends on. */
+static inline int kore_handler_is_installed(int signo) {
+    struct sigaction current;
+    if (sigaction(signo, 0, &current) != 0) return 0;
+    return current.sa_handler == kore_on_signal;
+}

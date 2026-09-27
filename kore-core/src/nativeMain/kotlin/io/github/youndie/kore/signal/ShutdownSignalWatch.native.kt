@@ -1,42 +1,36 @@
 package io.github.youndie.kore.signal
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.staticCFunction
 import kotlinx.coroutines.delay
 import platform.posix.SIGINT
 import platform.posix.SIGTERM
-import platform.posix.signal
-import kotlin.concurrent.AtomicInt
 import kotlin.time.Duration
 
-/**
- * The flag, and the only thing the handler touches.
- *
- * A top level `val` in Kotlin/Native is initialised on first access, and initialising it from inside
- * a signal handler would allocate — which is the thing this whole design exists to avoid. So
- * [installShutdownSignalWatch] reads it once **before** installing any handler, and by the time a
- * signal can arrive there is nothing left to initialise.
- */
-private val raised = AtomicInt(NONE)
-
-private const val NONE = 0
-
-@OptIn(ExperimentalForeignApi::class)
 public actual fun installShutdownSignalWatch(
     pollInterval: Duration,
     releaseTimeout: Duration,
 ): ShutdownSignalWatch {
-    // Forces the lazy initialisation of `raised` while it is still safe to allocate. See above.
-    raised.value
-
-    // `compareAndSet` rather than a store: the FIRST signal is the one that names the shutdown, and
-    // a second arriving mid-sequence must not rewrite the answer. It is also a lock-free instruction,
-    // which is what makes it safe to run here at all.
-    signal(SIGTERM, staticCFunction<Int, Unit> { raised.compareAndSet(NONE, SIGTERM) })
-    signal(SIGINT, staticCFunction<Int, Unit> { raised.compareAndSet(NONE, SIGINT) })
-
+    installSignalHandlers()
     return PosixShutdownSignalWatch(pollInterval)
 }
+
+/**
+ * Installs the `SIGTERM` and `SIGINT` handler, which records the first signal and does nothing else.
+ *
+ * **Per platform, because the language of the handler is the fix (B-64).** A handler written in Kotlin
+ * is a `staticCFunction`, a C-to-Kotlin bridge that initialises the runtime on whichever thread the
+ * kernel picks. When that was a worker thread in its first instructions, the runtime came up there
+ * before `workerRoutine` could bring it up, and the worker died on a null memory state: in 18 crashes
+ * out of 18 the receiving thread was the crashing one. On Linux the handler is C (`koreSignal.def`).
+ * On macOS it is still Kotlin, because cinterop for an Apple target cannot be built on the Linux host
+ * kore is released from: macOS is a development target, and the defect stays there, named.
+ */
+internal expect fun installSignalHandlers()
+
+/** The first signal recorded, or `0`. */
+internal expect fun raisedSignal(): Int
+
+/** Test-only: puts the flag back so a second case can raise again. */
+internal expect fun resetRaisedSignalForTest()
 
 /**
  * Polls the flag.
@@ -51,7 +45,7 @@ public actual fun installShutdownSignalWatch(
 private class PosixShutdownSignalWatch(private val pollInterval: Duration) : ShutdownSignalWatch {
     override suspend fun awaitSignal(): ShutdownSignal {
         while (true) {
-            when (raised.value) {
+            when (raisedSignal()) {
                 SIGTERM -> return ShutdownSignal.SIGTERM
                 SIGINT -> return ShutdownSignal.SIGINT
                 else -> delay(pollInterval)
@@ -65,7 +59,3 @@ private class PosixShutdownSignalWatch(private val pollInterval: Duration) : Shu
     override fun close(): Unit = Unit
 }
 
-/** Test-only, and only meaningful in-process: puts the flag back so a second case can raise again. */
-internal fun resetRaisedSignalForTest() {
-    raised.value = NONE
-}

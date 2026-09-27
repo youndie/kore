@@ -166,6 +166,19 @@ installed after it fires, which matters because the alternative semantics would 
 `SIGTERM` reach the default disposition and kill the process mid-sequence — asserted by raising
 `SIGTERM` twice in a test rather than taken from a manual page.
 
+**Amended 2026-09-27 (B-64): "what the handler does" was not enough, and the language is the rest of
+it.** kore's handler did nothing but a compare-and-set, and it still was not the minimum: it was a
+`staticCFunction`, which is a C-to-Kotlin **bridge**, and a bridge initialises the Kotlin/Native
+runtime on a thread that has none. The kernel delivers a process-directed `SIGTERM` to any thread that
+does not block it. About one early signal in 60 to 100 on the sample landed on a `Dispatchers.IO`
+worker in its first instructions. The bridge brought the runtime up there before `workerRoutine` did,
+which then skipped its own initialisation and died on a null memory state. In 18 of 18 crashes the
+thread that received the signal was the thread that crashed; when main received it, 0 of 1 152
+crashed. **The handler is now C on Linux** (`kore-core/src/nativeInterop/cinterop/koreSignal.def`,
+inline, a lock-free compare-and-set). On Kotlin/Native, "set a flag and nothing else" can only be kept
+in C. macOS keeps the Kotlin handler: cinterop for an Apple target cannot be built on the Linux release
+host.
+
 **Consequence 3.** Because Ktor's own hook is installed by `start()` and cannot be removed, kore has
 to be the thing that is *later*: it registers after the server has started, and accepts that on
 Native its handler is the surviving one by construction. That is an ordering dependency worth a
