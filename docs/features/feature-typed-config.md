@@ -98,7 +98,7 @@ library's.
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` — `System.getenv()` |
 | kore-library | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` — enumeration through `__environ` |
 | kore-library | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` — lookup only; see §7 |
-| kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` — `requireListenable`, rule 10; in `kore-ktor` because it binds through the library CIO binds with |
+| kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` — `requireListenable`, rule 10; the bind itself is `ListenCheck.jvm.kt` / `ListenCheck.native.kt`, each the engine's own bind on that platform |
 | sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleConfig.kt` — the schema: a required key, two defaults, a secret, a pair |
 | sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleMain.kt` — `--print-config` before anything, then read once, then serve |
 | sample-oracle | `samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/ConfigRefusal.kt` — the refusals, against the built image |
@@ -209,7 +209,8 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **Then:** it throws the same `ConfigurationException` a missing variable does, with one problem
   naming `SVC_PORT` and the port
 * **And:** on a free port it throws nothing and leaves the port free for the engine
-* **Automated:** `ListenCheckTest`, on jvm and linuxX64. End to end — exit 1 and one line instead of
+* **Automated:** `ListenCheckTest`, on jvm and linuxX64, and `ListenCheckDescriptorTest` on linuxX64 for
+  "leaves the port free". End to end — exit 1 and one line instead of
   `SIGABRT` — measured in the consumer that found it, [keel#49](https://github.com/youndie/keel/issues/49)
 
 ## 7. Out of scope
