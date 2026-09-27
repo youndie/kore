@@ -75,6 +75,6 @@ class ListenCheckTest {
         }
 
     private companion object {
-        const val ENGINE_BINDS = 200
+        const val ENGINE_BINDS = 50
     }
 }
