@@ -114,6 +114,11 @@ covers more than it does.
   announce serves. `installShutdownRefusal(drainGate)` with the same `DrainGate` handed to
   `EngineDrain`. The sample gated on readiness for a month, every consumer copied it, and A5 saw it
   only once `--pre-drain` outlasted `--work` ([B-61](docs/backlog/B-61-refusal-starts-at-the-announce.md)).
+- **`reuseAddress = true` on the engine and on `requireListenable`, one value.** CIO's `false` is
+  written into the socket on native and ignored on the JVM, whose JDK turns the flag on — so only a
+  native restart in place met its own `TIME_WAIT` and aborted. Linux shares a port with `TIME_WAIT`
+  only when both the old and the new socket set it, never with a listener
+  ([B-62](docs/backlog/B-62-native-restart-meets-time-wait.md)).
 - **Never call `addShutdownHook`.** Research §1.3. One global slot on Native, last registration wins.
 - **Start the server with `startForKore()`, never `start()`.** On the JVM `start()` adds Ktor's own
   shutdown hook, the JVM runs it beside kore's, and it stops the engine at the signal — mid-announce.
