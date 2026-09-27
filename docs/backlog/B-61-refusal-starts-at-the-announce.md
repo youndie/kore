@@ -13,7 +13,9 @@ blocked_by: []
 
 Found by [B-60](B-60-jvm-ktor-hook-stops-the-announce.md) and left open there: with `--pre-drain=5000`
 the oracle's A5 failed on **both** the linuxX64 binary and the JVM jar (2891–2989 ms < 5000 ms). So
-the platform did not matter.
+the platform did not matter. Reported again from keel's side as
+[#94](https://github.com/youndie/kore/issues/94), which this item closes: A5 at −81 ms on every keel
+run, and on the JVM 1–5 of 46 new-connection probes refused from about 1 s into the announce.
 
 ## Why
 
@@ -113,13 +115,74 @@ reference to get there. A latch both sides are handed is simpler and is how read
   That mechanism was not checked separately. The JVM's late A8 refusals are gone with the storm. The
   exit times equal B-60's for the same wait, so moving the refusal adds nothing to the shutdown.
 
+## #94: keel's load shape, and what it found in the oracle
+
+keel's setup is `--path=/items --connections=32 --pre-drain=5000`, with a route that answers in about
+1 ms. So the refusal storm starts at the signal instead of three seconds later. The same shape was
+run against kore's own sample (`--work=1 --connections=32`), with `main` as the control and this
+branch as the fix. keel ran twice: as its `fix/busy-port-refusal` branch (kore 0.1.6, refusal on
+readiness), and as a throwaway copy of it on this branch's kore through `mavenLocal`, with
+the two-line `DrainGate` wiring. The copy's `lib/` carries `kore-ktor-jvm-0.1.7-b61.jar`, and it
+compiles `installShutdownRefusal(draining)`, which 0.1.6 does not have. Same box, fresh port per
+run, two runs a cell, under the final oracle below:
+
+| subject | platform | A5 | A8 misses | 503 refusals |
+|---|---|---|---|---|
+| sample, control (`main`) | JVM | FAIL at most 51 / 36 ms | **3 / 5 of 46** | 4 579 / 8 001 |
+| sample, control (`main`) | native | FAIL at most 19 / 1 ms | **1 of 46** / 0 of 43 | 5 379 / 19 238 |
+| sample, B-61 | JVM | PASS 4925–5021 / 4949–5052 ms | 0 of 46 / 0 of 45 | 101 / 32 |
+| sample, B-61 | native | PASS 4915–5005 / 4911–5014 ms | 0 of 46 / 0 of 45 | 32 / 32 |
+| keel, control (0.1.6) | JVM | FAIL at most 27 / 11 ms | **2 / 4 of 46** | 4 314 / 6 837 |
+| keel, control (0.1.6) | native | FAIL at most 17 / 15 ms | 0 of 43 / 0 of 42 | 19 160 / 19 266 |
+| keel, B-61 | JVM | PASS 4933–5024 / 4924–5017 ms | 0 of 46 / 0 of 45 | 129 / 32 |
+| keel, B-61 | native | PASS 4922–5018 / 4911–5011 ms | 0 of 46 / 0 of 46 | 32 / 32 |
+
+Every B-61 run: 10 passed, 0 failed. Every control failed A5, and 5 of the 8 controls also failed A8.
+A first pass of the same matrix, before the A5 change below, gave the same A8 picture: 0 misses in
+8 B-61 runs, 2 JVM control runs with one miss each.
+
+**What the A8 misses were here: `java.net.BindException: Cannot assign requested address`** — the
+*client* failing to get a local port, not the server refusing. The build box's ephemeral range is
+52810–56905, about 4 000 ports, and a control run collects 4 300–19 300 refusals in five
+seconds, each followed by a reconnect. keel saw `ConnectException: Connection refused` instead, and
+that was **not** reproduced here. Both appeared only under the storm, and neither appeared in 16
+runs without it. So the JVM A8 misses of #94 and B-60 are not a finding of their own. Also,
+native is not immune here (one control miss). Why the JVM missed more often was not investigated.
+
+**Two runs refused more than once per driver** (101 and 129 against 32): some drivers reconnected
+after their refusal and were refused again. All of it was inside the drain, so A5 and A8 are
+unaffected. It suggests the JVM listener accepts for a moment after the drain begins. Recorded, not
+investigated.
+
+### Two changes to the oracle
+
+- **`ProbeSample` keeps `Exchange.failure`**, and a failing A8 prints it with every miss's time.
+  `status == null` covered a refusal, a reset and a timeout alike. keel had to patch the oracle to
+  learn which, and the table above could not have been written without it. The old A8 text said
+  "the listener closed before the drain", a cause the probe could not see. It was wrong for #94,
+  where the misses interleaved with answered probes.
+- **A5 reads the readiness bracket, as A4 has since B-57.** Measured from the first non-`200`
+  sample, the gap was short by the poller's lag, up to one 100 ms interval. While the refusal
+  started at the announce, nobody noticed. With the refusal at the drain, a 1 ms route is refused at
+  *fall + wait + ε*, and every correct run failed by 39–92 ms: 4908–4961 ms on the first pass. The
+  lower edge of the bracket is the later of the last `200` and the signal, since readiness cannot fall
+  before the process is told to stop. research-oracle §2.3 has the three answers, and why the middle
+  one is a PASS here and NOT_APPLICABLE in A4. `A5BracketTest`, five cases. Mutations, each killed
+  by the named case: the strict reading restored — `a refusal at the drain boundary passes although
+  the sample was late`; the signal bound dropped — `the fall is bounded by the signal and not only
+  by the last healthy sample`.
+
 - AC: during the announce a request is served on open and new connections, and the refusal begins
   with the drain. A unit test fails if it does not. The oracle is green on A5 and A8 for JVM and
-  native at 2000 and 5000 ms, two runs each. **Met.**
+  native at 2000 and 5000 ms, two runs each. **Met**, and re-run under the final oracle with the same
+  result (8 of 8, 10 passed each). #94's acceptance: A5 and A8 green at 5000 ms on JVM and native, on
+  the sample and on keel's `/items`. **Met** (table above).
 - **Not done here:** the ten consumers. Each needs a kore release and a two-line change. A release
   waits for #92 (B-60) by the owner's decision, and this branch is stacked on it.
 - Anchors: `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/DrainGate.kt`,
   `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt`,
   `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt`,
   `kore-ktor/src/commonTest/kotlin/io/github/youndie/kore/ktor/RefusalOpensAtTheDrainTest.kt`,
+  `samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/Assertions.kt`,
+  `samples/oracle/src/test/kotlin/io/github/youndie/kore/oracle/A5BracketTest.kt`,
   `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/KoreWiring.kt`
