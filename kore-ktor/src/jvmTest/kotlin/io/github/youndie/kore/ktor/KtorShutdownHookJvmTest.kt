@@ -43,9 +43,14 @@ class KtorShutdownHookJvmTest {
     @Test
     fun `EngineDrain refuses to be built beside Ktor's hook`() {
         val subject = spawn("guarded")
-        val output = BufferedReader(InputStreamReader(subject.inputStream)).readText()
+        // WAIT FIRST, READ SECOND. Reading to the end first blocks for as long as the subject lives, and
+        // a subject whose guard is gone lives forever: with the check mutated out this test did not go
+        // red, it hung for ten minutes. The refusal is one line, so the pipe cannot fill meanwhile.
+        val exited = subject.waitFor(30, TimeUnit.SECONDS)
+        if (!exited) subject.destroyForcibly().waitFor()
+        val output = subject.inputStream.bufferedReader().readText()
 
-        assertTrue(subject.waitFor(30, TimeUnit.SECONDS), "the guarded subject did not exit")
+        assertTrue(exited, "the guarded subject served instead of refusing: $output")
         assertEquals(3, subject.exitValue(), output)
         assertTrue("startForKore" in output, "the refusal did not name the fix: $output")
     }
