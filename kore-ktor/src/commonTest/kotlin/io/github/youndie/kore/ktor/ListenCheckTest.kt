@@ -53,7 +53,7 @@ class ListenCheckTest {
      * which is the case that would give if anything did.
      */
     @Test
-    fun `a port another socket listens on is refused with the flag on both sides`() =
+    fun `a port another socket listens on is refused with the flag on both sides`(): Unit =
         runBlocking {
             SelectorManager().use { selector ->
                 aSocket(selector).tcp().bind("0.0.0.0", 0) { reuseAddress = true }.use { holder ->
