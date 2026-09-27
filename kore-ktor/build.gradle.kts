@@ -30,3 +30,14 @@ kotlin {
         }
     }
 }
+
+tasks.named<Test>("jvmTest") {
+    // THE IN-PROCESS SUITES STAND IN FOR A SERVICE THAT STARTED CORRECTLY. Ktor fixes its JVM shutdown
+    // hook switch on the first `start()` in the process, `testApplication` starts servers, and
+    // `EngineDrain` refuses to be built beside a hook that is on (#90) — so without this the drain's
+    // tests would pass or fail by which suite the runner happened to take first.
+    systemProperty("io.ktor.server.engine.ShutdownHook", "false")
+    // The one suite that must meet Ktor's default spawns a JVM of its own on this classpath, without
+    // the property above. See KtorShutdownHookJvmTest.
+    doFirst { systemProperty("kore.test.classpath", classpath.asPath) }
+}

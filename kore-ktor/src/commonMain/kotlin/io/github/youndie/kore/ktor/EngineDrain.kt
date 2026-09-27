@@ -17,6 +17,10 @@ import kotlin.time.Duration
  * it directly also buys the thing the announce stage needs: somewhere to run *before* the engine
  * starts stopping, which no Ktor event offers (research §1.2, §1.3).
  *
+ * **On the JVM that only holds if Ktor's own hook is off**, because there the hooks are a list the JVM
+ * runs concurrently, and Ktor's stops the engine at the signal. So this stage refuses to be built
+ * beside it, and [startForKore] is how a server is started without it (#90).
+ *
  * **kore passes the numbers, rather than inheriting them.**
  * `ApplicationEngine.Configuration.shutdownGracePeriod` defaults to **1000 ms**, which is shorter
  * than a great many real requests — an unconfigured service drops in-flight work on `SIGTERM`, on
@@ -46,6 +50,12 @@ public class EngineDrain(
             "the drain timeout must be longer than the grace period, because the engine's hard-kill " +
                 "window is timeout minus grace: grace=$grace timeout=$timeout leaves ${timeout - grace}"
         }
+        // HERE, because this is the one kore object every consumer builds with the server in hand, and
+        // a hook that is on makes this stage's position in the sequence a fiction: the engine stops at
+        // the signal whatever the stages say. A refusal at startup rather than a readiness that is
+        // quietly a refused connection in production — which is what it was until #90, invisibly to
+        // an oracle that probed on one keep-alive connection.
+        check(ktorShutdownHookArmed() != true) { ktorShutdownHookMessage() }
     }
 
     override val name: String = "http engine"
