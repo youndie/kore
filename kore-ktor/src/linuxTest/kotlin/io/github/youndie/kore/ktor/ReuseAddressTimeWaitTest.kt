@@ -1,5 +1,8 @@
 package io.github.youndie.kore.ktor
 
+import io.github.youndie.kore.config.ConfigKey
+import io.github.youndie.kore.config.ConfigSchema
+import io.github.youndie.kore.config.Environment
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.alloc
@@ -57,6 +60,18 @@ class ReuseAddressTimeWaitTest {
     @Test
     fun `the first restart after turning the flag on still meets the old process's TIME_WAIT`() {
         assertNotNull(listenProblem("0.0.0.0", timeWaitLeftBy(reuseAddress = false), reuseAddress = true))
+    }
+
+    /**
+     * The **default** is the decision B-62 made, so it gets a case of its own: every case above passes
+     * the flag explicitly and would stay green if the default went back to CIO's `false`.
+     */
+    @Test
+    fun `requireListenable binds over the TIME_WAIT by default`() {
+        val port = timeWaitLeftBy(reuseAddress = true)
+        val key = ConfigKey.int("PORT", default = 0)
+
+        ConfigSchema(prefix = "SVC", keys = listOf(key)).read(Environment.of(mapOf("SVC_PORT" to "$port"))).requireListenable(key)
     }
 
     /** Leaves a server-side `TIME_WAIT` on a fresh port, from a listener with [reuseAddress]; returns the port. */
