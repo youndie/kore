@@ -128,10 +128,14 @@ covers more than it does.
   from Ktor's handler around `start`; a `SIGTERM` there hung the process
   ([B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md)).
 - **A signal handler sets a flag and wakes something. Nothing else.** Allocation, locks and
-  `runBlocking` are not async-signal-safe, and Ktor's native hook does all three. **On Kotlin/Native the
-  handler is C** (`koreSignal.def`): a `staticCFunction` is a bridge that initialises the runtime on
-  whichever thread receives the signal, and on a newborn worker that killed it
-  ([B-64](docs/backlog/B-64-new-worker-thread-segfaults-at-birth.md)).
+  `runBlocking` are not async-signal-safe, and Ktor's native hook does all three. **On Linux the handler
+  is C** (`koreSignal.def`): a `staticCFunction` is a bridge that initialises the runtime on whichever
+  thread receives the signal, and on a newborn worker that killed it
+  ([B-64](docs/backlog/B-64-new-worker-thread-segfaults-at-birth.md)). macOS keeps the Kotlin one.
+- **cinterop for an Apple target is SKIPPED on the Linux host, and takes the target's whole compilation
+  with it, inside a green build.** So a cinterop added to a shared native source set silently removes
+  macosArm64 from what is built and published. Check that `compileKotlinMacosArm64` *executed*; a
+  per-target run that says green may be the skip (B-64).
 - **`__environ`, not `environ`**, on the Linux native targets — and neither exists on macOS native.
   Writing the POSIX-documented name gives an error naming a missing symbol rather than a missing
   platform.

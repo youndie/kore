@@ -174,8 +174,10 @@ does not block it. About one early signal in 60 to 100 on the sample landed on a
 worker in its first instructions. The bridge brought the runtime up there before `workerRoutine` did,
 which then skipped its own initialisation and died on a null memory state. In 18 of 18 crashes the
 thread that received the signal was the thread that crashed; when main received it, 0 of 1 152
-crashed. **The handler is now C** (`kore-core/src/nativeInterop/cinterop/koreSignal.def`, inline, a
-lock-free compare-and-set). On Kotlin/Native, "set a flag and nothing else" can only be kept in C.
+crashed. **The handler is now C on Linux** (`kore-core/src/nativeInterop/cinterop/koreSignal.def`,
+inline, a lock-free compare-and-set). On Kotlin/Native, "set a flag and nothing else" can only be kept
+in C. macOS keeps the Kotlin handler: cinterop for an Apple target cannot be built on the Linux release
+host.
 
 **Consequence 3.** Because Ktor's own hook is installed by `start()` and cannot be removed, kore has
 to be the thing that is *later*: it registers after the server has started, and accepts that on

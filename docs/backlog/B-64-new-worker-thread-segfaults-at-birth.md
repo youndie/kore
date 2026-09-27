@@ -141,11 +141,19 @@ that promise, however little its body does. Ktor's native handler is a `staticCF
 
 ## Fix
 
-**kore's native handler is C**: `kore-core/src/nativeInterop/cinterop/koreSignal.def`, inline, compiled
-for all three native targets. `kore_on_signal` does a lock-free compare-and-set on an `int`, so the
-first signal still names the shutdown, and a second `SIGTERM` still finds the handler installed.
-`installShutdownSignalWatch` installs it; the watch polls `kore_raised_signal()`; `startForKore()`
-(B-63) installs it through the same call. The JVM is untouched.
+**kore's handler is C on the Linux targets**: `kore-core/src/nativeInterop/cinterop/koreSignal.def`,
+inline, for `linuxX64` and `linuxArm64`. `kore_on_signal` does a lock-free compare-and-set on an
+`int`, so the first signal still names the shutdown, and a second `SIGTERM` still finds the handler
+installed. `installShutdownSignalWatch` installs it through a per-platform `installSignalHandlers`;
+the watch polls `raisedSignal()`; `startForKore()` (B-63) installs it through the same call. The JVM
+is untouched.
+
+**macOS keeps the Kotlin handler, and the defect with it — decided by the owner.** cinterop for an Apple
+target needs the macOS SDK. On the Linux host kore is released from, `cinteropKoreSignalMacosArm64`
+was **SKIPPED**, and it took `compileKotlinMacosArm64` with it, inside a **green** `./gradlew build`.
+The local publication had no `macosarm64` artefact at all. A per-target compile run had looked green
+for macOS too: that was the skip. The alternative was publishing from a macOS runner. macOS is a
+development target here, so the limitation stays on it, named in `SignalHandler.macos.kt`.
 
 - **Rejected: pre-starting the IO workers** so none is born during a shutdown. It would cost resident
   memory in every pod (B-55), and it hid the defect rather than removing it: any birth that coincides
@@ -155,11 +163,14 @@ first signal still names the shutdown, and a second `SIGTERM` still finds the ha
 
 ## Verified
 
-- **`the installed handler for both signals is kore's C function`** (`ShutdownSignalWatchNativeTest`,
-  every native target in CI). **Mutation:** a `staticCFunction` put back over it turned that test red
-  with its own message, and the three existing signal tests red with it.
-- `kore-core` compiles for `macosArm64` and `linuxArm64` with the cinterop, so the inline C
-  cross-compiles.
+- **`the installed handler for both signals is kore's C function`** (`SignalHandlerLinuxTest`, on
+  linuxX64 and, in CI, linuxArm64). **Mutation:** a `staticCFunction` put back over the C handler
+  turned it red with its own message — and, before the test moved to `linuxTest`, the three signal
+  tests beside it too.
+- `./gradlew build` on the Linux host: green, with `compileKotlinMacosArm64` **executed** for
+  kore-core, kore-ktor and kore-booblik, not skipped. The local publication of kore-core carries
+  `-cinterop-koreSignal.klib` beside the linuxx64 and linuxarm64 klibs, listed in the module metadata,
+  and a macosarm64 klib again.
 - **End to end**, the sample's native debug binary, `main` (0.1.9) against this change, alternated,
   1 000 each, on a quiet box (load 1–4), with the receiving thread recorded:
 
@@ -168,11 +179,18 @@ first signal still names the shutdown, and a second `SIGTERM` still finds the ha
 | `main`, Kotlin handler | 1 000 | 26 | **8**, the receiver being the crasher in 8 of 8 |
 | this change, C handler | 1 000 | 19 | **0** |
 
+The after binary was built before the handler moved to `linuxMain`. The Linux path is the same C code
+through the same call; only macOS changed.
+
 - AC: the rate is measured on an idle machine with a reproducing control, and the owner of the defect
   is established by the minimal program. Or a kore-side mitigation is shown to take the crash count to
   zero over a count the control makes meaningful. **Met, both halves.** The mechanism is established
   without kore: a Kotlin handler's bridge on a newborn worker, the receiver being the crasher in every
   crash. The fix takes 8 in 1 000 to 0 in 1 000 beside its control, on an idle box.
 - Anchors: `kore-core/src/nativeInterop/cinterop/koreSignal.def`,
+  `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/signal/SignalHandler.linux.kt`,
+  `kore-core/src/macosMain/kotlin/io/github/youndie/kore/signal/SignalHandler.macos.kt`,
+  `kore-core/src/linuxTest/kotlin/io/github/youndie/kore/signal/SignalHandlerLinuxTest.kt`,
   `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatch.native.kt`,
-  `kore-core/src/nativeTest/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatchNativeTest.kt`
+  `kore-core/src/nativeTest/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatchNativeTest.kt` (the
+  behaviour, on every native target)
