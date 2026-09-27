@@ -76,10 +76,37 @@ JVM tests that build `EngineDrain` in a process where `testApplication` already 
   the guard — `under startForKore…` fails with `[200, null, null, …]`; the guard alone removed —
   `EngineDrain refuses…` fails. The second mutation first made that test **hang** for ten minutes
   (reading the subject's pipe to its end), then fail on `Stream closed`; it now waits on a file.
-- The oracle against the jar after the fix: see the pull request.
+- The oracle, 2026-09-27, on the Linux box, `--work=3000 --connections=8`, one port per run:
+
+| subject | pre-drain | A8 — new connections inside the announce | A5 |
+|---|---|---|---|
+| JVM jar, **before** | 5000 | **48 of 48 refused**, the first at 13 ms | FAIL 2901 ms |
+| JVM jar, after | 2000 | 18 of 18 answered, `503` from 119 ms | PASS |
+| native, after | 2000 | 17 of 17 answered, `503` from 88 ms | PASS |
+| JVM jar, after (two runs) | 5000 | 45 of 47 and 46 of 47 — refusals at ~3.9 s, none earlier | FAIL 2891 / 2989 ms |
+| native, after (two runs) | 5000 | 47 of 47 answered | FAIL 2905 / 2923 ms |
+
+**The hook is off:** with it on, every probe after the first 13 ms is refused. **What the five-second
+rows show is something else, and it is older than #90.** A5 fails on native as well, so the
+platform does not matter. The sample gates its `503` refusal on `readiness.isShuttingDown`, which
+the **announce** sets. So kore refuses from the first millisecond of the announce, not from the
+drain. A5 passed before only because the drivers' three-second requests outlasted the two-second
+default pre-drain. The same pattern as #90: the instrument passed by coincidence. Once the requests
+end inside the announce, every driver gets `503` + `Connection: close`, reconnects, and is refused
+again. That is about 4 000 exchanges in two seconds on the JVM and 7 000 on native. The JVM's one
+or two late A8 refusals happen inside that storm; native absorbs it. The timing of the refusal is
+its own item, not this one.
+
+**Unexplained, and recorded as such:** a native run started on a port the previous JVM run had just
+used, and two more on a port nobody had used, died at bind with `EADDRINUSE`. The bind is CIO's own
+(`tcpBind` in `httpServer`'s accept job), and that SIGABRT is what B-59 is about. The next two
+fresh ports started normally.
 
 - AC: on the JVM, after `SIGTERM`, readiness answers `503` for the announce and the engine stops only
-  in `DRAIN`, the same as on `linuxX64`. **Met.**
+  in `DRAIN`, the same as on `linuxX64`. **Met** for the engine: no refusal at the signal on either
+  platform. Under the oracle's reconnect storm the JVM still refuses about one new connection in 47
+  late in a long announce. That storm exists only because the refusal starts at the announce, so it
+  is left open with that item rather than closed here.
 - Anchors: `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt`,
   `kore-ktor/src/jvmMain/kotlin/io/github/youndie/kore/ktor/StartForKore.jvm.kt`,
   `kore-ktor/src/jvmTest/kotlin/io/github/youndie/kore/ktor/KtorShutdownHookJvmTest.kt`,
