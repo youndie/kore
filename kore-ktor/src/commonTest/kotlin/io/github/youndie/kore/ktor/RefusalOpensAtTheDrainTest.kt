@@ -82,9 +82,10 @@ class RefusalOpensAtTheDrainTest {
                 assertEquals(503, fresh(selector, port).get(KoreRoutes.READY).status, "readiness did not fall in the announce")
                 val onKept = kept.get("/work")
                 val onNew = fresh(selector, port).get("/work")
-                assertFalse(draining.isDraining, "the drain began before the announce was asked — the test proves nothing")
                 assertEquals(200, onKept.status, "refused on an open connection during the announce: ${onKept.body}")
                 assertEquals(200, onNew.status, "refused on a new connection during the announce: ${onNew.body}")
+                // And the two 200s above were asked inside the announce, or they prove nothing.
+                assertFalse(draining.isDraining, "the drain had begun before the announce was asked")
 
                 // THE DRAIN. The same kept connection, now refused and told not to come back.
                 awaitTrue("the drain never opened the refusal") { draining.isDraining }
