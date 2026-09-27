@@ -77,6 +77,9 @@ ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 # handed; putting an engine in a library's classpath is choosing one for every consumer. CIO because
 # it is what the portfolio's native services run and what research §1.2 and §1.4 were read from.
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+# `kore-ktor`, for one call: binding the service's port once before the engine does (B-59). It is the
+# library CIO binds with, so the check fails where the engine would; a consumer on CIO already has it.
+ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 # Test-only, and it is load-bearing rather than a convenience: the stage machine is about DURATIONS,
 # and a test that waits real seconds for a five-second stage measures the runner and takes five

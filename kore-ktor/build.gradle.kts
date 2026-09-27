@@ -20,6 +20,9 @@ kotlin {
             // whatever `EmbeddedServer` it is handed, and depending on CIO here would put an engine
             // in the classpath of every service that only wanted the routes.
             api(libs.ktor.server.core)
+            // Not an engine: the socket library CIO binds with, so `requireListenable` fails where the
+            // engine would and for the same reason (B-59). `implementation` — nothing of it is handed back.
+            implementation(libs.ktor.network)
         }
     }
 }
