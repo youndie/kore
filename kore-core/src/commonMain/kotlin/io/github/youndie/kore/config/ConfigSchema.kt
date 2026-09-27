@@ -62,6 +62,12 @@ public class Configuration internal constructor(
 
     /** Every value with its origin, in declaration order. What B-23 prints. */
     public fun values(): List<ResolvedValue> = resolved.values.toList()
+
+    /**
+     * The environment variable [key] was read from, so a refusal raised after the read can name what
+     * an operator has to change — B-59's busy port is the first.
+     */
+    public fun variableOf(key: ConfigKey<*>): String = (resolved[key.name] ?: error("${key.name} is not part of the $prefix schema")).variable
 }
 
 /**

@@ -117,6 +117,29 @@ rather than improve it: a co-resident hook calling `stop()` directly reintroduce
 kore exists to remove. Anyone reopening this should start from that distinction rather than rederive
 it.
 
+### 1.3 On Kotlin/Native a CIO bind failure aborts the process
+
+**Claim.** CIO binds the listening socket inside a coroutine it launches itself, after
+`start(wait = false)` has returned, and nothing handles the bind's failure: on Kotlin/Native a port
+another process holds ends the process with `SIGABRT` (exit 134) and an `Uncaught Kotlin exception`
+whose cause is `EADDRINUSE`. On the JVM the same start exits 1 with a stack trace. The caller of
+`start` has no point at which to catch it on either platform.
+
+**Verified against** `ktor-server-cio-3.6.0-sources.jar!/commonMain/io/ktor/server/cio/backend/HttpServer.kt`
+— the `accept-` job's first statement is the `bind`, and the exception handler that file looks up
+is installed for the connection scope after the bind, not around it. The abort was measured by a
+service built from keel ([keel#49](https://github.com/youndie/keel/issues/49)): 53–59 lines of stack
+and exit 134 on native, 18 lines and exit 1 on the JVM.
+
+**What kore does meanwhile.** `requireListenable` binds the port once before the engine does and
+refuses as a configuration problem
+([B-59](../backlog/B-59-a-busy-port-aborts-the-native-build.md)). It narrows the problem and does not
+close it — the port can be taken between the two binds — which is why the entry is here.
+
+**Not filed**, under the same decision as §1.1 and §1.2. The shape it would take: the bind failure
+should reach the caller of `start` — through `resolvedConnectors()` or `startSuspend` — rather than a
+coroutine root with no handler.
+
 ---
 
 ## 2. metrik — **filed as [youndie/metrik#29](https://github.com/youndie/metrik/issues/29)**, 2026-09-12
