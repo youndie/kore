@@ -42,13 +42,15 @@ class KtorShutdownHookJvmTest {
 
     @Test
     fun `EngineDrain refuses to be built beside Ktor's hook`() {
-        val subject = spawn("guarded")
-        // WAIT FIRST, READ SECOND. Reading to the end first blocks for as long as the subject lives, and
-        // a subject whose guard is gone lives forever: with the check mutated out this test did not go
-        // red, it hung for ten minutes. The refusal is one line, so the pipe cannot fill meanwhile.
+        // INTO A FILE, AND WAIT BEFORE READING. Reading a pipe to its end blocks for as long as the
+        // subject lives, and a subject whose guard is gone lives forever: with the check mutated out
+        // this test did not go red, it hung for ten minutes. Killing it then closes the pipe, and the
+        // test went red for `Stream closed` — a kill that names the harness rather than the guard.
+        val log = File.createTempFile("kore-guarded", ".log").apply { deleteOnExit() }
+        val subject = spawn("guarded", log)
         val exited = subject.waitFor(30, TimeUnit.SECONDS)
         if (!exited) subject.destroyForcibly().waitFor()
-        val output = subject.inputStream.bufferedReader().readText()
+        val output = log.readText()
 
         assertTrue(exited, "the guarded subject served instead of refusing: $output")
         assertEquals(3, subject.exitValue(), output)
@@ -106,11 +108,12 @@ class KtorShutdownHookJvmTest {
      * A fresh JVM, on this test's classpath, **without** the property the build sets for the in-process
      * suites — the subject has to meet Ktor's default, or the control would be green by configuration.
      */
-    private fun spawn(mode: String): Process {
+    private fun spawn(mode: String, output: File? = null): Process {
         val classpath = System.getProperty("kore.test.classpath") ?: fail("kore.test.classpath is not set by the build")
         val java = File(System.getProperty("java.home"), "bin/java").path
         return ProcessBuilder(java, "-cp", classpath, HookSubject::class.java.name, mode)
             .redirectErrorStream(true)
+            .apply { if (output != null) redirectOutput(output) }
             .start()
     }
 }
