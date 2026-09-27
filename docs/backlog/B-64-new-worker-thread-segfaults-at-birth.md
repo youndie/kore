@@ -98,15 +98,56 @@ resident memory follows the **thread count** (B-55: the per-thread page cache do
 a rare crash at shutdown with memory every pod pays all the time. It would need its own measurement on
 both sides before it is a decision.
 
+## Step 2, 2026-09-27 — the mechanism, established without kore
+
+A throwaway program, never committed, with modes cut from the sample one piece at a time. Each run
+was driven like the sample (poll `/health`, then `SIGTERM` at once) and alternated with a control in
+the same run:
+
+| mode | what it has | exit 139 |
+|---|---|---|
+| sample (control, several runs) | everything | 4–9 in 600 each time |
+| `net` | ktor-network only, the selector closed under waiters | 0 / 600 |
+| `cio`, `cio-suspend` | bare CIO, stopped by a timer (`stop` / `stopSuspend`) | 0 / 600 each |
+| `kore-min` | bare CIO + kore's announce and `EngineDrain` | 9 / 600 |
+| `sig` | bare CIO + a hand-written `staticCFunction` handler, polled on IO — **no kore** | 5–9 / 600 |
+| `sig-nopoll` | the same, polled by a blocking sleep loop on main | 3 / 600 |
+| `poll-nosig` | the IO poll, no handler, no signal | 0 / 600 |
+
+**So the trigger is a signal, and kore is not needed.** A `LD_PRELOAD` then recorded which thread
+received `SIGTERM` in every run:
+
+| receiver | runs | crashed |
+|---|---|---|
+| the main thread | 1 152 | 0 |
+| another thread | 48 | 18 — **and in 18 of 18 the receiver was the thread that crashed** |
+
+**Mechanism.** The client's connection closes at the moment of the signal, so waking its reader starts
+a new `Dispatchers.IO` worker at that same instant. The kernel may deliver the process-directed
+`SIGTERM` to that newborn thread. A `staticCFunction` handler is a C-to-Kotlin bridge, and a bridge
+initialises the runtime on a thread that has none. So the handler initialises it there, **before**
+`workerRoutine` does. `workerRoutine` then finds the runtime valid, skips its own initialisation,
+never gives its `Worker` a memory state, and dies on the next line. Research §1.3 consequence 2 said a
+signal handler must do nothing but set a flag. On Kotlin/Native a handler written in Kotlin cannot keep
+that promise, however little its body does. Ktor's native handler is a `staticCFunction` too.
+
+**The fix, measured in the same program:** the handler in **C**, through cinterop with inline code —
+`volatile sig_atomic_t`, `signal()`, no Kotlin on the receiving thread.
+
+| handler, alternated | runs | receiver not main | exit 139 |
+|---|---|---|---|
+| Kotlin `staticCFunction` (control) | 1 000 | 22 | **16** |
+| C via cinterop | 1 000 | 16 | **0** |
+
 ## Next steps, in order
 
-1. Measure the rate on an idle machine, with a control that reproduces first, and on a **release**
-   sample binary — the crashes above are all the debug one.
-2. Narrow the minimal program towards the sample: a ktor-network server socket with waiting accepts,
-   closed while new IO workers are needed. That would put the trigger in ktor-network plus the runtime,
-   with no kore or CIO.
-3. Only if the rate is material: measure the pre-started-workers mitigation — crashes against resident
-   memory — before choosing it.
+1. **kore's native handler in C**: a cinterop `.def` with inline C in `kore-core`, for all three native
+   targets, keeping `installShutdownSignalWatch`'s contract. B-63's `startForKore` installs it the
+   same way. Verified on the sample with the early-signal harness against the current release, and by
+   a test that raises the signal on a thread with no runtime.
+2. Research §1.3 consequence 2 amended at its place, and research-upstream-proposals §1.2 extended:
+   Ktor's native handler has the same defect. Written, not filed.
+3. The pre-started-workers mitigation is no longer needed and is dropped.
 
 - AC: the rate is measured on an idle machine with a reproducing control, and the owner of the defect
   is established by the minimal program. Or a kore-side mitigation is shown to take the crash count to
