@@ -15,7 +15,7 @@ tags: [configuration, environment, startup]
 # Typed configuration from the environment
 
 > **Built.** The schema, the typed keys, the unknown-variable refusal and `--print-config` exist, and
-> all nine scenarios are automated — including the environment enumeration on Kotlin/Native, which is
+> all ten scenarios are automated — including the environment enumeration on Kotlin/Native, which is
 > checked against a second implementation rather than against itself. The platform facts it rests on
 > are verified and sourced in [research-architecture](../research/research-architecture.md) §1.5; the
 > baseline it generalises is §1.11.
@@ -64,6 +64,11 @@ starts.
    default" are different facts, and the difference is what a rename looks like.
 9. **`--print-config` exits without serving.** It is asked most often *because* the process will not
    start, so it must not need a process that started.
+10. **A port that cannot be listened on is refused like a value that does not parse.**
+    `requireListenable` binds the configured port once before the engine does and names the variable
+    when it cannot — because the engine's own failure on Kotlin/Native is `SIGABRT`, not a sentence
+    ([B-59](../backlog/B-59-a-busy-port-aborts-the-native-build.md)). It narrows the problem: the port
+    can still be taken between that bind and the engine's.
 
 ## 3. Why a flag and not a route
 
@@ -93,6 +98,7 @@ library's.
 | kore-library | `kore-core/src/jvmMain/kotlin/io/github/youndie/kore/config/Environment.jvm.kt` — `System.getenv()` |
 | kore-library | `kore-core/src/linuxMain/kotlin/io/github/youndie/kore/config/Environment.linux.kt` — enumeration through `__environ` |
 | kore-library | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/config/Environment.macos.kt` — lookup only; see §7 |
+| kore-library | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` — `requireListenable`, rule 10; in `kore-ktor` because it binds through the library CIO binds with |
 | sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleConfig.kt` — the schema: a required key, two defaults, a secret, a pair |
 | sample-service | `samples/service/src/commonMain/kotlin/io/github/youndie/kore/sample/SampleMain.kt` — `--print-config` before anything, then read once, then serve |
 | sample-oracle | `samples/oracle/src/main/kotlin/io/github/youndie/kore/oracle/ConfigRefusal.kt` — the refusals, against the built image |
@@ -111,7 +117,7 @@ writing the sample rather than by deleting the sentence.
 
 ## 6. Scenarios (BDD)
 
-**All nine are automated as of B-24.** Two were deliberately held back on the way here because they
+**All ten are automated** — nine as of B-24, the busy port by B-59. Two were deliberately held back on the way here because they
 would have passed **vacuously**: "a variable outside the prefix is not the schema's business" until
 there was an unknown check for it to survive (B-23), and the near-miss until that check became a
 **refusal** rather than a listing (B-24).
@@ -196,6 +202,15 @@ there was an unknown check for it to survive (B-23), and the near-miss until tha
 * **Then:** the output states that unknown-variable detection is unavailable on this target
 * **And:** it does **not** report that no unknown variables were found
 * **Automated:** `PrintConfigTest`
+
+### Scenario: a port another process holds stops the process with its variable named
+* **Given:** `SVC_PORT` set to a port another socket is listening on
+* **When:** the configuration is read and `requireListenable(PORT)` is called
+* **Then:** it throws the same `ConfigurationException` a missing variable does, with one problem
+  naming `SVC_PORT` and the port
+* **And:** on a free port it throws nothing and leaves the port free for the engine
+* **Automated:** `ListenCheckTest`, on jvm and linuxX64. End to end — exit 1 and one line instead of
+  `SIGABRT` — measured in the consumer that found it, [keel#49](https://github.com/youndie/keel/issues/49)
 
 ## 7. Out of scope
 

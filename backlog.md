@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
 
-## Closed (57)
+## Closed (58)
 
 **Shape**
 
@@ -154,6 +154,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-24](docs/backlog/B-24-unknown-variable-refusal.md) `[x]` - Prefix scoping and the unknown-variable refusal
 - [B-25](docs/backlog/B-25-undeclared-grace-period.md) `[x]` - Decide what kore assumes when the grace period is not declared
 - [B-50](docs/backlog/B-50-sample-uses-the-config-schema.md) `[x]` - The sample does not use the configuration schema
+- [B-59](docs/backlog/B-59-a-busy-port-aborts-the-native-build.md) `[x]` - A busy port aborts a Kotlin/Native service instead of refusing to start
 
 **Wiring and identity**
 
