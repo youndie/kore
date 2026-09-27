@@ -28,3 +28,6 @@ internal actual fun switchOffKtorShutdownHook() {
         null -> System.err.println("kore: could not confirm that Ktor's JVM shutdown hook is off. ${ktorShutdownHookMessage()}")
     }
 }
+
+/** Nothing on the JVM: the watch is a shutdown hook, and a second hook would be a second one to release. */
+internal actual fun takeTheSignalForKore() = Unit
