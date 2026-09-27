@@ -6,8 +6,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
-/** One poll of a probe, with when it happened. */
-data class ProbeSample(val atNanos: Long, val status: Int?)
+/**
+ * One poll of a probe, with when it happened.
+ *
+ * [failure] is kept because `status == null` covers a refused connection, a reset and a read timeout
+ * alike, and they have different causes. keel had to patch the oracle to learn its A8 refusals were
+ * `ConnectException`s in under a millisecond (kore#94).
+ */
+data class ProbeSample(val atNanos: Long, val status: Int?, val failure: String? = null)
 
 /** Everything the run observed. Assertions read this and nothing else — never the server's log. */
 class Observations(
@@ -187,7 +193,7 @@ class OracleRun(
             val client = KeepAliveClient("127.0.0.1", container.port, readTimeoutMillis)
             while (!stop.get()) {
                 val exchange = client.get("/health/ready")
-                into += ProbeSample(exchange.finishedAtNanos, exchange.status)
+                into += ProbeSample(exchange.finishedAtNanos, exchange.status, exchange.failure)
                 if (exchange.failure != null) break
                 Thread.sleep(100)
             }
@@ -208,7 +214,7 @@ class OracleRun(
                 val client = KeepAliveClient("127.0.0.1", container.port, readTimeoutMillis)
                 val exchange = client.get("/health/ready")
                 client.close()
-                into += ProbeSample(exchange.finishedAtNanos, exchange.status)
+                into += ProbeSample(exchange.finishedAtNanos, exchange.status, exchange.failure)
                 Thread.sleep(100)
             }
         }, "oracle-readiness-fresh").apply { isDaemon = true }
