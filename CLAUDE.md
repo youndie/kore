@@ -128,7 +128,10 @@ covers more than it does.
   from Ktor's handler around `start`; a `SIGTERM` there hung the process
   ([B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md)).
 - **A signal handler sets a flag and wakes something. Nothing else.** Allocation, locks and
-  `runBlocking` are not async-signal-safe, and Ktor's native hook does all three.
+  `runBlocking` are not async-signal-safe, and Ktor's native hook does all three. **On Kotlin/Native the
+  handler is C** (`koreSignal.def`): a `staticCFunction` is a bridge that initialises the runtime on
+  whichever thread receives the signal, and on a newborn worker that killed it
+  ([B-64](docs/backlog/B-64-new-worker-thread-segfaults-at-birth.md)).
 - **`__environ`, not `environ`**, on the Linux native targets — and neither exists on macOS native.
   Writing the POSIX-documented name gives an error naming a missing symbol rather than a missing
   platform.

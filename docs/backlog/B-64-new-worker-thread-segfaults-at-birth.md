@@ -1,7 +1,7 @@
 ---
 id: B-64
-title: "A Kotlin/Native worker thread started during an early shutdown segfaults on its first instructions"
-status: open
+title: "A SIGTERM that lands on a newborn worker thread kills it, because the handler was a Kotlin bridge"
+status: done
 priority: P3
 size: M
 stage: m6-release
@@ -9,7 +9,7 @@ epic: feature-ordered-shutdown
 blocked_by: []
 ---
 
-# B-64 — A Kotlin/Native worker thread started during an early shutdown segfaults on its first instructions
+# B-64 — A SIGTERM that lands on a newborn worker thread kills it, because the handler was a Kotlin bridge
 
 Split out of [B-63](B-63-sigterm-right-after-start-segfaults.md), which was filed for this crash and
 found a different defect instead. The sample's native debug binary, signalled the moment `/health`
@@ -139,17 +139,40 @@ that promise, however little its body does. Ktor's native handler is a `staticCF
 | Kotlin `staticCFunction` (control) | 1 000 | 22 | **16** |
 | C via cinterop | 1 000 | 16 | **0** |
 
-## Next steps, in order
+## Fix
 
-1. **kore's native handler in C**: a cinterop `.def` with inline C in `kore-core`, for all three native
-   targets, keeping `installShutdownSignalWatch`'s contract. B-63's `startForKore` installs it the
-   same way. Verified on the sample with the early-signal harness against the current release, and by
-   a test that raises the signal on a thread with no runtime.
-2. Research §1.3 consequence 2 amended at its place, and research-upstream-proposals §1.2 extended:
-   Ktor's native handler has the same defect. Written, not filed.
-3. The pre-started-workers mitigation is no longer needed and is dropped.
+**kore's native handler is C**: `kore-core/src/nativeInterop/cinterop/koreSignal.def`, inline, compiled
+for all three native targets. `kore_on_signal` does a lock-free compare-and-set on an `int`, so the
+first signal still names the shutdown, and a second `SIGTERM` still finds the handler installed.
+`installShutdownSignalWatch` installs it; the watch polls `kore_raised_signal()`; `startForKore()`
+(B-63) installs it through the same call. The JVM is untouched.
+
+- **Rejected: pre-starting the IO workers** so none is born during a shutdown. It would cost resident
+  memory in every pod (B-55), and it hid the defect rather than removing it: any birth that coincides
+  with a signal would still be exposed.
+- **Rejected: blocking the signals everywhere and waiting in one thread.** The runtime's GC threads
+  exist before `main` and cannot be made to block them.
+
+## Verified
+
+- **`the installed handler for both signals is kore's C function`** (`ShutdownSignalWatchNativeTest`,
+  every native target in CI). **Mutation:** a `staticCFunction` put back over it turned that test red
+  with its own message, and the three existing signal tests red with it.
+- `kore-core` compiles for `macosArm64` and `linuxArm64` with the cinterop, so the inline C
+  cross-compiles.
+- **End to end**, the sample's native debug binary, `main` (0.1.9) against this change, alternated,
+  1 000 each, on a quiet box (load 1–4), with the receiving thread recorded:
+
+| build | runs | `SIGTERM` to a thread other than main | exit 139 |
+|---|---|---|---|
+| `main`, Kotlin handler | 1 000 | 26 | **8**, the receiver being the crasher in 8 of 8 |
+| this change, C handler | 1 000 | 19 | **0** |
 
 - AC: the rate is measured on an idle machine with a reproducing control, and the owner of the defect
   is established by the minimal program. Or a kore-side mitigation is shown to take the crash count to
-  zero over a count the control makes meaningful.
-- Anchors: `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/concurrent/KoreDispatchers.native.kt`
+  zero over a count the control makes meaningful. **Met, both halves.** The mechanism is established
+  without kore: a Kotlin handler's bridge on a newborn worker, the receiver being the crasher in every
+  crash. The fix takes 8 in 1 000 to 0 in 1 000 beside its control, on an idle box.
+- Anchors: `kore-core/src/nativeInterop/cinterop/koreSignal.def`,
+  `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatch.native.kt`,
+  `kore-core/src/nativeTest/kotlin/io/github/youndie/kore/signal/ShutdownSignalWatchNativeTest.kt`

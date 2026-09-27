@@ -109,6 +109,13 @@ A `SIGTERM` that meets Ktor's handler — in the window before kore's replaced i
 handler, the workers blocked on a mutex the interrupted code held). `startForKore()` takes the signal before `start`, at `ApplicationStarted`, and
 after; the part of `start` before `ApplicationStarted` remains Ktor's.
 
+**And the other half: a Kotlin signal handler is unsafe however little it does**
+([B-64](../backlog/B-64-new-worker-thread-segfaults-at-birth.md)). Ktor's handler is a
+`staticCFunction`, and so was kore's. A bridge initialises the runtime on the receiving thread. When
+that is a worker thread in its first instructions, the worker dies at birth. Reproduced with bare CIO
+and a hand-written one-line handler, no kore: 16 crashes in 1 000 early signals, 0 with the handler in
+C. The shape a fix would take upstream: install the handler from C, and let Kotlin read a flag.
+
 > **Corrected 2026-09-12 while preparing to file.** This paragraph said `sigaction`. kore used to
 > intend that and does not use it: the `sigaction` struct differs between Linux and Darwin, so B-08
 > switched to ANSI `signal()` with a handler that only sets a flag (research §1.3 carries the
