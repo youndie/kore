@@ -212,10 +212,11 @@ private const val ANNOUNCE_TAIL_MILLIS = 200L
  * readiness a kubelet reads from `503` into a refused connection, and in-flight rerouting into
  * whatever the client does with a reset.
  *
- * A4 and A5 cannot see this, and did not: they read [Observations.readiness], one keep-alive
- * connection that the engine keeps serving through its grace period after the listener has gone. On
- * the JVM Ktor's own shutdown hook stopped the engine at the signal, concurrently with kore's
- * sequence, and the sample passed both (#90). So this one reads [Observations.freshReadiness] and
+ * A4 and A5 cannot see this: they read [Observations.readiness], one keep-alive connection that the
+ * engine keeps serving through its grace period after the listener has gone. On the JVM Ktor's own
+ * shutdown hook stopped the engine at the signal, concurrently with kore's sequence, and the sample
+ * passed A4 (#90). A5 goes red there only when the drivers' requests happen to end inside the
+ * announce — the drivers' keep-alive refusals, not the listener, are what it times. So this one reads [Observations.freshReadiness] and
  * asks the only question a new connection can answer.
  */
 internal fun announceHeldTheListener(observations: Observations, preDrainWaitMillis: Long?): Finding {

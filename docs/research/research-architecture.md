@@ -172,6 +172,18 @@ Native its handler is the surviving one by construction. That is an ordering dep
 test of its own rather than a comment — see the property test in
 [research-oracle](research-oracle.md) §3.
 
+**Amended 2026-09-27 (B-60): consequence 3 reasoned about Native only, and the JVM row two lines above
+it said why that was not enough.** On the JVM there is no slot to win: Ktor's hook is one more
+`Runtime` hook, the JVM starts all of them concurrently, and Ktor's calls `stop()` at the signal while
+kore's sequence is announcing. The last row of the table — the switch — was read and nothing set it.
+Measured on the sample's JVM jar with a probe on a new connection every 100 ms: **48 of 48 refused**
+inside a five-second announce, the first 13 ms after `SIGTERM`; with the switch set, every one `503`.
+The switch is read into a top-level `val` on the first line of `EmbeddedServerJvm.start`
+(`ktor-server-core-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt`,
+`start`, via `ktor-server-core-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`), so it has to be set before the
+first `start()` in the process — a module or `installKoreProbes` runs too late. `startForKore()` in
+`kore-ktor` sets it and then starts.
+
 ### 1.4 `Connection: close` on a response does not make CIO close the connection
 
 The brief's oracle asks for a 503 carrying `Connection: close`. Two separate questions: may the
@@ -755,6 +767,8 @@ without a coin flip about which registration was last, and gives up the ability 
 The price: kore has to install signal handlers, which is platform code on Native and a
 `Runtime.addShutdownHook` on the JVM, and it has to cope with the fact that Ktor's own hook is
 already installed and cannot be removed. That is a named risk (Risk 2) rather than a solved problem.
+On the JVM it can be *prevented* rather than coped with — Ktor's switch, set before `start()` — and
+that is what `startForKore()` does (B-60).
 
 ### D4. Probes are three routes with three different questions, and only readiness reads dependencies
 
@@ -917,6 +931,14 @@ that its handler is the one that runs — by observing that the ordered sequence
 Ktor's hook cannot produce. Open: whether a future Ktor version changes the slot to a list, which
 would make kore's handler co-resident with one that calls `stop()` directly and reintroduces the
 unordered path. Re-check on every Ktor bump; the check belongs in the bump's pull request.
+**Amended 2026-09-27 (B-60): on the JVM it already is a list, and was when this risk was written** —
+§1.3's own table said so. The unordered path this paragraph predicted for a future Ktor was the JVM's
+present, from the first release. Mitigation now: `startForKore()` switches Ktor's JVM hook off, and
+`EngineDrain` reads the value Ktor fixed and refuses to be built beside a hook that is on. What was
+not a mitigation, and looked like one: the oracle's A4 passed on the JVM with the defect present
+(B-58's run), because the readiness poller rode one keep-alive connection. A5 did go red once given a
+five-second pre-drain, but by accident — the drivers' own keep-alive refusals landed at the end of
+their three-second requests — and B-58's run never gave it one. A8 probes on a new connection.
 
 **Risk 3. A dependency check can outlive its deadline and eat the drain.** `withTimeout` does not
 interrupt a blocking call, and a native driver's "suspending" call may be blocking underneath.

@@ -57,7 +57,8 @@ so that the implementation is answerable to something it did not shape.
 ## What a consumer writes
 
 ```kotlin
-server.start(wait = false)     // not `wait = true` — the main thread has to reach the await
+server.startForKore()          // not `start()` — on the JVM that leaves Ktor's own shutdown hook
+                               // on, and it stops the engine at the signal, mid-announce (#90)
 startup.markStarted()
 
 runBlocking {

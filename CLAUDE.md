@@ -111,6 +111,11 @@ covers more than it does.
   before the drain. kore's release stage runs after `EmbeddedServer.stop` returns, and that is a
   specification rather than an implementation detail.
 - **Never call `addShutdownHook`.** Research §1.3. One global slot on Native, last registration wins.
+- **Start the server with `startForKore()`, never `start()`.** On the JVM `start()` adds Ktor's own
+  shutdown hook, the JVM runs it beside kore's, and it stops the engine at the signal — mid-announce.
+  The sample did this for two weeks and passed the oracle, whose readiness poller rode a keep-alive
+  connection the engine kept serving. **Probe readiness on a new connection**, as a kubelet does (A8,
+  [B-60](docs/backlog/B-60-jvm-ktor-hook-stops-the-announce.md)).
 - **A signal handler sets a flag and wakes something. Nothing else.** Allocation, locks and
   `runBlocking` are not async-signal-safe, and Ktor's native hook does all three.
 - **`__environ`, not `environ`**, on the Linux native targets — and neither exists on macOS native.

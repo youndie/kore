@@ -8,6 +8,7 @@ import io.github.youndie.kore.generated.KoreBuildIdentity
 import io.github.youndie.kore.ktor.installKoreProbes
 import io.github.youndie.kore.ktor.installKoreVersion
 import io.github.youndie.kore.ktor.installShutdownRefusal
+import io.github.youndie.kore.ktor.startForKore
 import io.github.youndie.kore.lifecycle.AnnounceNotReady
 import io.github.youndie.kore.lifecycle.ShutdownDeadlines
 import io.github.youndie.kore.lifecycle.ShutdownParticipant
@@ -79,7 +80,10 @@ public fun startKoreSample(options: SampleOptions, settings: SampleSettings) {
 
     // NOT `start(wait = true)`. The main thread has to be free to wait for the signal and then run
     // the sequence — which is the whole reason kore does not go through `addShutdownHook`.
-    server.start(wait = false)
+    // And not `start(wait = false)` either: on the JVM that leaves Ktor's own hook on, which stops the
+    // engine at the signal while the announce is still running. This sample did exactly that until
+    // #90, and passed the oracle, because the oracle probed readiness on one keep-alive connection.
+    server.startForKore()
     startup.markStarted()
 
     // ONE CALL for the stretch kore owns — wait for the signal, run the sequence, let the process go

@@ -130,6 +130,7 @@ when the signal lands.
 | A5 | **The interval between the readiness signal and the first refusal is at least the configured pre-drain wait.** | The wait is the stage that does the work (research-architecture §1.10); without this assertion it can be deleted and everything else still passes. |
 | A6 | **The process exited on its own, inside the grace period, without being `SIGKILL`ed.** | A sequence that is correct and slower than its budget is a sequence that never runs to the end in production. |
 | A7 | **The `jvm` and `linuxX64` runs agree on A1–A6.** | Stated as an assertion so a platform-specific regression is a red run rather than a difference somebody notices later. |
+| A8 | **Readiness probed on a new connection during the pre-drain wait answers `503`, never a refused connection.** Added in B-60. | A kubelet opens a connection per probe. A4 and A5 read a poller on one keep-alive connection, which the engine serves after its listener is gone — so A4 passed on the JVM while Ktor's own hook had stopped the engine at the signal (#90), and A5 went red only by the accident of the drivers' request length. |
 
 **A6 used to say "with code 0" and that was wrong** — corrected on 2026-09-11 against the two
 containers of B-05, before anything was built on it. A clean `SIGTERM` shutdown produces a

@@ -28,7 +28,7 @@ class Observations(
      * [readiness] rides one keep-alive connection, and that connection outlives the listener: an
      * engine that stops accepting keeps serving the sockets it already has for its whole grace period.
      * So a subject whose listener closed at the signal still answers `503` on it, and the only
-     * observer that could tell went unasked — A4 and A5 passed on the JVM sample while every new
+     * observer that could tell went unasked — A4 passed on the JVM sample while every new
      * connection was being refused (#90). A8 reads this list.
      */
     val freshReadiness: List<ProbeSample> = emptyList(),
