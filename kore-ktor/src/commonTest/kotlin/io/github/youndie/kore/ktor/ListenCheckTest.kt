@@ -18,7 +18,9 @@ import kotlin.test.assertTrue
  * B-59: a port somebody else holds is a refusal naming its variable, and a free one is no refusal.
  *
  * `runBlocking`, not `runTest`: what is awaited is a socket, and a virtual clock has nothing to say
- * about one.
+ * about one. Free ports come from [freePort], never from a `ktor-network` bind: on Kotlin/Native that
+ * socket's `close()` releases the port later, on the selector thread, and a test that borrows it
+ * inherits the race it is checking for.
  */
 class ListenCheckTest {
     private val portKey = ConfigKey.int("PORT", default = 0)
@@ -45,31 +47,34 @@ class ListenCheckTest {
             }
         }
 
-    /** The positive control of the test above: the same port, released, is no refusal. */
+    /** The positive control of the test above. */
     @Test
     fun `a free port is no refusal`() {
-        val port =
-            runBlocking {
-                SelectorManager().use { selector ->
-                    aSocket(selector).tcp().bind("0.0.0.0", 0).use { (it.localAddress as InetSocketAddress).port }
-                }
-            }
-
-        configured(port).requireListenable(portKey)
+        configured(freePort()).requireListenable(portKey)
     }
 
-    /** The check must not keep what it asked for: the engine binds the same port straight after it. */
+    /**
+     * The engine binds the port straight after the check, the way CIO does, and it must get it — every
+     * time, not usually. A close that lands on another thread passed this once in several runs on one
+     * iteration, so it is many iterations.
+     */
     @Test
-    fun `the check leaves the port free for the engine`() {
-        val port =
-            runBlocking {
-                SelectorManager().use { selector ->
-                    aSocket(selector).tcp().bind("0.0.0.0", 0).use { (it.localAddress as InetSocketAddress).port }
+    fun `the engine can bind the port the moment the check returns`() =
+        runBlocking {
+            SelectorManager().use { selector ->
+                repeat(ENGINE_BINDS) { attempt ->
+                    val port = freePort()
+                    configured(port).requireListenable(portKey)
+
+                    val engine =
+                        runCatching { aSocket(selector).tcp().bind("0.0.0.0", port) }
+                            .getOrElse { throw AssertionError("attempt $attempt: the port was still held after the check: $it", it) }
+                    engine.close()
                 }
             }
+        }
 
-        configured(port).requireListenable(portKey)
-
-        assertEquals(null, listenProblem("0.0.0.0", port))
+    private companion object {
+        const val ENGINE_BINDS = 50
     }
 }

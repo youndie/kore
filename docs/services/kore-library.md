@@ -92,7 +92,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` | **built (B-17)** — the three probes and the `/health` alias |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeBlock.kt` | **built (B-23)** — the chart block `--print-config` prints |
-| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` | **built (B-59)** — `requireListenable`: the configured port bound once before the engine, so a busy port is a configuration refusal and not a native `SIGABRT` |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ListenCheck.kt` | **built (B-59)** — `requireListenable`: the configured port bound once before the engine, so a busy port is a configuration refusal and not a native `SIGABRT`. The bind is per platform — `ktor-network` on the JVM, posix on native — and closed before it returns |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/version/BuildIdentity.kt` | **built (B-26)** — the interface the generated object implements, and `describe`, which is where the `-dirty` suffix is decided once |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/VersionRoute.kt` | **built (B-27)** — `/version`, the body a deploy check greps, and the refusal when the reduction switch would reduce nothing |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/version/Release.kt` | **built (B-27)** — the release value the route reports and the agents will be given, plus the two variables kore reads for itself (`RELEASE`, `KORE_VERSION_REDUCED`) |
@@ -153,7 +153,7 @@ a green build.
 | Kind | Name | What for |
 |---|---|---|
 | Library | `io.ktor:ktor-server-core` | the application, the events, `EmbeddedServer` — `kore-ktor` only |
-| Library | `io.ktor:ktor-network` | `requireListenable` and nothing else — `kore-ktor` only, `implementation`. The socket library CIO binds with, so the check fails where the engine would (B-59). Not an engine |
+| Library | `io.ktor:ktor-network` | `requireListenable` on the **JVM** and nothing else — `kore-ktor` only, `implementation`. The socket library CIO binds with, so the check fails where the engine would (B-59). Not an engine. Native binds through posix instead, because this library's native `close()` releases the port later, on the selector thread |
 | Library | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | the stage machine and the health refresh loop |
 | Library | `io.github.youndie.tracy:agent` 0.2.15, `io.github.youndie.metrik:agent` 0.2.18, `io.github.youndie.katcher:client` 0.7.47 | `kore-observability` only, and from the **portfolio's own repository** rather than Maven Central (research §1.12, B-37). `implementation`, not `api`: an agent is something kore calls, not something it hands back. The versions are the first consumer's, so adopting kore does not move them — **except katcher**, which is ahead of it on purpose: 0.7.47 is the release that added `flush(grace)`, and 0.7.44 has nothing to call |
 | Library | a booblik client | `kore-booblik` only — and there are two of them, one per platform ([B-36](../backlog/B-36-booblik-adapter-targets.md)) |
