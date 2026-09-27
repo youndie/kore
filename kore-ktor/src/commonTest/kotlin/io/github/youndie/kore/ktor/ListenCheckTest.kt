@@ -47,6 +47,23 @@ class ListenCheckTest {
             }
         }
 
+    /**
+     * B-62 turned the check's `SO_REUSEADDR` on by default, and that must not weaken the refusal above:
+     * the flag lets a bind share a port with `TIME_WAIT`, never with a listener. Both sides set it here,
+     * which is the case that would give if anything did.
+     */
+    @Test
+    fun `a port another socket listens on is refused with the flag on both sides`() =
+        runBlocking {
+            SelectorManager().use { selector ->
+                aSocket(selector).tcp().bind("0.0.0.0", 0) { reuseAddress = true }.use { holder ->
+                    val port = (holder.localAddress as InetSocketAddress).port
+
+                    assertFailsWith<ConfigurationException> { configured(port).requireListenable(portKey, reuseAddress = true) }
+                }
+            }
+        }
+
     /** The positive control of the test above. */
     @Test
     fun `a free port is no refusal`() {

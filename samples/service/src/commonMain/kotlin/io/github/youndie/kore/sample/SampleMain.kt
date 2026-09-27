@@ -3,6 +3,7 @@ package io.github.youndie.kore.sample
 import io.github.youndie.kore.config.ConfigurationException
 import io.github.youndie.kore.config.printConfig
 import io.github.youndie.kore.config.systemEnvironment
+import io.github.youndie.kore.ktor.requireListenable
 
 /**
  * Everything both entry points do, so the two `main`s stay the four lines that genuinely differ.
@@ -49,6 +50,8 @@ public fun sampleMain(args: Array<String>) {
 /** Reads the schema against the process's own environment. Throws [ConfigurationException] — see above. */
 public fun readSampleSettings(): SampleSettings {
     val configuration = SampleConfig.SCHEMA.read(systemEnvironment())
+    // A busy port is a refusal naming SAMPLE_PORT, not a native abort (B-59) — with the engine's flag.
+    configuration.requireListenable(SampleConfig.PORT, reuseAddress = SampleConfig.REUSE_ADDRESS)
     return SampleSettings(
         port = configuration[SampleConfig.PORT],
         workMillis = configuration[SampleConfig.WORK_MS].inWholeMilliseconds,

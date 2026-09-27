@@ -25,13 +25,36 @@ import io.github.youndie.kore.config.ConfigurationException
  * race stays Ktor's.
  *
  * The bind is the one CIO makes — the same address resolution, the same `SO_REUSEADDR` — so it fails
- * where the engine would. [reuseAddress] is there to match an engine configured with it; CIO's
- * default is `false`.
+ * where the engine would, **provided [reuseAddress] is what the engine was given**. Pass the one value
+ * to both.
+ *
+ * ## Why the default is `true`, which is not CIO's (B-62)
+ *
+ * CIO defaults `reuseAddress` to `false`, and the two targets make that mean different things. On
+ * Kotlin/Native `ktor-network` writes the `0` into the socket; on the JVM it leaves the channel as the
+ * JDK made it, and the JDK makes every server channel with `SO_REUSEADDR` on. So a process restarted
+ * in place while its old connections sit in `TIME_WAIT` binds on the JVM and fails on native — with
+ * the abort above. Measured on Linux 6.6, a fresh bind over a server-side `TIME_WAIT`:
+ *
+ * | the old listener had the flag | the new bind has it | result |
+ * |---|---|---|
+ * | no | either | refused |
+ * | yes | no | refused |
+ * | yes | yes | **binds** |
+ *
+ * So the flag has to be on in **both** processes, and the first restart after turning it on still
+ * meets the old process's `TIME_WAIT`. A port something is *listening* on was refused in every
+ * combination, flag or not — the refusal this check exists for does not weaken.
+ *
+ * Of the two mismatches, `true` here with `false` on the engine lets the check pass over a
+ * `TIME_WAIT` the engine then cannot bind — the abort again. `false` here with `true` on the engine
+ * refuses every such restart — the failure the engine flag was set to remove. kore recommends `true`
+ * on both, so the default is what a consumer following that passes anyway.
  */
 public fun Configuration.requireListenable(
     port: ConfigKey<Int>,
     host: String = "0.0.0.0",
-    reuseAddress: Boolean = false,
+    reuseAddress: Boolean = true,
 ) {
     val value = this[port]
     val reason = listenProblem(host, value, reuseAddress) ?: return
@@ -52,5 +75,5 @@ public fun Configuration.requireListenable(
 internal expect fun listenProblem(
     host: String,
     port: Int,
-    reuseAddress: Boolean = false,
+    reuseAddress: Boolean = true,
 ): String?
