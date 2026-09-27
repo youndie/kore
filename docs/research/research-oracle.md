@@ -164,10 +164,25 @@ connections produces 3325 refusals and reports the middle case across a 112 ms i
 used to be a red A4. Tightening the poll does not move it: the race is against a route that answers in
 a millisecond, and no interval beats that.
 
-**A5 reads the same `fell` and inherits the same error**, conservatively: a late sample makes the
-measured pre-drain gap *shorter* than the true one, so it can fail a run that honoured the wait and
-cannot pass one that did not. Left as it is — the waits it checks are seconds and the error is one
-poll — and written down rather than fixed silently.
+**A5 reads the same `fell` and inherited the same error**, conservatively: a late sample makes the
+measured pre-drain gap *shorter* than the true one, so it could fail a run that honoured the wait and
+could not pass one that did not. That was left as it was, because the waits it checks are seconds and
+the error is one poll. **It stopped being small in B-61.** Once the refusal starts at the drain, a
+route that answers in a millisecond is refused at *fall + wait + ε*. So the strict reading failed
+every correct fast run, by the poller's lag: 4908–4961 ms against 5000 on kore's sample and on keel.
+A5 now reads the bracket, and its lower edge is the later of the last `200` and **the signal**,
+because readiness cannot fall before the process is told to stop:
+
+| The gap to the first refusal | Verdict |
+|---|---|
+| at least the wait, measured from the first non-`200` | **PASS** |
+| under the wait even measured from the bracket's lower edge | **FAIL** — the wait was cut, or the refusal came in the announce |
+| between the two | **PASS**, printing both readings and the bracket's width |
+
+The middle row is a PASS here and NOT_APPLICABLE in A4 because A5 asks a magnitude and A4 an order.
+A4's middle case is exactly the order it cannot see. A5's is a wait of seconds that is short by at
+most one poll interval under the strict reading. That is the resolution of the instrument, not a
+margin, and the finding prints its width.
 
 ### 2.4 What the run deliberately does not assert
 
@@ -242,6 +257,7 @@ red. A mutation that survives is a gap in the property, and the item is not done
 |---|---|
 | Swap the release stage and the drain stage | 1 |
 | Drop the pre-drain wait to zero | this one is invisible here by design — it is A5 in §2. Named so that the gap is recorded rather than discovered. |
+| Open the refusal at the announce instead of the drain | invisible here too: the machine does not know what a refusal is. `RefusalOpensAtTheDrainTest`, and A5 only when `--pre-drain` is longer than `--work` — which is why it shipped (B-61) |
 | Run the release stage's participants concurrently with the drain | 2 |
 | Let a participant's overrun extend its stage | 3, 5 |
 | Join the stage's scope instead of detaching it | 5, and only against an uncooperative participant — killed by hand in B-04 |

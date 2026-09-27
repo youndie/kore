@@ -578,6 +578,10 @@ under sustained load it **is** the shutdown time, every time.
 arriving after the announce stage is refused with `503` and `Connection: close`. **Ktor does not do
 that and will not.** It is a plugin kore installs, gated on the sequence having begun — otherwise
 there is no refusal anywhere and A3 has no subject, which is exactly what the run reported.
+*Amended by [B-61](../backlog/B-61-refusal-starts-at-the-announce.md):* "the sequence having begun"
+was the wrong gate. The announce is part of the sequence and it serves, so the refusal is gated on
+the **drain** having begun (`DrainGate`, opened by `EngineDrain`). Read literally, this sentence is
+the defect every consumer shipped.
 
 **Consequence 3 — the default grace period is the first thing to fix, and it is not the ordering.**
 One second is shorter than a great many real requests. At the default, both platforms drop in-flight

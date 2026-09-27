@@ -43,7 +43,7 @@ from the JVM.
 
 ```
 SIGTERM
-  → announce   readiness goes false, then a wait long enough to matter
+  → announce   readiness goes false, then a wait long enough to matter — still serving
   → drain      accept stops; in-flight finishes; new arrivals get 503 + Connection: close
   → release    consumers flush then close, then pools, then telemetry — each with its own deadline
   → exit       inside the grace period, on its own
@@ -69,7 +69,7 @@ runBlocking {
         onFinished = { run -> println(run.transcript) },
     ) {
         announce(AnnounceNotReady(readiness))
-        drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds))
+        drain(EngineDrain(server, deadlines.drain, deadlines.drain + 5.seconds, draining))
         consumer(booblikParticipant("events", producer))
         pool(myPool)
     }
@@ -91,12 +91,21 @@ that looks like it works.
 The probes, the schema and `/version` are one call each:
 
 ```kotlin
+installShutdownRefusal(draining)                  // 503 + Connection: close once the drain begins
 installKoreProbes(startup, readiness, liveness)   // /health/startup, /health/ready, /health/live
 installKoreVersion(KoreBuildIdentity)             // /version, compiled in by the Gradle plugin
 installKoreObservability(settings)                // tracy, metrik, katcher — or none, which is valid
 
 val config = ConfigSchema("MYAPP", keys = myKeys + ObservabilityKeys.all).read(systemEnvironment())
 ```
+
+**`draining` is a `DrainGate`, and the same one goes to `EngineDrain`.** Not readiness: readiness
+falls when the announce starts, and the announce goes on serving while that news reaches every node.
+A refusal gated on readiness answers `503` to exactly the requests the wait exists for. The sample
+did that until [B-61](docs/backlog/B-61-refusal-starts-at-the-announce.md), and every service built
+from it copied the line. `EngineDrain` opens the gate as its first act, so nothing earlier refuses.
+The predicate form of `installShutdownRefusal` and the three-argument `EngineDrain` are deprecated
+for that reason.
 
 ## What it does not do
 

@@ -44,7 +44,12 @@ public class ReadinessGate(
     @Volatile
     private var shuttingDown: Boolean = false
 
-    /** What [io.github.youndie.kore.ktor.installShutdownRefusal] asks, and what the drain refusal is gated on. */
+    /**
+     * Whether the announce has begun. **Not** what the refusal is gated on: this flips at the start of
+     * the announce, which goes on serving, and a refusal gated here answers `503` for the whole
+     * pre-drain wait. That is what this line used to say it was for (B-61) — the refusal reads
+     * [io.github.youndie.kore.lifecycle.DrainGate].
+     */
     public val isShuttingDown: Boolean get() = shuttingDown
 
     /** Flips the latch. Idempotent, and one-way: see the note on this class. */

@@ -2,6 +2,7 @@ package io.github.youndie.kore.oracle
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * **A8 reads the new-connection poller, because the keep-alive one was blind to #90.**
@@ -43,6 +44,19 @@ class A8FreshConnectionTest {
     fun `one refusal in the middle of the announce fails`() {
         val finding = announceHeldTheListener(observations(announce { if (it == 2_500L) null else 503 }), 5_000)
         assertEquals(Verdict.FAIL, finding.verdict, finding.detail)
+    }
+
+    /** kore#94: `null` covers a refusal, a reset and a timeout, and only the failure says which. */
+    @Test
+    fun `a failing finding names what the client saw`() {
+        val fresh =
+            announce { 503 }.mapIndexed { i, sample ->
+                if (i == 12) ProbeSample(sample.atNanos, null, "java.net.ConnectException: Connection refused") else sample
+            }
+        val finding = announceHeldTheListener(observations(fresh), 5_000)
+        assertEquals(Verdict.FAIL, finding.verdict, finding.detail)
+        assertTrue("ConnectException: Connection refused" in finding.detail, finding.detail)
+        assertTrue("1205ms" in finding.detail, finding.detail)
     }
 
     @Test

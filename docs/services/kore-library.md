@@ -88,8 +88,9 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-core/src/macosMain/kotlin/io/github/youndie/kore/runtime/MemoryBudget.macos.kt` | **built (B-52)** — the second declared gap: cgroups are Linux, and it says so rather than failing to open four files |
 | `kore-core/src/commonMain/kotlin/io/github/youndie/kore/concurrent/KoreDispatchers.kt` | **built (B-38, corrected by B-42)** — the two lanes. Both are `Dispatchers.IO` on every target and kore owns **no** threads; the names are the seam a consumer overrides. Research D9 |
 | `kore-core/src/nativeMain/kotlin/io/github/youndie/kore/signal/` | **built (B-08)** — `signal()`, and a handler that writes one integer with a lock-free CAS |
-| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
-| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant, calling `stopSuspend` with kore's own numbers |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ShutdownRefusal.kt` | **built (B-10, gated on the drain since B-61)** — the `503` Ktor does not send, and the exemptions that stop it failing the liveness probe |
+| `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/EngineDrain.kt` | **built (B-10)** — the drain stage as a participant: opens the `DrainGate` (B-61), then calls `stopSuspend` with kore's own numbers |
+| `kore-core/src/commonMain/kotlin/io/github/youndie/kore/lifecycle/DrainGate.kt` | **built (B-61)** — the latch the refusal reads. Separate from readiness, which falls at the announce, while the announce still serves |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/StartForKore.kt` | **built (B-60)** — `startForKore()`: `start(wait = false)` with Ktor's JVM shutdown hook switched off first, and the guard `EngineDrain` refuses to be built without |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeRoutes.kt` | **built (B-17)** — the three probes and the `/health` alias |
 | `kore-ktor/src/commonMain/kotlin/io/github/youndie/kore/ktor/ProbeBlock.kt` | **built (B-23)** — the chart block `--print-config` prints |

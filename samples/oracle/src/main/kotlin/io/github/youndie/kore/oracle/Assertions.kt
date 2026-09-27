@@ -168,11 +168,38 @@ fun evaluate(observations: Observations, preDrainWaitMillis: Long?, graceMillis:
                 if (firstRefusal == null) {
                     Finding("A5 the pre-drain wait was honoured", Verdict.NOT_APPLICABLE, "nothing was refused")
                 } else {
-                    val gapMillis = (firstRefusal - fell) / 1_000_000
-                    if (gapMillis >= preDrainWaitMillis) {
-                        Finding("A5 the pre-drain wait was honoured", Verdict.PASS, "${gapMillis}ms >= ${preDrainWaitMillis}ms")
-                    } else {
-                        Finding("A5 the pre-drain wait was honoured", Verdict.FAIL, "${gapMillis}ms < ${preDrainWaitMillis}ms")
+                    // THE SAME BRACKET AS A4, and it stopped being academic in B-61. Measured from the
+                    // first non-200 sample, the gap is short by however late the poller was — up to
+                    // one poll. While the refusal started at the announce nobody could tell; once it
+                    // starts at the drain, a route that answers in a millisecond is refused at
+                    // `fall + wait + ε`, and the conservative reading failed every correct run by
+                    // 40–90 ms (kore#94).
+                    //
+                    // The fall is in `(earliest, fell]`, and `earliest` may use the SIGNAL as well as
+                    // the last 200: readiness cannot fall before the process was told to stop. So
+                    // `longest` is the most generous reading and `shortest` the least.
+                    val earliest = maxOf(observations.signalAtNanos, observations.readinessUpUntilNanos ?: Long.MIN_VALUE)
+                    val shortest = (firstRefusal - fell) / 1_000_000
+                    val longest = (firstRefusal - earliest) / 1_000_000
+                    when {
+                        shortest >= preDrainWaitMillis ->
+                            Finding("A5 the pre-drain wait was honoured", Verdict.PASS, "${shortest}ms >= ${preDrainWaitMillis}ms")
+                        // Short under the most generous reading: no sampling error explains it. This
+                        // is what a wait deleted or cut in half looks like, and what a refusal at the
+                        // announce looked like — negative, because it preceded the sample.
+                        longest < preDrainWaitMillis ->
+                            Finding("A5 the pre-drain wait was honoured", Verdict.FAIL, "at most ${longest}ms < ${preDrainWaitMillis}ms")
+                        // A PASS, unlike A4's middle case, because this is a magnitude and not an
+                        // order: the wait held under the generous reading, and under the strict one it
+                        // is short by less than one poll interval of a wait measured in seconds. The
+                        // width is printed so nobody mistakes the resolution for a margin.
+                        else ->
+                            Finding(
+                                "A5 the pre-drain wait was honoured",
+                                Verdict.PASS,
+                                "between ${shortest}ms and ${longest}ms, which straddles ${preDrainWaitMillis}ms " +
+                                    "by the ${(fell - earliest) / 1_000_000}ms the poller took to see the fall",
+                            )
                     }
                 }
             }
@@ -238,9 +265,12 @@ internal fun announceHeldTheListener(observations: Observations, preDrainWaitMil
             Finding(
                 id,
                 Verdict.FAIL,
-                "${refused.size} of ${inside.size} new connections were refused inside the ${preDrainWaitMillis}ms " +
-                    "announce, the first ${millis(refused.first())}ms after the signal — the listener closed " +
-                    "before the drain",
+                // What the client saw, not a cause: "the listener closed" was written here for #90 and
+                // was wrong for kore#94, where refusals interleaved with answered probes.
+                "${refused.size} of ${inside.size} new connections got no answer inside the ${preDrainWaitMillis}ms " +
+                    "announce, the first ${millis(refused.first())}ms after the signal (at " +
+                    "${refused.joinToString(", ") { "${millis(it)}ms" }}): " +
+                    refused.mapNotNull { it.failure }.distinct().ifEmpty { listOf("no failure recorded") }.joinToString("; "),
             )
         inside.none { it.status == 503 } ->
             Finding(id, Verdict.FAIL, "no new connection saw 503 inside the announce: ${inside.map { it.status }.distinct()}")
