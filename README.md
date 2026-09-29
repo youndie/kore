@@ -203,6 +203,7 @@ dependencies {
     implementation("io.github.youndie:kore-ktor:<VERSION>")        // probes, /version, drain, 503 refusal
     implementation("io.github.youndie:kore-booblik:<VERSION>")     // flush-then-close for a booblik producer
     implementation("io.github.youndie:kore-observability:<VERSION>")
+    implementation("io.github.youndie:kore-koin:<VERSION>")        // Koin without a leaking scope per call
 }
 
 plugins {
@@ -223,6 +224,12 @@ Central either, so that one module cannot resolve outside this portfolio. If you
 get the ordered shutdown, the probes, the configuration schema and `/version`, and you cannot build
 the one module that wires three agents you do not run. That is a deliberate boundary rather than an
 oversight.
+
+**`kore-koin` exists because of a leak, not because kore does DI.** koin-ktor's `install(Koin)`
+opens a Koin scope on every call, and on Linux/Native each one leaves a native mutex in malloc that
+nothing frees — 154 MB of one service's 176 MB after four days. `installKoreKoin { … }` builds the
+same container without that scope; `get`/`inject` in routes are unchanged, `call.scope` is gone.
+[B-65](docs/backlog/B-65-koin-call-scope-leaks-on-native.md) has the measurements.
 
 ## Documentation
 

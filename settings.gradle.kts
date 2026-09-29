@@ -72,6 +72,7 @@ include(":kore-booblik")
 // tracy, metrik and katcher in one call. Separate so that a service wanting the ordered shutdown
 // does not resolve three agent artefacts to get it.
 include(":kore-observability")
+include(":kore-koin")
 
 // The fixture the library is judged by, not a demonstration: one source, a JVM binary and a native
 // one, so that "the two platforms behave alike" is an assertion rather than a hope.
