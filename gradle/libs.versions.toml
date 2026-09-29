@@ -28,6 +28,10 @@ ktor = "3.6.0"
 # takes in coroutine types, so they are part of the surface rather than a detail behind it.
 coroutines = "1.11.0"
 
+# `kore-koin` only (B-65). The version the portfolio's services already run; checked in Central to
+# publish all four of kore's targets, `koin-ktor` included.
+koin = "4.2.2"
+
 # WHAT THE JVM HALF COMPILES TO — **decided in B-43**, and it stays at the portfolio's number.
 #
 # A library published at 25 cannot be consumed below 25, and kore is public, so this is the one line
@@ -91,6 +95,11 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 # it from a common test source set, which is the check a `-jvm`-suffixed coordinate in a KMP module
 # means somebody skipped.
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+
+# `kore-koin` only. `koin-ktor` for the application attribute its `get`/`inject` read (`setKoin`),
+# NOT for its plugin — the plugin is what B-65 replaces.
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 
 # `kore-observability` only. Each is KMP and each is checked to publish the four targets kore
 # declares, because a `-jvm` coordinate silently satisfying a common source set is the shape of bug

@@ -100,7 +100,7 @@ no file behind it, fails `coverage_map.py`.
 - [x] [sample-service](services/sample-service.md) — one source, a JVM binary and a native one; the
   instrument the library is judged by rather than a demonstration
 
-### Features (6)
+### Features (7)
 
 The core, and the reason the library exists:
 - [x] [feature-ordered-shutdown](features/feature-ordered-shutdown.md) — five named stages with
@@ -121,6 +121,10 @@ What a deployment tells the process:
 What the platform will not tell the process:
 - [x] [feature-memory-budget](features/feature-memory-budget.md) — the cgroup limit read and handed
   over, because a Kotlin/Native binary has no `UseContainerSupport` of its own
+
+What a common library leaks on the platform:
+- [x] [feature-koin-wiring](features/feature-koin-wiring.md) — Koin without koin-ktor's scope per
+  call, which leaves a native mutex in malloc on every request on Linux
 
 ### API (1)
 

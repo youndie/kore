@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
 
-## Closed (63)
+## Closed (64)
 
 **Shape**
 
@@ -189,5 +189,6 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-61](docs/backlog/B-61-refusal-starts-at-the-announce.md) `[x]` - The 503 refusal starts at the announce instead of the drain
 - [B-63](docs/backlog/B-63-sigterm-right-after-start-segfaults.md) `[x]` - A SIGTERM before kore's handler meets Ktor's native handler, which hangs the process
 - [B-64](docs/backlog/B-64-new-worker-thread-segfaults-at-birth.md) `[x]` - A SIGTERM that lands on a newborn worker thread kills it, because the handler was a Kotlin bridge
+- [B-65](docs/backlog/B-65-koin-call-scope-leaks-on-native.md) `[x]` - koin-ktor's per-call scope leaks a native mutex on every request on Linux
 
 <!-- END INDEX -->

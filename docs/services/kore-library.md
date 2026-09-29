@@ -13,6 +13,7 @@ publishes:
   - "io.github.youndie:kore-ktor"
   - "io.github.youndie:kore-observability"
   - "io.github.youndie:kore-booblik"
+  - "io.github.youndie:kore-koin"
   - "io.github.youndie:kore-build (Gradle plugin)"
 ---
 
@@ -102,6 +103,7 @@ Where each concern will live. One module per reason to depend on something.
 | `kore-observability/src/commonMain/kotlin/io/github/youndie/kore/observability/` | **built (B-28)** — `installKoreObservability` and `ObservabilityKeys`. Returns a `ShutdownParticipant` for the telemetry group rather than registering itself, and hands back the tracy agent so a service can build loggers. tracy is `api` here for that reason; metrik and katcher are `implementation` |
 | `kore-booblik/src/commonMain/kotlin/io/github/youndie/kore/booblik/` | **built (B-15)** — `FlushThenClose` and `booblikParticipant`: flush with a deadline, then close, with the close in a `finally`. The contract is common; the two adapters are `jvmMain` and `nativeMain`, one per booblik client, sharing no code with each other |
 | `kore-booblik/` — **two holes, both deliberate** | **No `linuxArm64`**: `booblik-native` is published for `linuxx64` and `macosarm64` only, so the target is excluded in the root build rather than declared and left to fail in a consumer's resolution. And the module is **portfolio-only**, like `kore-observability`: Central's booblik 0.3.3 still carries the pre-migration `ru.workinprogress` package, so a build against it would compile classes the version a real consumer resolves does not have |
+| `kore-koin/src/commonMain/kotlin/io/github/youndie/kore/koin/` | **built (B-65)** — `installKoreKoin`: a `koinApplication` set on the application with `setKoin`, closed on `ApplicationStopped`, refusing next to koin-ktor's plugin. Exists because that plugin's per-call scope leaks a native mutex per request on Linux, not because kore does DI |
 | `kore-build/src/main/kotlin/io/github/youndie/kore/gradle/` | **built (B-26)** — the Gradle plugin that generates the build-identity source. An *included* build, so a consumer of the library gets the plugin without a separate release. The package is `gradle` and not `build`: a Kotlin package with that name is dropped by anything that filters Gradle output by path component, and the symptom is `NO-SOURCE` and a jar with no plugin in it |
 | `samples/` | the two sample binaries — [sample-service](sample-service.md) |
 
@@ -165,6 +167,7 @@ a green build.
 | Library | `io.ktor:ktor-network` | `requireListenable` on the **JVM** and nothing else — `kore-ktor` only, `implementation`. The socket library CIO binds with, so the check fails where the engine would (B-59). Not an engine. Native binds through posix instead, because this library's native `close()` releases the port later, on the selector thread |
 | Library | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | the stage machine and the health refresh loop |
 | Library | `io.github.youndie.tracy:agent` 0.2.15, `io.github.youndie.metrik:agent` 0.2.18, `io.github.youndie.katcher:client` 0.7.47 | `kore-observability` only, and from the **portfolio's own repository** rather than Maven Central (research §1.12, B-37). `implementation`, not `api`: an agent is something kore calls, not something it hands back. The versions are the first consumer's, so adopting kore does not move them — **except katcher**, which is ahead of it on purpose: 0.7.47 is the release that added `flush(grace)`, and 0.7.44 has nothing to call |
+| Library | `io.insert-koin:koin-core`, `io.insert-koin:koin-ktor` 4.2.2 | `kore-koin` only, `api`: the call takes Koin's declaration and returns its `Koin`. `koin-ktor` for `setKoin` and the refusal check, never for its plugin (B-65) |
 | Library | a booblik client | `kore-booblik` only — and there are two of them, one per platform ([B-36](../backlog/B-36-booblik-adapter-targets.md)) |
 | Toolchain | Kotlin 2.4.10 / Kotlin/Native | the platform klibs research §1.3 and §1.5 were read from |
 
