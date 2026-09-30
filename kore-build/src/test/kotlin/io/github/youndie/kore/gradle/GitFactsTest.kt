@@ -4,6 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -165,5 +166,28 @@ class BuiltAtTest {
     @Test
     fun `an unreadable previous file falls back to now`() {
         assertEquals("NOW", builtAtFor("nonsense", "1.0.0", facts, "NOW"))
+    }
+
+    @Test
+    fun `SOURCE_DATE_EPOCH names the time, whatever the previous file said`() {
+        val facts = GitFacts("abc123abc123", dirty = false)
+        assertEquals("2026-09-30T09:34:58Z", builtAtFor(null, "1.0.0", facts, "NOW", "1790760898"))
+        // A kept timestamp from an unchanged identity does not outrank a time the build was given.
+        val previous = renderBuildIdentity("p", "1.0.0", facts, "THEN")
+        assertEquals("2026-09-30T09:34:58Z", builtAtFor(previous, "1.0.0", facts, "NOW", "1790760898"))
+    }
+
+    @Test
+    fun `a blank SOURCE_DATE_EPOCH is no SOURCE_DATE_EPOCH`() {
+        assertEquals("NOW", builtAtFor(null, "1.0.0", GitFacts("abc123abc123", dirty = false), "NOW", " "))
+    }
+
+    @Test
+    fun `a SOURCE_DATE_EPOCH that is not seconds fails rather than being ignored`() {
+        val e =
+            assertFailsWith<IllegalStateException> {
+                builtAtFor(null, "1.0.0", GitFacts("abc123abc123", dirty = false), "NOW", "2026-09-30")
+            }
+        assertTrue("SOURCE_DATE_EPOCH" in e.message.orEmpty(), e.message)
     }
 }
