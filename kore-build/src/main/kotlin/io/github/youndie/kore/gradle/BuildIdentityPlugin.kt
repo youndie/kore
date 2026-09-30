@@ -106,6 +106,10 @@ private fun addGeneratedSourceDirectory(project: Project, sourceSetName: String,
     kotlinSrc.javaClass.getMethod("srcDir", Any::class.java).invoke(kotlinSrc, generate)
 }
 
+@org.gradle.work.DisableCachingByDefault(
+    because = "It regenerates on every build by design, and its output is one small file that the " +
+        "compilation downstream compares by content — a build-cache entry would save nothing.",
+)
 abstract class GenerateBuildIdentity : DefaultTask() {
     @get:Input
     abstract val version: Property<String>
