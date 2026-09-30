@@ -60,8 +60,12 @@ report:
 
 # The code gate. One `build` for every target the project declares; what that does and does not
 # cover is in CLAUDE.md rather than assumed here.
+#
+# `:kore-build:check` AS WELL, and it has to be named: `kore-build` is an included build, which the
+# root `build` never reaches. Until B-67 its tests and its plugin validation ran only by hand — and
+# the validation was red on `main` for as long as nobody did.
 build:
-	$(GRADLE) build $(GRADLEFLAGS)
+	$(GRADLE) build :kore-build:check $(GRADLEFLAGS)
 
 fix:
 	$(PY) scripts/backlog_index.py --docs $(DOCS) --backlog $(BACKLOG)
