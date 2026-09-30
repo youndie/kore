@@ -80,7 +80,7 @@ disagree is precisely the case somebody is investigating.
 
 ## 4. Scenarios (BDD)
 
-All six are automated as of [B-28](../backlog/B-28-observability-wiring.md), which made the last one
+All seven are automated; the first six as of [B-28](../backlog/B-28-observability-wiring.md), which made the last one
 checkable: until the agents were wired there was nothing to observe receiving a release.
 
 ### Scenario: the binary reports the commit it was built from
@@ -92,6 +92,14 @@ checkable: until the agents were wired there was nothing to observe receiving a 
   commit and the build time` — the body is asserted whole, because a deploy check greps it; and
   kore-build `GitFactsTest.a clean repository reports its commit and is not dirty` for the value
   reaching it
+
+### Scenario: a build that is given its time reports that time
+* **Given:** `SOURCE_DATE_EPOCH` set to whole seconds — the commit time, for a reproducible build
+* **When:** the identity is generated, clean build or not, previous file or not
+* **Then:** the build timestamp is that second, not the wall clock
+* **And:** a value that is not whole seconds fails the build naming the variable
+* **Automated:** kore-build `GitFactsTest.SOURCE_DATE_EPOCH names the time, whatever the previous
+  file said` and `…a SOURCE_DATE_EPOCH that is not seconds fails rather than being ignored`
 
 ### Scenario: a dirty tree is visible
 * **Given:** a build with uncommitted changes
@@ -157,7 +165,10 @@ checkable: until the agents were wired there was nothing to observe receiving a 
   builds of the same commit differ in one field. The alternative — the commit's own date — answers a
   different question ("when was this written") than the one asked during a rollout ("is this the
   image CI built twenty minutes ago"). If reproducibility becomes a requirement the timestamp is the
-  field to drop, and that is a decision with a name rather than a surprise.
+  field to drop, and that is a decision with a name rather than a surprise. **It became one, and the
+  field stayed** ([B-66](../backlog/B-66-built-at-from-source-date-epoch.md), [#102](https://github.com/youndie/kore/issues/102)):
+  `SOURCE_DATE_EPOCH`, the reproducible-builds standard, names the time when it is set — a build that
+  sets it to the commit time links one commit to one binary. Unset, the wall clock, as above.
 * **The timestamp is kept when the identity has not otherwise changed, and that is not an
   optimisation.** This paragraph used to end at reproducibility, which was the cheaper half of the
   cost. The generator deliberately re-runs on every build, so a wall-clock field changed the

@@ -38,6 +38,7 @@ class BuildIdentityPlugin : Plugin<Project> {
             packageName.set("io.github.youndie.kore.generated")
             outputDirectory.set(project.layout.buildDirectory.dir("generated/kore"))
             projectDirectory.set(project.layout.projectDirectory.asFile.absolutePath)
+            sourceDateEpoch.convention(project.providers.environmentVariable("SOURCE_DATE_EPOCH"))
 
             // ALWAYS regenerates, and that is the point rather than laziness. Declaring `.git/HEAD`
             // as an input would miss an amend, a rebase, or a dirty working tree going clean.
@@ -143,6 +144,24 @@ abstract class GenerateBuildIdentity : DefaultTask() {
     @get:org.gradle.api.tasks.Optional
     abstract val commit: Property<String>
 
+    /**
+     * When the build says what time it is — #102. Read from `SOURCE_DATE_EPOCH` by default.
+     *
+     * Unset, `builtAt` is the wall clock at the first build of an identity in this build directory
+     * (see [builtAtFor]), and a clean build — every CI run, every image build — takes a new one. That
+     * alone made one commit of a service link to a different binary every time: 26 bytes apart, 6 of
+     * them this string and 20 the build-id that hashes the output. Set to the commit time
+     * (`SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)`), the same commit gives the same bytes.
+     *
+     * **An environment variable by default, unlike [commit], and the difference is the point.** Which
+     * variable names a commit is the consumer's fact; `SOURCE_DATE_EPOCH` is the reproducible-builds
+     * standard every toolchain that honours one reads, so a plugin reading it is not guessing.
+     * Seconds since the epoch; anything else fails the task rather than being ignored.
+     */
+    @get:Input
+    @get:org.gradle.api.tasks.Optional
+    abstract val sourceDateEpoch: Property<String>
+
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
@@ -160,7 +179,7 @@ abstract class GenerateBuildIdentity : DefaultTask() {
                 packageName.get(),
                 version.get(),
                 facts,
-                builtAtFor(previous, version.get(), facts, now()),
+                builtAtFor(previous, version.get(), facts, now(), sourceDateEpoch.orNull),
             )
 
         out.deleteRecursively()
@@ -242,7 +261,21 @@ fun readGitFacts(
  * reporting a `-dirty` commit, which says louder than any timestamp that the binary is not a
  * release. A release build sits on a commit it has not built before, so its timestamp is real.
  */
-fun builtAtFor(previous: String?, version: String, facts: GitFacts, now: String): String {
+fun builtAtFor(
+    previous: String?,
+    version: String,
+    facts: GitFacts,
+    now: String,
+    sourceDateEpoch: String? = null,
+): String {
+    // A time the build was GIVEN wins over any time it would pick. `SOURCE_DATE_EPOCH` is whole
+    // seconds, and `Instant.toString` of a whole second has no fraction — the same shape as [now].
+    sourceDateEpoch?.takeIf { it.isNotBlank() }?.let { given ->
+        val seconds =
+            given.trim().toLongOrNull()
+                ?: error("SOURCE_DATE_EPOCH must be seconds since the epoch, got '$given'")
+        return java.time.Instant.ofEpochSecond(seconds).toString()
+    }
     val existing = previous ?: return now
     fun field(name: String, type: String) = Regex("""$name: $type = "?([^"
 ]+)"?""").find(existing)?.groupValues?.get(1)
