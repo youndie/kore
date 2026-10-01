@@ -52,7 +52,7 @@ dependencyResolutionManagement {
     // consumer, kore has no sborka pin to read it from. One place, and it is this one.
     versionCatalogs {
         create("wip") {
-            from("io.github.youndie.sborka:catalog:0.4.0.89")
+            from("io.github.youndie.sborka:catalog:0.4.0.111")
         }
     }
 }
