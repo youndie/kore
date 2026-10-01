@@ -100,7 +100,7 @@ no file behind it, fails `coverage_map.py`.
 - [x] [sample-service](services/sample-service.md) — one source, a JVM binary and a native one; the
   instrument the library is judged by rather than a demonstration
 
-### Features (7)
+### Features (8)
 
 The core, and the reason the library exists:
 - [x] [feature-ordered-shutdown](features/feature-ordered-shutdown.md) — five named stages with
@@ -125,6 +125,11 @@ What the platform will not tell the process:
 What a common library leaks on the platform:
 - [x] [feature-koin-wiring](features/feature-koin-wiring.md) — Koin without koin-ktor's scope per
   call, which leaves a native mutex in malloc on every request on Linux
+
+What three services had each written for themselves:
+- [x] [feature-mcp-endpoint](features/feature-mcp-endpoint.md) — an MCP endpoint for coding agents:
+  token or nothing, the guard on the transport's route, the host allowlist, MCP's own JSON on the way
+  out, and the one screening rule that is not a service's domain
 
 ### API (1)
 

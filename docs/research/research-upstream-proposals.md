@@ -331,6 +331,33 @@ filing is what forced re-reading the facts. An entry that had only ever stayed h
 being believed, and [B-45](../backlog/B-45-booblik-against-a-real-broker.md) would have stayed
 "impossible" on a false premise.
 
+## 8. MCP Kotlin SDK — `modelcontextprotocol/kotlin-sdk`, **written and not filed** (2026-10-01)
+
+Not `youndie/*`, so it is asked about first, per the rule at the top. Found extracting `kore-mcp`
+([B-68](../backlog/B-68-mcp-endpoint.md)).
+
+**Claim.** On 0.15.0 the stateless streamable-HTTP transport answers a JSON-mode POST with
+`call.respond(payload)`, so its JSON-RPC responses are serialised by whatever ContentNegotiation the
+*application* installed; the SDK installs its own, with `McpJson`, only when it finds none, and logs a
+warning otherwise. `InitializeResult.protocolVersion` is a required field with a default value
+(`LATEST_PROTOCOL_VERSION`), so under an application `Json` with `encodeDefaults = false` — kotlinx's own
+default — the field is omitted exactly when the negotiated version is the SDK's latest, which is also
+what an unknown requested version negotiates to. A client then rejects the initialize result.
+
+**Verified against** `kotlin-sdk-server-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/server/StreamableHttpServerTransport.kt:563`,
+`kotlin-sdk-server-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/server/KtorServerHelpers.kt:33-42`,
+`kotlin-sdk-core-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/types/initialize.kt:92`,
+and by `ProtocolVersionTest`'s tripwire, which asserts the omission on the published 0.15.0.
+
+**Proposed shape.** Either of two, and the first is the one that removes the class rather than the
+instance: encode the transport's responses with `McpJson` itself (as its SSE path already does, and as its
+`reject` path does with `respondText`), or mark `protocolVersion` `@EncodeDefault` / drop its default.
+
+**What kore does meanwhile.** `kore-mcp` re-encodes the transport's JSON-RPC responses with `McpJson` in
+the send pipeline's `Before` phase of the endpoint's own route (`McpMessagesInMcpJson` in
+`kore-mcp/src/commonMain/kotlin/io/github/youndie/kore/mcp/KoreMcp.kt`), and the tripwire names the day
+to delete it: when the bare SDK keeps the field, the test fails.
+
 ---
 
 ## 6. How a proposal here is closed

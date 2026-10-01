@@ -120,6 +120,11 @@ covers more than it does.
   only when both the old and the new socket set it, never with a listener
   ([B-62](docs/backlog/B-62-native-restart-meets-time-wait.md)).
 - **Never call `addShutdownHook`.** Research §1.3. One global slot on Native, last registration wins.
+- **A guard goes on the route it guards, never on a path string.** Ktor's router skips empty segments
+  and URL-decodes each one, so `//mcp` and `/%6Dcp` reach the route `/mcp` while `request.path()` is
+  neither. `kore-mcp` installs its guard as a route-scoped plugin on the transport's own node for this
+  reason, and `KoreMcpPathTest` keeps a string-keyed guard beside it as the control
+  ([B-68](docs/backlog/B-68-mcp-endpoint.md)).
 - **Start the server with `startForKore()`, never `start()`.** On the JVM `start()` adds Ktor's own
   shutdown hook, the JVM runs it beside kore's, and it stops the engine at the signal — mid-announce.
   The sample did this for two weeks and passed the oracle, whose readiness poller rode a keep-alive

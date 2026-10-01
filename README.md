@@ -204,6 +204,7 @@ dependencies {
     implementation("io.github.youndie:kore-booblik:<VERSION>")     // flush-then-close for a booblik producer
     implementation("io.github.youndie:kore-observability:<VERSION>")
     implementation("io.github.youndie:kore-koin:<VERSION>")        // Koin without a leaking scope per call
+    implementation("io.github.youndie:kore-mcp:<VERSION>")         // an MCP endpoint for coding agents, guarded
 }
 
 plugins {
@@ -230,6 +231,14 @@ opens a Koin scope on every call, and on Linux/Native each one leaves a native m
 nothing frees — 154 MB of one service's 176 MB after four days. `installKoreKoin { … }` builds the
 same container without that scope; `get`/`inject` in routes are unchanged, `call.scope` is gone.
 [B-65](docs/backlog/B-65-koin-call-scope-leaks-on-native.md) has the measurements.
+
+**`kore-mcp` is the MCP endpoint three services had each written.** `installKoreMcp(config, serverInfo)
+{ addTool(…) }` mounts the SDK's stateless transport only when a token is configured, guards it with a
+route-scoped plugin on the transport's own route — so the router and the guard cannot disagree about
+which request lines reach it — checks `Host` when hosts are configured, answers a JSON `401`/`400`
+rather than a login page, and encodes the transport's responses with the SDK's `McpJson` whatever
+ContentNegotiation the application installed (SDK 0.15.0 otherwise drops `protocolVersion`). The tools
+are the service's. [feature-mcp-endpoint](docs/features/feature-mcp-endpoint.md) has the rules.
 
 ## Documentation
 
