@@ -74,6 +74,11 @@ include(":kore-booblik")
 include(":kore-observability")
 include(":kore-koin")
 
+// The MCP endpoint three services each carried a copy of: token-or-nothing, a guard on the route the
+// transport answers, the host allowlist, and MCP's own JSON on the way out (B-68). Separate so that a
+// service without an agent endpoint does not resolve an MCP SDK to get an ordered shutdown.
+include(":kore-mcp")
+
 // The fixture the library is judged by, not a demonstration: one source, a JVM binary and a native
 // one, so that "the two platforms behave alike" is an assertion rather than a hope.
 include(":samples:service")
