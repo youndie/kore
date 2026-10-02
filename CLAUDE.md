@@ -257,7 +257,9 @@ fourteenth was a layer-document row naming a file that had never existed, and it
 keep reading a report nothing gates on. Paths into the portfolio's other repositories take the same
 form, `youndie/<repo>@<commit>!/<path>` — the commit that repository was at when the fact was read,
 never a branch, because the line numbers and the claims belong to that commit — and a Maven Central
-listing is written as its URL.
+listing is written as its URL. Since docs-bootstrap 0.3.6 the report lists an address at a branch or
+at no ref under *at a ref that moves* (not rot, not a failure); the one it found here, the Kubernetes
+website cited with no ref, is pinned to the head of its default branch on the day it was read.
 
 Three sentences about this report have been wrong before: *"they are where the code will live"* (the
 code arrived and the count did not move), *"it becomes a gate when it reaches zero"* (nothing could

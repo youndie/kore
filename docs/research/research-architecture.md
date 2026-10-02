@@ -463,8 +463,8 @@ This has bitten the portfolio before and is not re-derived here.
 ### 1.10 What Kubernetes actually does on pod deletion — readiness is not what removes the pod
 
 Verified against the Kubernetes documentation sources
-(`kubernetes/website!/content/en/docs/concepts/workloads/pods/pod-lifecycle.md` and `probes.md` beside it,
-fetched 2026-09-11).
+(`kubernetes/website@066cedd27d48!/content/en/docs/concepts/workloads/pods/pod-lifecycle.md` and
+`probes.md` beside it, fetched 2026-09-11, when `066cedd27d48` was the head of the default branch).
 
 | Fact | Where verified |
 |---|---|
@@ -473,7 +473,7 @@ fetched 2026-09-11).
 | The default `terminationGracePeriodSeconds` is 30 seconds; a `preStop` hook runs **before** `TERM`, and if it outlives the grace period the kubelet grants a one-off 2-second extension | same section, steps 1–2 |
 | A failing readiness probe makes the EndpointSlice controller remove the Pod's IP from the Services that match it | `pod-lifecycle.md`, "Readiness probe" |
 | If a startup probe is configured, liveness and readiness probes are not executed until it succeeds | `pod-lifecycle.md`, "Startup probe" |
-| Probe defaults: `initialDelaySeconds` 0, `periodSeconds` 10, `timeoutSeconds` 1, `successThreshold` 1, `failureThreshold` 3 | `probes.md`, "Configure Probes" |
+| Probe defaults: `initialDelaySeconds` 0, `periodSeconds` 10, `timeoutSeconds` 1, `successThreshold` 1, `failureThreshold` 3 | `probes.md`, "Configuration fields" (`#configure-probes`) |
 
 **Consequence 1 — the brief's first step is necessary and not sufficient, and the difference matters.**
 "readiness → false" does not evict the pod from the load balancer during an ordinary rollout: the
