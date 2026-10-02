@@ -85,7 +85,8 @@ public class KoreMcpConfig(
  *    `401` still sees it — that one must not send a machine to a login page either.
  * 5. **MCP messages leave in MCP's JSON**, whatever ContentNegotiation the application installed — see
  *    [McpMessagesInMcpJson]. With an application `Json` that omits defaults, SDK 0.15.0 drops
- *    `protocolVersion` from the initialize result and no current client can connect.
+ *    `protocolVersion` from the initialize result — no current client connects without it — and the
+ *    whole `result` of a `ping`; under Ktor's `json()` every unset optional field arrives as `null`.
  *
  * **Install the application's own `ContentNegotiation` before this call**, or not at all. The SDK installs
  * one with its `McpJson` on the whole application when it finds none, and a later `install` then throws
@@ -168,18 +169,23 @@ private val KoreMcpGuard =
  *
  * WHY. SDK 0.15.0 answers a JSON-mode POST with `call.respond(payload)`, which goes through whatever
  * ContentNegotiation the application installed — the SDK installs its own only when there is none, and
- * says so in a log line. `InitializeResult.protocolVersion` has a default value, so an application `Json`
- * with `encodeDefaults = false` (kotlinx's own default) drops the field exactly when the negotiated
- * version equals that default: the SDK's latest, which is also what any version it does not know falls
- * back to. Clients then fail schema validation and never connect. Confirmed on 0.15.0 by
- * `ProtocolVersionTest`, whose tripwire goes red when the SDK stops doing this.
+ * otherwise logs a warning without looking at the `Json`. That answer is the one thing the transport
+ * hands the application's ContentNegotiation: it reads requests raw and parses them with `McpJson`, and
+ * writes its refusals as finished text. Whatever the application's `Json` does differently then reaches
+ * the client. One with `encodeDefaults = false` (kotlinx's own default) drops
+ * `InitializeResult.protocolVersion` exactly when the negotiated version equals its default — the SDK's
+ * latest, which is also what any version it does not know falls back to — so clients fail schema
+ * validation and never connect; it drops the whole `result` of a `ping` the same way. Ktor's `json()`
+ * keeps both and writes an explicit `null` for every unset optional field.
  *
  * WHY HERE. In the send pipeline's `Before` phase of the transport's own route: earlier than the
  * `Transform` phase where ContentNegotiation serialises, and invisible to every other route of the
  * application. A JSON-RPC message becomes text the negotiation then leaves alone; anything else passes.
  *
- * REMOVE when the tripwire fails: the SDK then serialises the field itself, and this is one more thing
- * between a client and the transport.
+ * REMOVE when the SDK no longer hands its answer to the application's ContentNegotiation — the day the
+ * control under a pretty-printed `Json` in `McpWireFormatTest` goes red. Not when one field is fixed: a
+ * `protocolVersion` serialised by the SDK would still leave `ping` and the `null`s to whatever `Json`
+ * the application chose.
  */
 private object McpMessagesInMcpJson : Hook<Unit> {
     override fun install(

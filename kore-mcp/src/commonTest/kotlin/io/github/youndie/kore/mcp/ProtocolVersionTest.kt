@@ -8,19 +8,14 @@ import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
-import io.modelcontextprotocol.kotlin.sdk.server.mcpStatelessStreamableHttp
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.LATEST_PROTOCOL_VERSION
-import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 /**
  * B-68: `protocolVersion` in the initialize result, which SDK 0.15.0 loses under an application's own
@@ -34,7 +29,13 @@ import kotlin.test.assertNull
  * exactly the value that goes missing — and an unknown version falls back to it.
  *
  * The application `Json` below is that first service's shape: kotlinx's own `encodeDefaults = false`.
- * Ktor's `json()` with no argument would hide the bug — its `DefaultJson` encodes defaults.
+ * Ktor's `json()` with no argument keeps this field — its `DefaultJson` encodes defaults — and breaks
+ * the answer another way, with an explicit `null` for every unset optional field.
+ *
+ * These tests say what a client gets from kore. They are not the tripwire: a field is one of the things
+ * an application `Json` changes, and the SDK fixing this one would not make the hook unnecessary.
+ * `McpWireFormatTest` compares whole answers under both `Json`s, and a control there on the bare SDK
+ * says when the hook can go.
  */
 class ProtocolVersionTest {
     private val info = Implementation(name = "kore-mcp-test", version = "0")
@@ -78,39 +79,11 @@ class ProtocolVersionTest {
             }
         }
 
-    /**
-     * THE TRIPWIRE. The bare SDK under the same application drops the field — the bug kore-mcp's
-     * re-encoding exists for, asserted rather than described.
-     *
-     * **When this fails, the SDK no longer loses `protocolVersion`.** Delete `McpMessagesInMcpJson` and
-     * `mcpJsonBody` from kore-mcp, keep the three tests above, and delete this one. Confirmed failing
-     * the other way — that is, the bug present — on `io.modelcontextprotocol:kotlin-sdk-server` 0.15.0.
-     */
-    @Test
-    fun `tripwire - the bare SDK 0_15_0 drops protocolVersion under an application Json`() =
-        testApplication {
-            application {
-                ownNegotiation()
-                mcpStatelessStreamableHttp(path = MCP, enableDnsRebindingProtection = false) {
-                    Server(info, ServerOptions(ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = false))))
-                }
-            }
-
-            val dropped = result(LATEST_PROTOCOL_VERSION, token = null)
-            assertNull(dropped["protocolVersion"], "the SDK serialises protocolVersion now - see the KDoc")
-            // The control inside the tripwire: the same path keeps a version that is not the default,
-            // so the missing field above is the default being omitted and not a broken answer.
-            assertEquals("2025-06-18", result("2025-06-18", token = null)["protocolVersion"]?.jsonPrimitive?.content)
-        }
-
     private suspend fun ApplicationTestBuilder.negotiated(version: String): String? =
-        result(version, TOKEN)["protocolVersion"]?.jsonPrimitive?.content
+        result(version)["protocolVersion"]?.jsonPrimitive?.content
 
-    private suspend fun ApplicationTestBuilder.result(
-        version: String,
-        token: String?,
-    ): JsonObject {
-        val response = client.initialize(token, version)
+    private suspend fun ApplicationTestBuilder.result(version: String): JsonObject {
+        val response = client.initialize(TOKEN, version)
         val body = response.bodyAsText()
         assertEquals(HttpStatusCode.OK, response.status, body)
         return checkNotNull(Json.parseToJsonElement(body).jsonObject["result"]) { body }.jsonObject
