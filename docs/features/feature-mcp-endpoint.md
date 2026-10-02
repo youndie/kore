@@ -61,11 +61,15 @@ installKoreMcp(KoreMcpConfig(token, allowedHosts), Implementation("metrik", vers
    operator who mistyped the list, JSON-encoded because it is whatever the caller sent.
 6. **MCP messages leave in MCP's JSON.** The transport's JSON-RPC responses are encoded with the SDK's
    `McpJson` on the endpoint's route, before any ContentNegotiation the application installed sees them.
-   SDK 0.15.0 answers through the application's ContentNegotiation, and an application `Json` that
-   omits defaults drops `protocolVersion` from the initialize result exactly when it equals the SDK's
-   latest version — which is also what a version the SDK does not know negotiates to. No current client
-   connects without the field. A tripwire test fails the day the SDK stops doing this; that is the day
-   the re-encoding is deleted.
+   SDK 0.15.0 answers a POST through the application's ContentNegotiation, so the application's `Json`
+   decides what the client reads. One that omits defaults drops `protocolVersion` from the initialize
+   result exactly when it equals the SDK's latest version — which is also what a version the SDK does
+   not know negotiates to, and no current client connects without the field — and drops the whole
+   `result` of a `ping`, which leaves an answer that is not JSON-RPC. Ktor's `json()` with no argument
+   writes an explicit `null` for every unset optional field. The tripwire compares whole answers, not a
+   field: its controls on the bare SDK fail the day the SDK stops handing its answer to the
+   application's ContentNegotiation, and that is the day the re-encoding is deleted — not the day
+   `protocolVersion` alone is fixed.
 7. **The application's ContentNegotiation goes before `installKoreMcp`, or nowhere.** The SDK installs one
    with `McpJson` on the whole application when it finds none; a later `install` then throws
    `DuplicatePluginException`. kore does not hide this — it is the SDK's behaviour on the application,
@@ -181,12 +185,23 @@ engine and raw sockets.
 * **Then:** the result carries `protocolVersion: 2025-11-25`
 * **Automated:** `ProtocolVersionTest.the latest version is answered under an application Json that omits defaults`, `ProtocolVersionTest.a version the SDK does not know is answered with the one it falls back to`
 
-### Scenario: the bare SDK still drops it (tripwire)
-* **Given:** the same application and the bare `mcpStatelessStreamableHttp`
-* **When:** initialize asks for `2025-11-25`, then `2025-06-18`
-* **Then:** the first result has no `protocolVersion`, the second has it — on SDK 0.15.0. When this fails,
-  the re-encoding of rule 6 is deleted
-* **Automated:** `ProtocolVersionTest.tripwire - the bare SDK 0_15_0 drops protocolVersion under an application Json`
+### Scenario: every answer is what McpJson writes, under either application Json
+* **Given:** the application's own ContentNegotiation with a `Json` that omits defaults and writes
+  `null`s (pretty-printed), or with Ktor's `json()` and no argument; then `installKoreMcp`
+* **When:** initialize, a `ping` carrying a key the protocol does not define, `tools/list`,
+  `tools/call`, an unknown method, a batch of two, and a body that does not parse
+* **Then:** each body is byte for byte what `McpJson` writes for the message in it; the `ping` is a
+  `200` under a `Json` that refuses its unknown key, so the request was not parsed by that `Json`
+* **Automated:** `McpWireFormatTest.every answer is what McpJson writes under an application Json that omits defaults`, `McpWireFormatTest.every answer is what McpJson writes under json with no argument`, `McpWireFormatTest.the ping with an unknown key is one the application Json refuses`
+
+### Scenario: the bare SDK still answers through the application's Json (tripwire)
+* **Given:** the same two applications with the bare `mcpStatelessStreamableHttp` instead
+* **When:** the same requests
+* **Then:** answers differ from `McpJson` — on SDK 0.15.0 under the first `Json` the initialize result
+  has no `protocolVersion` and the `ping` answer no `result`, under `json()` unset fields arrive as
+  `null`. When either fails, the SDK no longer hands its answer to the application's
+  ContentNegotiation, and the re-encoding of rule 6 is deleted
+* **Automated:** `McpWireFormatTest.control - the bare SDK answers through an application Json that omits defaults`, `McpWireFormatTest.control - the bare SDK answers through json with no argument`
 
 ### Scenario: a hidden character is found and named without its text
 * **Given:** text with a bidi override, a zero-width space, or an instruction in tag characters
@@ -201,8 +216,13 @@ engine and raw sockets.
   vanish for the SDK's latest version and removed nothing; another saw it present for every version and
   removed its workaround. The variable was the application: one had installed ContentNegotiation with a
   `Json` that omits defaults, the other had none, so the SDK installed its own. Ktor's `json()` with no
-  argument would hide it too — its `DefaultJson` encodes defaults.
+  argument keeps the field — its `DefaultJson` encodes defaults — and is no safer: it writes an
+  explicit `null` for every unset optional field, which `McpJson` never does.
 - **The transport builds a `Server` per request.** Whatever the block registers is registered on every
   call, so it should register, not compute.
-- **The SDK logs a warning when it finds the application's ContentNegotiation.** With `installKoreMcp`
-  that warning is about the application's other routes, not the endpoint's.
+- **The SDK logs a warning when it finds the application's ContentNegotiation**, `ContentNegotiation is
+  already installed. MCP requires json(McpJson)…`, on every start, without looking at the `Json` —
+  Ktor's public API does not show it. Under `installKoreMcp` it names no harm. The transport reads
+  requests raw and parses them with `McpJson`, and writes its refusals as finished text; the one thing
+  it hands the application's ContentNegotiation is the message answering a POST, and the hook of rule 6
+  re-encodes that one first. `McpWireFormatTest` holds both sides by the raw body.

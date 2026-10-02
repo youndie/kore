@@ -34,8 +34,9 @@ koin = "4.2.2"
 
 # `kore-mcp` only (B-68). The version all three consumers run and the newest on Central, read from
 # `maven-metadata.xml` on 2026-10-01. It publishes jvm, linuxx64, linuxarm64 and macosarm64 — checked
-# in the module file, not assumed. A bump starts with `ProtocolVersionTest`'s tripwire: it fails the
-# day the SDK stops dropping `protocolVersion`, and that is the day the re-encoding in kore-mcp goes.
+# in the module file, not assumed. A bump starts with the controls in `McpWireFormatTest`: they fail the
+# day the SDK stops handing its answers to the application's ContentNegotiation, and that is the day the
+# re-encoding in kore-mcp goes — not the day `protocolVersion` alone is fixed (B-69).
 mcpSdk = "0.15.0"
 
 # WHAT THE JVM HALF COMPILES TO — **decided in B-43**, and it stays at the portfolio's number.
@@ -110,8 +111,8 @@ koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 # `kore-mcp` only. `api`: the call hands the consumer the SDK's `Server` to register tools on.
 mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcpSdk" }
 # `kore-mcp`'s tests only: an application's OWN ContentNegotiation with its own Json, which is the
-# condition under which the SDK drops `protocolVersion` (B-68). The SDK brings both at runtime scope,
-# so a test that names them has to declare them.
+# condition under which the SDK's answers change — `protocolVersion` dropped, `null`s added (B-68,
+# B-69). The SDK brings both at runtime scope, so a test that names them has to declare them.
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 
