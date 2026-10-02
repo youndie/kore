@@ -34,9 +34,9 @@ koin = "4.2.2"
 
 # `kore-mcp` only (B-68). The version all three consumers run and the newest on Central, read from
 # `maven-metadata.xml` on 2026-10-01. It publishes jvm, linuxx64, linuxarm64 and macosarm64 — checked
-# in the module file, not assumed. A bump starts with the controls in `McpWireFormatTest`: they fail the
-# day the SDK stops handing its answers to the application's ContentNegotiation, and that is the day the
-# re-encoding in kore-mcp goes — not the day `protocolVersion` alone is fixed (B-69).
+# in the module file, not assumed. A bump starts with `McpWireFormatTest`'s control under a pretty-printed
+# Json: it fails the day the SDK stops handing its answers to the application's ContentNegotiation, and
+# that is the day the re-encoding in kore-mcp goes — not the day `protocolVersion` alone is fixed (B-69).
 mcpSdk = "0.15.0"
 
 # WHAT THE JVM HALF COMPILES TO — **decided in B-43**, and it stays at the portfolio's number.

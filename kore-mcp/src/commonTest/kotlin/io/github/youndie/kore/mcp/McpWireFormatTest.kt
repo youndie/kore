@@ -54,9 +54,11 @@ import kotlin.test.assertTrue
  * `protocolVersion` alone would go red the day the SDK fixed that field, and the hook would be deleted
  * while the rest still broke.
  *
- * **When a control fails, the SDK no longer hands its answer to the application's ContentNegotiation.**
- * Then, and not before, delete `McpMessagesInMcpJson`, `mcpJsonBody` and both controls; the other tests
- * stay, as what a client gets.
+ * **When the control under [OMITS_DEFAULTS] fails, the SDK no longer hands its answer to the
+ * application's ContentNegotiation** — pretty-printed, every answer that goes that way differs. Then,
+ * and not before, delete `McpMessagesInMcpJson`, `mcpJsonBody` and both controls; the other tests stay,
+ * as what a client gets. The `json()` control failing alone says only that `json()` stopped changing
+ * the SDK's answers; the hook stays.
  */
 class McpWireFormatTest {
     /**
@@ -120,7 +122,10 @@ class McpWireFormatTest {
             assertTrue(mismatches().isNotEmpty(), "the SDK no longer answers through ContentNegotiation - see the KDoc")
         }
 
-    /** CONTROL for the second test: on 0.15.0 the bare SDK under `json()` writes the `null`s of unset fields. */
+    /**
+     * CONTROL for the second test: on 0.15.0 the bare SDK under `json()` writes the `null`s of unset
+     * fields. Red on its own is not the signal to remove the hook — see the class KDoc.
+     */
     @Test
     fun `control - the bare SDK answers through json with no argument`() =
         testApplication {

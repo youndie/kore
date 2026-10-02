@@ -183,8 +183,9 @@ private val KoreMcpGuard =
  * application. A JSON-RPC message becomes text the negotiation then leaves alone; anything else passes.
  *
  * REMOVE when the SDK no longer hands its answer to the application's ContentNegotiation — the day the
- * controls in `McpWireFormatTest` go red. Not when one field is fixed: a `protocolVersion` serialised
- * by the SDK would still leave `ping` and the `null`s to whatever `Json` the application chose.
+ * control under a pretty-printed `Json` in `McpWireFormatTest` goes red. Not when one field is fixed: a
+ * `protocolVersion` serialised by the SDK would still leave `ping` and the `null`s to whatever `Json`
+ * the application chose.
  */
 private object McpMessagesInMcpJson : Hook<Unit> {
     override fun install(

@@ -34,9 +34,11 @@ SDK logs it without looking at the `Json`, and under `installKoreMcp` it names n
   compared byte for byte with what `McpJson` writes for the message in it. `prettyPrint` makes every
   answer that went through the application's `Json` differ, not only those with a default or a `null`
   in them.
-- **The controls are the removal signal.** The same requests to the bare `mcpStatelessStreamableHttp`
-  under each `Json` must differ somewhere; they go red only when no answer goes through the
-  application's ContentNegotiation any more, and that is the condition the hook's KDoc now names.
+- **The bare SDK is the control, and one control is the removal signal.** The same requests to the bare
+  `mcpStatelessStreamableHttp` under each `Json` must differ somewhere. Under the pretty-printed one
+  every answer that went through the application's `Json` differs, so that control goes red only when
+  none did — the condition the hook's KDoc now names. The `json()` control red on its own means only
+  that `json()` stopped changing the SDK's answers.
 - **`ProtocolVersionTest` keeps its three tests** of what a client gets, and loses the tripwire.
 - No code changed in `kore-mcp`; KDoc, tests and documents only, so no release.
 
@@ -65,7 +67,7 @@ SDK logs it without looking at the `Json`, and under `installKoreMcp` it names n
 
 ## Done when
 
-- [x] The tripwire compares whole answers under both `Json`s, with the bare SDK as its controls —
+- [x] The tripwire compares whole answers under both `Json`s, with the bare SDK as its control —
   `McpWireFormatTest`.
 - [x] The hook's KDoc, the feature document (rule 6, scenarios, quirks), the catalogue and the upstream
   proposal name the right removal condition.

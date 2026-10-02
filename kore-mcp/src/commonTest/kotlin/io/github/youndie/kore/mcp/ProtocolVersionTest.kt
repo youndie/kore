@@ -34,8 +34,8 @@ import kotlin.test.assertEquals
  *
  * These tests say what a client gets from kore. They are not the tripwire: a field is one of the things
  * an application `Json` changes, and the SDK fixing this one would not make the hook unnecessary.
- * `McpWireFormatTest` compares whole answers under both `Json`s, and its controls on the bare SDK say
- * when the hook can go.
+ * `McpWireFormatTest` compares whole answers under both `Json`s, and a control there on the bare SDK
+ * says when the hook can go.
  */
 class ProtocolVersionTest {
     private val info = Implementation(name = "kore-mcp-test", version = "0")

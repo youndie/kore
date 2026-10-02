@@ -358,9 +358,10 @@ dropping its default, fixes one field of one answer and leaves the `ping` and th
 
 **What kore does meanwhile.** `kore-mcp` re-encodes the transport's JSON-RPC responses with `McpJson` in
 the send pipeline's `Before` phase of the endpoint's own route (`McpMessagesInMcpJson` in
-`kore-mcp/src/commonMain/kotlin/io/github/youndie/kore/mcp/KoreMcp.kt`), and the controls name the day
-to delete it: when the bare SDK's answers no longer pass through the application's `Json`, they fail. A
-fix to `protocolVersion` alone does not make them fail, and is not that day.
+`kore-mcp/src/commonMain/kotlin/io/github/youndie/kore/mcp/KoreMcp.kt`), and the control under a
+pretty-printed `Json` names the day to delete it: it fails when no answer of the bare SDK passes through
+the application's `Json` any more. A fix to `protocolVersion` alone does not make it fail, and is not
+that day.
 
 ---
 

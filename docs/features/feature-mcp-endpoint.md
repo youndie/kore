@@ -67,9 +67,9 @@ installKoreMcp(KoreMcpConfig(token, allowedHosts), Implementation("metrik", vers
    not know negotiates to, and no current client connects without the field — and drops the whole
    `result` of a `ping`, which leaves an answer that is not JSON-RPC. Ktor's `json()` with no argument
    writes an explicit `null` for every unset optional field. The tripwire compares whole answers, not a
-   field: its controls on the bare SDK fail the day the SDK stops handing its answer to the
-   application's ContentNegotiation, and that is the day the re-encoding is deleted — not the day
-   `protocolVersion` alone is fixed.
+   field: its control on the bare SDK under a pretty-printed `Json` fails the day the SDK stops handing
+   its answer to the application's ContentNegotiation, and that is the day the re-encoding is deleted —
+   not the day `protocolVersion` alone is fixed.
 7. **The application's ContentNegotiation goes before `installKoreMcp`, or nowhere.** The SDK installs one
    with `McpJson` on the whole application when it finds none; a later `install` then throws
    `DuplicatePluginException`. kore does not hide this — it is the SDK's behaviour on the application,
@@ -199,8 +199,9 @@ engine and raw sockets.
 * **When:** the same requests
 * **Then:** answers differ from `McpJson` — on SDK 0.15.0 under the first `Json` the initialize result
   has no `protocolVersion` and the `ping` answer no `result`, under `json()` unset fields arrive as
-  `null`. When either fails, the SDK no longer hands its answer to the application's
-  ContentNegotiation, and the re-encoding of rule 6 is deleted
+  `null`. When the first fails, the SDK no longer hands its answer to the application's
+  ContentNegotiation, and the re-encoding of rule 6 is deleted; the second failing alone means only
+  that `json()` stopped changing the answers
 * **Automated:** `McpWireFormatTest.control - the bare SDK answers through an application Json that omits defaults`, `McpWireFormatTest.control - the bare SDK answers through json with no argument`
 
 ### Scenario: a hidden character is found and named without its text
