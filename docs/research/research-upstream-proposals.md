@@ -61,9 +61,9 @@ destroys the application and then drains the engine. `ApplicationStopping` there
 drain on one platform and before it on the other, from identical common code, with nothing in the
 documentation saying so.
 
-**Verified against** `ktor-server-core` 3.5.2 published sources:
-`jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` against
-`posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94`. See
+**Verified against** `ktor-server-core` 3.5.2 published sources, re-read in 3.6.0 (#89):
+`ktor-server-core-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` against
+`ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94`. See
 [research-architecture](research-architecture.md) §1.1 for the full table.
 
 **Why it is worth an issue rather than only a workaround.** The idiom it breaks is the one every
@@ -187,7 +187,7 @@ Second half: the plugin subscribes the agent to `ApplicationStopping` itself. Gi
 the agent stops *before* the drain on Kotlin/Native, so on a native binary the requests served during
 shutdown are not measured at all.
 
-**Verified against** `agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/MetrikAgent.kt:128-134`
+**Verified against** `youndie/metrik@577f363!/agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/MetrikAgent.kt:128-134`
 and `Metrik.kt:89`, plus `DEFAULT_WINDOW_MS` in the shared protocol.
 
 **Proposed shape.** A bounded final flush in `stop()`, mirroring what tracy's delivery already does
@@ -206,8 +206,8 @@ documented wiring is `TracyDelivery(agent, config).start(app)`, which gives the 
 keep the reference. The portfolio's most complete service does exactly that and loses the last flush
 interval on every shutdown.
 
-**Verified against** `agent/src/commonMain/kotlin/io/github/youndie/tracy/agent/TracyDelivery.kt:82-86`
-and, for the consequence, `konekt/server/src/main/kotlin/io/konekt/observability/Observability.kt:73`.
+**Verified against** `youndie/tracy@1054ddd!/agent/src/commonMain/kotlin/io/github/youndie/tracy/agent/TracyDelivery.kt:82-86`
+and, for the consequence, `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/observability/Observability.kt:73`.
 
 **Proposed shape.** Have `start(application)` subscribe `stop` — the delivery already takes the
 application, so it can. A correct default beats a correct API nobody calls.
@@ -227,8 +227,8 @@ begins with `sendAll()` and then fails only what was still queued in the mailbox
 `flush()` discards up to a linger window of records, silently — and the records that vanish are
 exactly the ones nothing was awaiting.
 
-**Verified against** `booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:228-239`
-against `booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:228-242`.
+**Verified against** `youndie/booblik@af7788a!/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:228-239`
+against `youndie/booblik@af7788a!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:228-242`.
 
 **Proposed shape.** Port the native `sendAll()` into the JVM `drainPending()`. This is deliberately
 not the design argument the entry used to carry ("either a flushing `close()`, or a `close()` that is

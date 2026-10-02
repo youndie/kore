@@ -42,10 +42,10 @@ Verified against the published sources of `io.ktor:ktor-server-core` **3.5.2** �
 
 | Fact | Where verified |
 |---|---|
-| On JVM, `EmbeddedServer.stop` calls `engine.stop(grace, timeout)` **first** and `destroyApplication()` **second** | `ktor-server-core-jvm-3.6.0-sources.jar` → `jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` |
+| On JVM, `EmbeddedServer.stop` calls `engine.stop(grace, timeout)` **first** and `destroyApplication()` **second** | `ktor-server-core-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/server/engine/EmbeddedServerJvm.kt:423-431` |
 | `destroyApplication()` raises `ApplicationStopping`, calls `application.disposeAndJoin()`, then raises `ApplicationStopped` | same file, `293-306` |
-| On Kotlin/Native, `EmbeddedServer.stop` calls `destroyBlocking(application)` **first** and `engine.stop(grace, timeout)` **second** | `ktor-server-core-linuxx64-3.6.0-sources.jar` → `posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94` |
-| `disposeAndJoin()` is `applicationJob.cancelAndJoin()` followed by `uninstallAllPlugins()` | `commonMain/io/ktor/server/application/Application.kt:162-165` |
+| On Kotlin/Native, `EmbeddedServer.stop` calls `destroyBlocking(application)` **first** and `engine.stop(grace, timeout)` **second** | `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:84-94` |
+| `disposeAndJoin()` is `applicationJob.cancelAndJoin()` followed by `uninstallAllPlugins()` | `ktor-server-core-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/application/Application.kt:162-165` |
 
 So the same three lines of user code mean two different things:
 
@@ -104,7 +104,7 @@ Verified against `io.ktor:ktor-server-cio` 3.5.2.
 
 | Fact | Where verified |
 |---|---|
-| `stopSuspend` completes `stopRequest`, waits `gracePeriodMillis` for the server job, then cancels it and waits `timeoutMillis - gracePeriodMillis` | `ktor-server-cio-jvm-3.6.0-sources.jar` → `commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:91-107` |
+| `stopSuspend` completes `stopRequest`, waits `gracePeriodMillis` for the server job, then cancels it and waits `timeoutMillis - gracePeriodMillis` | `ktor-server-cio-jvm-3.6.0-sources.jar!/commonMain/io/ktor/server/cio/CIOApplicationEngine.kt:91-107` |
 | The server job, on `stopRequest`, cancels each connector's `acceptJob`, **then** raises `ApplicationStopPreparing`, **then** joins the connectors' root jobs | same file, `250-260` |
 | The default idle timeout for a kept-alive connection is 45 seconds | same file, `Configuration.connectionIdleTimeoutSeconds = 45` |
 
@@ -138,7 +138,7 @@ true of two of its three rows; each address below now carries the artefact it wa
 | `addShutdownHook` is common API with a per-platform actual | `ktor-server-core-linuxx64-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt` |
 | On Native the callback is stored in one file-level `AtomicReference`, so **each call replaces the previous one** | `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHook.posix.kt` |
 | The handler is installed with `signal(SIGINT, …)` / `signal(SIGTERM, …)` and a `staticCFunction` that reads that global | same file |
-| `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:49-50` |
+| `EmbeddedServer.start` on Native itself calls `addShutdownHook { stop() }` | `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/EmbeddedServer.posix.kt:49-50` |
 | Ktor's own KDoc states it: *"On Native, each call replaces the previous callback; only the last registered `stop` block is kept"* and *"the built-in `EmbeddedServer.start` hook typically wins"* | `ktor-server-core-linuxx64-3.6.0-sources.jar!/commonMain/io/ktor/server/engine/ShutdownHook.kt`, `ktor-server-core-linuxx64-3.6.0-sources.jar!/posixMain/io/ktor/server/engine/ShutdownHook.posix.kt` |
 | On JVM the same call adds an independent `Runtime.getRuntime().addShutdownHook` thread, several may coexist, and the order between them is explicitly unspecified | `ktor-server-core-jvm-3.6.0-sources.jar!/jvmMain/io/ktor/server/engine/ShutdownHookJvm.kt` |
 | On JVM the mechanism can be switched off entirely by the system property `io.ktor.server.engine.ShutdownHook` | same file, `SHUTDOWN_HOOK_ENABLED` |
@@ -234,7 +234,7 @@ ability to list what is in the environment, not just to ask for names one at a t
 
 | Fact | Where verified |
 |---|---|
-| Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | `youndie/tracy!/server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
+| Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | `youndie/tracy@1054ddd!/server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
 | `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.20 distribution, `klib dump-metadata` against `kotlin-native-2.4.20!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
 | `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `kotlin-native-2.4.20!/klib/platform/macos_arm64/...posix`; both greps are empty |
 | `_NSGetEnviron`, the documented macOS replacement, is not in `platform.posix`, `platform.darwin` or `platform.Foundation` either — reaching it needs a cinterop `.def` of one's own | the same `klib dump-metadata` against those three klibs; all three greps return 0 |
@@ -262,12 +262,12 @@ in the agents, it is three different shutdown contracts.
 
 | Fact | Where verified |
 |---|---|
-| tracy's delivery has `suspend fun stop(grace)`: it cancels its loop and makes one last bounded flush, deliberately, because *"the records produced during a shutdown … are the least replaceable ones in the buffer"* | [tracy](https://github.com/youndie/tracy) `agent/src/commonMain/kotlin/io/github/youndie/tracy/agent/TracyDelivery.kt:82-86` |
-| Nothing subscribes that `stop` to anything. The first consumer constructs the delivery, calls `start(this)` and discards the reference, so `stop` cannot be called | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/observability/Observability.kt:73` |
-| metrik's agent **does** stop itself on `ApplicationStopping`, and its `stop()` cancels the job, cancels the scope, closes the sender and closes the dispatcher — with **no flush** of the open window | [metrik](https://github.com/youndie/metrik) `agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/Metrik.kt:89` and `MetrikAgent.kt:128-134` |
+| tracy's delivery has `suspend fun stop(grace)`: it cancels its loop and makes one last bounded flush, deliberately, because *"the records produced during a shutdown … are the least replaceable ones in the buffer"* | `youndie/tracy@1054ddd!/agent/src/commonMain/kotlin/io/github/youndie/tracy/agent/TracyDelivery.kt:82-86` |
+| Nothing subscribes that `stop` to anything. The first consumer constructs the delivery, calls `start(this)` and discards the reference, so `stop` cannot be called | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/observability/Observability.kt:73` |
+| metrik's agent **does** stop itself on `ApplicationStopping`, and its `stop()` cancels the job, cancels the scope, closes the sender and closes the dispatcher — with **no flush** of the open window | `youndie/metrik@577f363!/agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/Metrik.kt:89` and `MetrikAgent.kt:128-134` |
 | metrik's aggregation window defaults to 60 seconds | `metrik/shared/.../Protocol.kt`, `DEFAULT_WINDOW_MS`, and the comment recording it in konekt's `ObservabilityConfig.kt:22-30` |
-| katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** — read at `b9b953f`, and **no longer true since client 0.7.47** (amended 2026-09-12): `flush(grace)`, `cacheDir` and `crashUploadGrace` were added in answer to [katcher#50](https://github.com/youndie/katcher/issues/50), which this reading raised. Amended rather than rewritten: the row is what was read, and a superseded reading left standing is §1.7's own failure | [katcher](https://github.com/youndie/katcher) `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` then; `Katcher.flush` and `ReportUploader.kt` at `fbfedf1` now |
-| katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `youndie/katcher!/client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
+| katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** — read at `b9b953f`, and **no longer true since client 0.7.47** (amended 2026-09-12): `flush(grace)`, `cacheDir` and `crashUploadGrace` were added in answer to [katcher#50](https://github.com/youndie/katcher/issues/50), which this reading raised. Amended rather than rewritten: the row is what was read, and a superseded reading left standing is §1.7's own failure | `youndie/katcher@b9b953f!/client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` then; `Katcher.flush` and `ReportUploader.kt` at `fbfedf1` now |
+| katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `youndie/katcher@b9b953f!/client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
 
 **Consequence 1.** "One line of wiring" is worth having precisely because these three do not agree.
 kore owns three different stages: *ask tracy to flush and wait, bounded*; *let metrik's own
@@ -288,7 +288,7 @@ exists to protect. kore's ordering fixes this as a side effect of fixing §1.1, 
 noticing: the same misordering costs correctness in one place and observability in another.
 
 **Consequence 4.** All three agents publish `jvm`, `linuxX64`, `linuxArm64` and `macosArm64`
-(read in `agent/build.gradle.kts` of tracy and metrik, `client/build.gradle.kts` of katcher), so
+(read in `youndie/tracy@1054ddd!/agent/build.gradle.kts`, `youndie/metrik@577f363!/agent/build.gradle.kts` and `youndie/katcher@b9b953f!/client/build.gradle.kts`), so
 kore's own target set can match them and the wiring can live in common code.
 
 **Which is necessary and not sufficient — see §1.12.** Publishing the right *targets* and being
@@ -298,9 +298,9 @@ kore's own target set can match them and the wiring can live in common code.
 
 | Fact | Where verified |
 |---|---|
-| `booblik-client` and `booblik-net` are `kotlin("jvm")` modules; there is no multiplatform variant | [booblik](https://github.com/youndie/booblik) `booblik-client/build.gradle.kts`, `booblik-net/build.gradle.kts` |
-| The decision is recorded, not accidental: *"Р8. Клиент остаётся Kotlin/JVM"* | `booblik/docs/research/research-architecture.md` §Р8 |
-| What is not portable is enumerated there: sockets, `ByteBuffer`, two primitives from `java.util.concurrent`, `CRC32C` | same section, and the header comment of `booblik-client/build.gradle.kts` |
+| `booblik-client` and `booblik-net` are `kotlin("jvm")` modules; there is no multiplatform variant | `youndie/booblik@af7788a!/booblik-client/build.gradle.kts`, `youndie/booblik@af7788a!/booblik-net/build.gradle.kts` |
+| The decision is recorded, not accidental: *"Р8. Клиент остаётся Kotlin/JVM"* | `youndie/booblik@af7788a!/docs/research/research-architecture.md` §Р8 |
+| What is not portable is enumerated there: sockets, `ByteBuffer`, two primitives from `java.util.concurrent`, `CRC32C` | same section, and the header comment of `youndie/booblik@af7788a!/booblik-client/build.gradle.kts` |
 
 **Correction found while doing B-01 (2026-09-11).** This section used to end here, concluding that
 a native-first library cannot take a JVM-only dependency in common code and that the booblik adapter
@@ -311,8 +311,8 @@ of booblik:
 | Fact | Where verified |
 |---|---|
 | `io.github.youndie.booblik:booblik-native` **0.3.3** is published on Maven Central with `linuxX64` and `macosArm64` variants, alongside `booblik-protocol-linuxx64` and `-macosarm64` | the Central listing `repo1.maven.org/maven2/io/github/youndie/booblik/`, read 2026-09-11 |
-| It is a real client, not a stub: `Connection`, `Consumer`, `Producer`, `Socket` | `youndie/booblik!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/` |
-| It came from a multiplatform *split of the protocol* rather than a reimplementation — its own header says so, crediting milestone M-134 | `youndie/booblik!/booblik-native/build.gradle.kts` |
+| It is a real client, not a stub: `Connection`, `Consumer`, `Producer`, `Socket` | `youndie/booblik@af7788a!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/` |
+| It came from a multiplatform *split of the protocol* rather than a reimplementation — its own header says so, crediting milestone M-134 | `youndie/booblik@af7788a!/booblik-native/build.gradle.kts` |
 
 So the force behind D5 is gone. What remains true is that there are **two clients with two different
 package names and two different APIs** (`io.github.youndie.booblik.net.client` on the JVM,
@@ -340,11 +340,11 @@ Found while reading §1.7, and it is the concrete reason the consumer stage has 
 
 | Fact | Where verified |
 |---|---|
-| `Producer.close()` is one line: `mailbox.close()` | `booblik/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:118-120` |
+| `Producer.close()` is one line: `mailbox.close()` | `youndie/booblik@af7788a!/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Producer.kt:118-120` |
 | The producer's loop ends in `finally { drainPending() }`, and `drainPending` completes every queued record **exceptionally** with `ConnectionClosedException` — it does not send them | same file, `228-239` |
 | `flush()` exists, is `suspend`, and is the only thing that pushes the accumulator | same file, `112-117` |
 | The accumulator's default linger is 5 ms and its default batch is 100 records | same file, `ProducerConfig` |
-| The first consumer's shutdown calls `producer.close()` with no preceding `flush()` | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:110-126` |
+| The first consumer's shutdown calls `producer.close()` with no preceding `flush()` | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:110-126` |
 
 **Amended while doing B-01 (2026-09-11), and the amendment makes the finding stronger.** Having
 learned from §1.7 that a Kotlin/Native client exists, the obvious next question was whether it does
@@ -352,7 +352,7 @@ the same thing. It does not:
 
 | Fact | Where verified |
 |---|---|
-| The **native** `Producer.close()` is also `mailbox.close()` (plus `dispatcher.close()`), with the same `finally { drainPending() }` | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:84-89`, `:124-127` |
+| The **native** `Producer.close()` is also `mailbox.close()` (plus `dispatcher.close()`), with the same `finally { drainPending() }` | `youndie/booblik@af7788a!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Producer.kt:84-89`, `:124-127` |
 | But the native `drainPending()` **begins with `sendAll()`** and only then fails whatever is still queued in the mailbox | same file, `:228-242` |
 | The JVM `drainPending()` has no `sendAll()`: it fails the accumulated batches too | `booblik-client/.../Producer.kt:228-239` |
 
@@ -501,19 +501,20 @@ dependency that is briefly away is not a reason to restart. That is the distinct
 
 ### 1.11 The first consumer today: three probes on one route, and no `/version`
 
-Read in [konekt](https://github.com/youndie/konekt) at the commit in the working tree on 2026-09-11.
+Read in [konekt](https://github.com/youndie/konekt) at the commit in the working tree on 2026-09-11 —
+`0b0a4be`, its `main` that day, which the addresses below name.
 It is the most complete service in the portfolio and it is what kore's first release has to improve
 on, so what it does now is a baseline rather than a criticism.
 
 | Fact | Where verified |
 |---|---|
-| `startupProbe`, `livenessProbe` and `readinessProbe` all point at `GET /health` | `konekt/charts/konekt/templates/server.yaml:103-118` |
-| `/health` is `call.respondText("ok")` — it touches no dependency | `konekt/server/src/main/kotlin/io/konekt/Application.kt:188` |
+| `startupProbe`, `livenessProbe` and `readinessProbe` all point at `GET /health` | `youndie/konekt@0b0a4be!/charts/konekt/templates/server.yaml:103-118` |
+| `/health` is `call.respondText("ok")` — it touches no dependency | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/Application.kt:188` |
 | There is no `/version` route and no build-identity constant anywhere in the repository | a grep for `"/version"`, `gitCommit`, `buildTime` and `BuildInfo` across the repository returns nothing |
-| The deployment's identity travels as the `RELEASE` environment variable, set from the chart, and is used to name a metrik deploy marker and a katcher crash group | `konekt/charts/konekt/templates/server.yaml:80-82`, `konekt/server/.../observability/ObservabilityConfig.kt:38-45` |
-| Shutdown is one `ApplicationStopping` subscriber: cancel the worker scope, close the broker connection | `konekt/server/src/main/kotlin/io/konekt/Application.kt:412-417` |
-| Configuration is a hand-written `fromEnv()` of ~35 lines: `System.getenv(...)`, `?:` for defaults, `error(...)` for four required keys | `konekt/server/src/main/kotlin/io/konekt/KonektConfig.kt:57-96` |
-| The observability half of the configuration is separate and already has the rule kore generalises: an endpoint without its key is a **refusal at startup**, not a silent no-op | `konekt/server/.../observability/ObservabilityConfig.kt:48-69` |
+| The deployment's identity travels as the `RELEASE` environment variable, set from the chart, and is used to name a metrik deploy marker and a katcher crash group | `youndie/konekt@0b0a4be!/charts/konekt/templates/server.yaml:80-82`, `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/observability/ObservabilityConfig.kt:38-45` |
+| Shutdown is one `ApplicationStopping` subscriber: cancel the worker scope, close the broker connection | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/Application.kt:412-417` |
+| Configuration is a hand-written `fromEnv()` of ~35 lines: `System.getenv(...)`, `?:` for defaults, `error(...)` for four required keys | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/KonektConfig.kt:57-96` |
+| The observability half of the configuration is separate and already has the rule kore generalises: an endpoint without its key is a **refusal at startup**, not a silent no-op | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/observability/ObservabilityConfig.kt:48-69` |
 
 **Consequence 1.** Everything in the brief is a real gap in a real service, not a hypothetical one.
 The chart's own comment argues correctly that a probe must not read the store — and then uses the
@@ -585,7 +586,7 @@ taking 3 s, `SIGTERM` to PID 1, and the client's own record read afterwards.
 
 | Fact | Where verified |
 |---|---|
-| `ApplicationEngine.Configuration.shutdownGracePeriod` defaults to **1000 ms** and `shutdownTimeout` to **5000 ms** | `ktor-server-core` 3.5.2, `commonMain/io/ktor/server/engine/ApplicationEngine.kt:61` and `:68` |
+| `ApplicationEngine.Configuration.shutdownGracePeriod` defaults to **1000 ms** and `shutdownTimeout` to **5000 ms** | `io.ktor:ktor-server-core:3.5.2!/commonMain/io/ktor/server/engine/ApplicationEngine.kt:61` and `:68` |
 | At the default, **every** in-flight 3-second request is cut off — on **both** platforms | oracle run, `kore-sample:jvm` and `:native`: A1 failed 8 of 8, "the connection closed before a status line", process gone in 1435 ms / 1599 ms |
 | With `shutdownGracePeriod = 20 s`, **every** in-flight request completes — on **both** platforms | oracle run, `kore-probe:jvm` and `:native`: A1 passed, 8 of 8 |
 | During those 20 s the server **kept serving new requests** on the already-open connections: 48 exchanges after the signal, **none** refused, no `503`, no `Connection: close` | the same run's record: `exchanges: 64, spanning the signal: 8, after it: 48` |
@@ -691,13 +692,13 @@ instead, and it is **half right in a way worth writing down properly**.
 
 | Fact | Where verified |
 |---|---|
-| The JVM client dials **once**, in a property initializer, and does not keep the address — so re-dialling is not expressible from inside the object | `booblik/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/BooblikConnection.kt:50-57` |
+| The JVM client dials **once**, in a property initializer, and does not keep the address — so re-dialling is not expressible from inside the object | `youndie/booblik@af7788a!/booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/BooblikConnection.kt:50-57` |
 | Its failure path is terminal: `fail()` closes the outbound channel, fails every pending request with `ConnectionClosedException`, closes the socket, and has no path back to a new one | same file, `:173-183` |
-| The **native** client has the same shape — `Socket.connect(address)` in an initializer | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Connection.kt:30-33` |
+| The **native** client has the same shape — `Socket.connect(address)` in an initializer | `youndie/booblik@af7788a!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/Connection.kt:30-33` |
 | There is no `reconnect`, `backoff` or `retry` anywhere in either client's production source | searched across `booblik-client`, `booblik-native`, `booblik-net`, `booblik-protocol`: no hits outside a comment and two lines of doc prose |
 | A peer close surfaces as `EOFException("broker closed the connection")`, caught only to fan the failure out to waiting callers | `booblik-client/.../ResponseReader.kt:116`, raised on the reader coroutine at `BooblikConnection.kt:97-108` |
 | `Consumer.poll()` does not catch it — the exception leaves the client, so the rate is whatever loop the caller wrote | `booblik-client/.../Consumer.kt:89-97`; the native `records()` is an unguarded `while (true)` at `booblik-native/.../Consumer.kt:135-140` |
-| In the first consumer that loop delays 200 ms, which is where "five a second" comes from | [konekt](https://github.com/youndie/konekt) `server/src/main/kotlin/io/konekt/events/UsageConsumer.kt:55`, `:97` |
+| In the first consumer that loop delays 200 ms, which is where "five a second" comes from | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/mocks/traffic/UsageConsumer.kt:55`, `:97` |
 
 **The half that is wrong, and it matters.** The first consumer **has already fixed this**, as its
 own item `B-107`. `BrokerConnection` is no longer a socket held forever: it holds a generation and a
@@ -706,9 +707,9 @@ and the consumer rebuilds at its saved position.
 
 | Fact | Where verified |
 |---|---|
-| `reconnect(seen: Int): Int`, synchronized and generation-guarded | konekt `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:77-92` |
+| `reconnect(seen: Int): Int`, synchronized and generation-guarded | `youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:77-92` |
 | The consumer reconnects and resumes at its own position rather than from the beginning | konekt `UsageConsumer.kt:105-120` |
-| It is tested — replacement is idempotent, the consumer resumes, the outbox recovers | `youndie/konekt!/server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt` |
+| It is tested — replacement is idempotent, the consumer resumes, the outbox recovers | `youndie/konekt@0b0a4be!/server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt` |
 
 So kore must not describe a permanent wedge in the present tense: the consumer heals. What remains
 true is that **the healing is the consumer's own code, because the client offers none** — every
@@ -717,7 +718,7 @@ the recovery costs a poll interval plus however long the new pod takes to accept
 
 **Consequence — the detection half is still missing, and that is what kore's check is for.** Nothing
 in the first consumer reports broker health: `/health` answers a static string that never touches the
-broker (konekt `server/src/main/kotlin/io/konekt/Application.kt:185-189`, and see §1.11 for the same
+broker (`youndie/konekt@0b0a4be!/server/src/main/kotlin/io/konekt/Application.kt:185-189`, and see §1.11 for the same
 route serving all three probes). A connect-shaped check would not have helped either, which is the
 point of [feature-health-probes](../features/feature-health-probes.md) §3: a socket answers the
 kernel. `metadata` is the request that asks the broker, it exists on every client, and the first

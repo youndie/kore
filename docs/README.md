@@ -57,7 +57,7 @@ backlog item, because both halves then look equally authoritative.
   `bdd_report` counts it as manual.
 - **The primary consumer is a coding agent.** Every document carries code anchors. A path outside
   this repository is written as an address — `<artefact>!/<path>` for a dependency's sources,
-  `youndie/<repo>!/<path>` for another repository of the portfolio — because CI checks the anchors
+  `youndie/<repo>@<commit>!/<path>` for another repository of the portfolio — because CI checks the anchors
   with this clone alone, and a bare path into a sibling resolves only on a laptop that has it.
 - Do not duplicate what lives in code: give the path. A copy rots, a path does not.
 - **Language: English**, documents and code alike. HTTP headers, environment variable names and

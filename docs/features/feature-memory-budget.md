@@ -114,8 +114,8 @@ that ignored the target outright.
 * **Given:** a build for `macosArm64`
 * **When:** the budget is read
 * **Then:** it is `Unavailable` and the reason names the platform rather than four missing files
-* **Automated:** the actual is the declaration; `PrintConfigTest` asserts the printed line never
-  claims both
+* **Automated:** `MemoryBudgetMacosTest`, run by the `macos-arm64-suite` job; `PrintConfigTest`
+  asserts the printed line never claims both
 
 ### Scenario: the printed configuration carries the budget
 * **Given:** a usable configuration
