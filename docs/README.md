@@ -76,7 +76,8 @@ make check
 ```
 
 `make check` is the gate and CI runs exactly it; `make fix` regenerates the backlog index and fills
-in missing coverage-map lines. `make report` is the two non-blocking reports. The checks are
+in missing coverage-map lines. `make report` is the two reports: BDD coverage, which does not
+block, and code anchors, which does (`ANCHORS_ARGS` in the Makefile). The checks are
 [docs-bootstrap](https://github.com/youndie/docs-bootstrap)'s, at the version
 `.github/workflows/check.yaml` pins, fetched into `.docs-bootstrap/` by the first run. On a push to the
 default branch CI also runs `make docs-on-main`, which makes a draft an error there — on since

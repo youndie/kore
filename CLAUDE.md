@@ -246,15 +246,17 @@ docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@…` line in
 Only `check`, `gate`, `report`, `fix` and the `docs-` targets load it (`DOCS_BOOTSTRAP_GOALS`,
 template revision 2): `make build` reads no pin and needs no network, and a new target that leads to
 `docs-gate` goes into that list. `make fix` regenerates the backlog index. `make report`
-is the two non-blocking reports. **`code_anchors` reports 0 rotten** — in CI too, where this clone
+is the two reports: BDD coverage, which does not block, and code anchors, which does
+(`ANCHORS_ARGS ?= --check` in the Makefile) — a path in `docs/` that resolves to nothing fails
+`make check`. **`code_anchors` reports 0 rotten** — in CI too, where this clone
 is the only repository the job checks out. Getting there took changing what the question was rather
 than fixing paths: at B-51 thirteen of the fourteen were addresses *inside a dependency's artefact* —
 Ktor's sources in a jar, sqlx4k's, the Kotlin/Native platform klibs, the Kubernetes website —
 verified by unpacking, and unresolvable by any search over sibling repositories. They now carry the
 artefact before a `!/` and are reported as what they are
 ([docs-bootstrap SPEC §4.1](https://github.com/youndie/docs-bootstrap/blob/main/SPEC.md)). The
-fourteenth was a layer-document row naming a file that had never existed, and it is the reason to
-keep reading a report nothing gates on. Paths into the portfolio's other repositories take the same
+fourteenth was a layer-document row naming a file that had never existed — the kind of defect the
+report now gates on. Paths into the portfolio's other repositories take the same
 form, `youndie/<repo>@<commit>!/<path>` — the commit that repository was at when the fact was read,
 never a branch, because the line numbers and the claims belong to that commit — and a Maven Central
 listing is written as its URL. Since docs-bootstrap 0.3.6 the report lists an address at a branch or
