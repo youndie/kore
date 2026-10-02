@@ -282,7 +282,7 @@ found by writing one ([B-15](../backlog/B-15-booblik-adapter.md)).
 **Claim.** Central carries `booblik-native-linuxx64` and `booblik-native-macosarm64` and nothing for
 `linuxarm64`.
 
-**Verified against** the Central listing of `io/github/youndie/booblik/`, read 2026-09-12.
+**Verified against** the Central listing `repo1.maven.org/maven2/io/github/youndie/booblik/`, read 2026-09-12.
 
 **Why it matters here.** Research D1 names `linuxX64` **and** `linuxArm64` as the two targets a
 server binary in this portfolio actually is. So `kore-booblik` cannot have the second one: the target

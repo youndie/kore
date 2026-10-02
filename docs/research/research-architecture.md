@@ -234,7 +234,7 @@ ability to list what is in the environment, not just to ask for names one at a t
 
 | Fact | Where verified |
 |---|---|
-| Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | [tracy](https://github.com/youndie/tracy) `server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
+| Kotlin/Native offers `getenv(name)` and nothing that enumerates; the portfolio already works around it with an `expect fun readEnv(name: String): String?` | `youndie/tracy!/server/src/commonMain/kotlin/io/github/youndie/tracy/server/ServerConfig.kt` and its two actuals |
 | `platform.posix` on `linux_x64` and `linux_arm64` exposes the glibc global as **`__environ`** — not `environ` | Kotlin/Native 2.4.20 distribution, `klib dump-metadata` against `kotlin-native-2.4.20!/klib/platform/linux_x64/org.jetbrains.kotlin.native.platform.posix` |
 | `platform.posix` on `macos_arm64` exposes **neither** `environ` nor `__environ` | same command against `kotlin-native-2.4.20!/klib/platform/macos_arm64/...posix`; both greps are empty |
 | `_NSGetEnviron`, the documented macOS replacement, is not in `platform.posix`, `platform.darwin` or `platform.Foundation` either — reaching it needs a cinterop `.def` of one's own | the same `klib dump-metadata` against those three klibs; all three greps return 0 |
@@ -267,7 +267,7 @@ in the agents, it is three different shutdown contracts.
 | metrik's agent **does** stop itself on `ApplicationStopping`, and its `stop()` cancels the job, cancels the scope, closes the sender and closes the dispatcher — with **no flush** of the open window | [metrik](https://github.com/youndie/metrik) `agent/src/commonMain/kotlin/io/github/youndie/metrik/agent/Metrik.kt:89` and `MetrikAgent.kt:128-134` |
 | metrik's aggregation window defaults to 60 seconds | `metrik/shared/.../Protocol.kt`, `DEFAULT_WINDOW_MS`, and the comment recording it in konekt's `ObservabilityConfig.kt:22-30` |
 | katcher is a global `object` with `start(configure)` and **no `stop` and no `flush`** — read at `b9b953f`, and **no longer true since client 0.7.47** (amended 2026-09-12): `flush(grace)`, `cacheDir` and `crashUploadGrace` were added in answer to [katcher#50](https://github.com/youndie/katcher/issues/50), which this reading raised. Amended rather than rewritten: the row is what was read, and a superseded reading left standing is §1.7's own failure | [katcher](https://github.com/youndie/katcher) `client/src/commonMain/kotlin/io/github/youndie/katcher/Katcher.kt:77` then; `Katcher.flush` and `ReportUploader.kt` at `fbfedf1` now |
-| katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
+| katcher's native crash hook is `setUnhandledExceptionHook`, chained onto the previous hook — not a POSIX signal handler, so it does not collide with §1.3 | `youndie/katcher!/client/src/nativeMain/kotlin/io/github/youndie/katcher/Katcher.native.kt` |
 
 **Consequence 1.** "One line of wiring" is worth having precisely because these three do not agree.
 kore owns three different stages: *ask tracy to flush and wait, bounded*; *let metrik's own
@@ -310,9 +310,9 @@ of booblik:
 
 | Fact | Where verified |
 |---|---|
-| `io.github.youndie.booblik:booblik-native` **0.3.3** is published on Maven Central with `linuxX64` and `macosArm64` variants, alongside `booblik-protocol-linuxx64` and `-macosarm64` | the Central listing of `io/github/youndie/booblik/`, read 2026-09-11 |
-| It is a real client, not a stub: `Connection`, `Consumer`, `Producer`, `Socket` | `booblik/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/` |
-| It came from a multiplatform *split of the protocol* rather than a reimplementation — its own header says so, crediting milestone M-134 | `booblik/booblik-native/build.gradle.kts` |
+| `io.github.youndie.booblik:booblik-native` **0.3.3** is published on Maven Central with `linuxX64` and `macosArm64` variants, alongside `booblik-protocol-linuxx64` and `-macosarm64` | the Central listing `repo1.maven.org/maven2/io/github/youndie/booblik/`, read 2026-09-11 |
+| It is a real client, not a stub: `Connection`, `Consumer`, `Producer`, `Socket` | `youndie/booblik!/booblik-native/src/nativeMain/kotlin/io/github/youndie/booblik/native/` |
+| It came from a multiplatform *split of the protocol* rather than a reimplementation — its own header says so, crediting milestone M-134 | `youndie/booblik!/booblik-native/build.gradle.kts` |
 
 So the force behind D5 is gone. What remains true is that there are **two clients with two different
 package names and two different APIs** (`io.github.youndie.booblik.net.client` on the JVM,
@@ -538,7 +538,7 @@ Found while doing B-01, by trying to resolve them rather than by reading a build
 |---|---|
 | `io.github.youndie:tracy-agent`, `metrik-agent` and `katcher-client` all answer **404** on Maven Central | `repo1.maven.org/maven2/io/github/youndie/<artifact>/maven-metadata.xml`, read 2026-09-11 |
 | The group directory on Central holds kompot, petich, viddik, wizard-core, form-*, experiments-core, chronik, bochka and booblik — and none of the three agents | the Central listing of `io/github/youndie/` |
-| booblik *is* there, under its own group `io.github.youndie.booblik`, at 0.3.3 | the Central listing of `io/github/youndie/booblik/` |
+| booblik *is* there, under its own group `io.github.youndie.booblik`, at 0.3.3 | the Central listing `repo1.maven.org/maven2/io/github/youndie/booblik/` |
 | The agents are published to the portfolio's own repository instead, which the first consumer declares with a group filter | [konekt](https://github.com/youndie/konekt) `settings.gradle.kts` |
 
 **Consequence 1, and it is about what kind of thing kore is.** kore is public and meant to be
@@ -708,7 +708,7 @@ and the consumer rebuilds at its saved position.
 |---|---|
 | `reconnect(seen: Int): Int`, synchronized and generation-guarded | konekt `server/src/main/kotlin/io/konekt/events/BrokerConnection.kt:77-92` |
 | The consumer reconnects and resumes at its own position rather than from the beginning | konekt `UsageConsumer.kt:105-120` |
-| It is tested — replacement is idempotent, the consumer resumes, the outbox recovers | konekt `server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt` |
+| It is tested — replacement is idempotent, the consumer resumes, the outbox recovers | `youndie/konekt!/server/src/test/kotlin/io/konekt/events/BrokerReconnectTest.kt` |
 
 So kore must not describe a permanent wedge in the present tense: the consumer heals. What remains
 true is that **the healing is the consumer's own code, because the client offers none** — every
