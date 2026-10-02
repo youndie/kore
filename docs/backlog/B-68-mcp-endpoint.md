@@ -59,7 +59,8 @@ home, beside `kore-ktor` and `kore-koin`.
   that omits defaults, the bare SDK answers `2025-06-18` with the field and `2025-11-25` without it — the
   tripwire. With no application ContentNegotiation the field is there for every version, which is what
   tracy measured when it removed its shim. katcher's report and tracy's were both right about their own
-  application.
+  application. That tripwire watched one field and named the wrong day to delete the re-encoding;
+  [B-69](B-69-mcp-tripwire-watches-one-field.md) replaced it with whole answers under two `Json`s.
 - **Mutations, each run and each red where it should be** (JVM, 2026-10-01): the guard moved to an
   application interceptor keyed on the path string turns `KoreMcpPathTest` red and nothing else; the re-encoding removed turns the
   two `protocolVersion` tests red; the host check disabled turns its unit test red and the endpoint test

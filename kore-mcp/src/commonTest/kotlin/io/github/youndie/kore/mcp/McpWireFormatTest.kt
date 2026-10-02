@@ -45,17 +45,18 @@ import kotlin.test.assertTrue
  * requires json(McpJson)…") names no harm under `installKoreMcp`: the hook re-encodes that one answer
  * before ContentNegotiation sees it.
  *
- * What the application's `Json` does to that answer without the hook, measured on 0.15.0 by the
- * controls below: one that omits defaults (kotlinx's own `encodeDefaults = false`) drops
- * `protocolVersion` from the initialize result and the whole `result` from a `ping` answer, which then
- * carries neither `result` nor `error` and is no longer JSON-RPC; Ktor's `json()` with no argument keeps
- * both and writes an explicit `null` for every unset optional field. So the measure is the whole body,
- * not a field: a test that watched `protocolVersion` alone would go red the day the SDK fixed that field,
- * and the hook would be deleted while the rest still broke.
+ * What the application's `Json` does to that answer without the hook, read on 0.15.0 from the failures
+ * below with the re-encoding removed (B-69): one that omits defaults (kotlinx's own
+ * `encodeDefaults = false`) drops `protocolVersion` from the initialize result and the whole `result`
+ * from a `ping` answer, which then carries neither `result` nor `error` and is no longer JSON-RPC;
+ * Ktor's `json()` with no argument keeps both and writes an explicit `null` for every unset optional
+ * field, in all six message answers. So the measure is the whole body, not a field: a test that watched
+ * `protocolVersion` alone would go red the day the SDK fixed that field, and the hook would be deleted
+ * while the rest still broke.
  *
  * **When a control fails, the SDK no longer hands its answer to the application's ContentNegotiation.**
- * Then, and not before, delete `McpMessagesInMcpJson` and `mcpJsonBody`, both controls, and the request
- * test at the bottom; keep the two tests through kore.
+ * Then, and not before, delete `McpMessagesInMcpJson`, `mcpJsonBody` and both controls; the other tests
+ * stay, as what a client gets.
  */
 class McpWireFormatTest {
     /**

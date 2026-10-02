@@ -347,16 +347,20 @@ what an unknown requested version negotiates to. A client then rejects the initi
 **Verified against** `kotlin-sdk-server-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/server/StreamableHttpServerTransport.kt:563`,
 `kotlin-sdk-server-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/server/KtorServerHelpers.kt:33-42`,
 `kotlin-sdk-core-0.15.0-sources.jar!/commonMain/io/modelcontextprotocol/kotlin/sdk/types/initialize.kt:92`,
-and by `ProtocolVersionTest`'s tripwire, which asserts the omission on the published 0.15.0.
+and by the controls in `McpWireFormatTest`, which assert on the published 0.15.0 that the answers go
+out through the application's `Json` ([B-69](../backlog/B-69-mcp-tripwire-watches-one-field.md)). The
+same path drops the whole `result` of a `ping` under that `Json` — `EmptyResult()` is the field's
+default — and under Ktor's `json()` writes an explicit `null` for every unset optional field.
 
-**Proposed shape.** Either of two, and the first is the one that removes the class rather than the
-instance: encode the transport's responses with `McpJson` itself (as its SSE path already does, and as its
-`reject` path does with `respondText`), or mark `protocolVersion` `@EncodeDefault` / drop its default.
+**Proposed shape.** Encode the transport's responses with `McpJson` itself, as its SSE path already
+does and as its `reject` path does with `respondText`. Marking `protocolVersion` `@EncodeDefault`, or
+dropping its default, fixes one field of one answer and leaves the `ping` and the `null`s as they are.
 
 **What kore does meanwhile.** `kore-mcp` re-encodes the transport's JSON-RPC responses with `McpJson` in
 the send pipeline's `Before` phase of the endpoint's own route (`McpMessagesInMcpJson` in
-`kore-mcp/src/commonMain/kotlin/io/github/youndie/kore/mcp/KoreMcp.kt`), and the tripwire names the day
-to delete it: when the bare SDK keeps the field, the test fails.
+`kore-mcp/src/commonMain/kotlin/io/github/youndie/kore/mcp/KoreMcp.kt`), and the controls name the day
+to delete it: when the bare SDK's answers no longer pass through the application's `Json`, they fail. A
+fix to `protocolVersion` alone does not make them fail, and is not that day.
 
 ---
 

@@ -237,7 +237,8 @@ same container without that scope; `get`/`inject` in routes are unchanged, `call
 route-scoped plugin on the transport's own route — so the router and the guard cannot disagree about
 which request lines reach it — checks `Host` when hosts are configured, answers a JSON `401`/`400`
 rather than a login page, and encodes the transport's responses with the SDK's `McpJson` whatever
-ContentNegotiation the application installed (SDK 0.15.0 otherwise drops `protocolVersion`). The tools
+ContentNegotiation the application installed (on SDK 0.15.0 that `Json` otherwise decides the answer:
+`protocolVersion` dropped, or `null`s added). The tools
 are the service's. [feature-mcp-endpoint](docs/features/feature-mcp-endpoint.md) has the rules.
 
 ## Documentation
