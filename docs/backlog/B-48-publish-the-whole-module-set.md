@@ -71,8 +71,9 @@ route with `toPath.startsWith(route.path)` and a required trailing slash, so `�
 cover `…/kore-core-jvm/` — each per-target coordinate is its own route. The token was issued for the
 15 coordinates of three modules; the fourth module's four were refused with `403`. The comment above
 the read-back step had predicted exactly this and it still took a failed publish to notice, because
-nothing checked it. Re-issued through `vedutsya-raboty/infra`'s `reposilite-token` workflow with all
-**19** coordinates, and the list was derived from `build/published` rather than typed.
+nothing checked it. Re-issued through the `reposilite-token` workflow of the portfolio's private
+infrastructure repository with all **19** coordinates, and the list was derived from
+`build/published` rather than typed.
 
 **A failed publish poisons its own version number.** The `403` stopped the run after three jars were
 already up, and `snapshots` refuses an overwrite — so the second attempt failed with three `409`s
