@@ -37,7 +37,7 @@ about the state of the project has no way to fail; `backlog.md` and the build do
    suite red.
 3. [backlog.md](backlog.md) — the goal, the stages and the index. Items are one file each in
    `docs/backlog/`; the index between the markers is generated, so edit the item and run
-   `python3 scripts/backlog_index.py`.
+   `LOCAL=1 make fix`.
 4. The layer document the task belongs to — [`docs/features/`](docs/features/),
    [`docs/api/`](docs/api/), [`docs/services/`](docs/services/). The map is
    [docs/README.md](docs/README.md).
@@ -98,8 +98,9 @@ covers more than it does.
 
 - **`main` describes what exists.** Every feature document is `status: draft` because the code does
   not exist. When a feature is built, its document becomes `active` **and is re-read against the
-  code** — not flipped. `docs_check.py --on-main` is the mechanical half and it is off with an
-  address: [B-35](docs/backlog/B-35-draft-gate.md), not a relaxed rule.
+  code** — not flipped. The mechanical half is `make docs-on-main`, which makes a draft an error on
+  the default branch; CI runs it on every push to `main` since
+  [B-35](docs/backlog/B-35-draft-gate.md).
 - **What was verified is separated from what was assumed, explicitly.** Everything in
   research §1 carries a file and a line. Everything else says "decision" or "hypothesis", and a
   hypothesis carries the milestone where it is settled. A document that blurs the two is a defect
@@ -238,7 +239,11 @@ LOCAL=1 make check
 ```
 
 `make check` is the gate and CI runs exactly it — on a GitHub runner, where no hook and no `LOCAL=1`
-are involved; the prefix above is only for running it here, beside a mutagen session. `make report`
+are involved; the prefix above is only for running it here, beside a mutagen session. The checks are
+docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@…` line in
+`.github/workflows/check.yaml` pins; the first `make check` fetches that version into
+`.docs-bootstrap/` (it ignores itself), and there are no copies under `scripts/` to run by hand.
+`make fix` regenerates the backlog index. `make report`
 is the two non-blocking reports. **`code_anchors` reports 0 rotten** as of B-51, and getting there
 took changing what the question was rather than fixing paths: thirteen of the fourteen were addresses
 *inside a dependency's artefact* — Ktor's sources in a jar, sqlx4k's, the Kotlin/Native platform

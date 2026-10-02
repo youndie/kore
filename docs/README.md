@@ -74,10 +74,12 @@ pip install pyyaml
 make check
 ```
 
-`make check` is the gate and CI runs exactly it. `make report` is the two non-blocking reports. The
-one gate that is **off** is `docs_check.py --on-main`, which makes a draft an error on the default
-branch: it cannot pass while every feature is a draft, and it is switched on by
-[B-35](backlog/B-35-draft-gate.md) rather than quietly relaxed.
+`make check` is the gate and CI runs exactly it; `make fix` regenerates the backlog index and fills
+in missing coverage-map lines. `make report` is the two non-blocking reports. The checks are
+[docs-bootstrap](https://github.com/youndie/docs-bootstrap)'s, at the version
+`.github/workflows/check.yaml` pins, fetched into `.docs-bootstrap/` by the first run. On a push to the
+default branch CI also runs `make docs-on-main`, which makes a draft an error there — on since
+[B-35](backlog/B-35-draft-gate.md).
 
 ## Coverage map
 
