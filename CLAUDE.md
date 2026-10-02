@@ -244,18 +244,22 @@ docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@…` line in
 `.github/workflows/check.yaml` pins; the first `make check` fetches that version into
 `.docs-bootstrap/` (it ignores itself), and there are no copies under `scripts/` to run by hand.
 `make fix` regenerates the backlog index. `make report`
-is the two non-blocking reports. **`code_anchors` reports 0 rotten** as of B-51, and getting there
-took changing what the question was rather than fixing paths: thirteen of the fourteen were addresses
-*inside a dependency's artefact* — Ktor's sources in a jar, sqlx4k's, the Kotlin/Native platform
-klibs, the Kubernetes website — verified by unpacking, and unresolvable by any search over sibling
-repositories. They now carry the artefact before a `!/` and are reported as what they are
+is the two non-blocking reports. **`code_anchors` reports 0 rotten** — in CI too, where this clone
+is the only repository the job checks out. Getting there took changing what the question was rather
+than fixing paths: at B-51 thirteen of the fourteen were addresses *inside a dependency's artefact* —
+Ktor's sources in a jar, sqlx4k's, the Kotlin/Native platform klibs, the Kubernetes website —
+verified by unpacking, and unresolvable by any search over sibling repositories. They now carry the
+artefact before a `!/` and are reported as what they are
 ([docs-bootstrap SPEC §4.1](https://github.com/youndie/docs-bootstrap/blob/main/SPEC.md)). The
 fourteenth was a layer-document row naming a file that had never existed, and it is the reason to
-keep reading a report nothing gates on.
+keep reading a report nothing gates on. Paths into the portfolio's other repositories take the same
+form, `youndie/<repo>!/<path>`, and a Maven Central listing is written as its URL.
 
-Two sentences about this report have been wrong before, in opposite directions: *"they are where the
-code will live"* (the code arrived and the count did not move) and *"it becomes a gate when it reaches
-zero"* (nothing could reach it). It is **still not a gate**, now for the remaining reason rather than
-the arithmetic one: a path quoted *as obsolete* is indistinguishable by machine from a live one, and
-the paths that do rot are in other people's repositories, so a red build here is one nobody in this
-repository caused.
+Three sentences about this report have been wrong before: *"they are where the code will live"* (the
+code arrived and the count did not move), *"it becomes a gate when it reaches zero"* (nothing could
+reach it), and *"0 rotten as of B-51"* — true on a laptop, where `REPOS=..` holds tracy, katcher,
+booblik and konekt beside this clone and eight bare paths into them resolved; the weekly CI run, which
+clones only kore, reported those eight as rotten on every run from the first one after B-51. It is
+**still not a gate**, now for the remaining reason rather than the arithmetic one: a path quoted *as
+obsolete* is indistinguishable by machine from a live one, and the paths that do rot are in other
+people's repositories, so a red build here is one nobody in this repository caused.
