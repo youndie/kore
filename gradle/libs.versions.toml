@@ -50,7 +50,16 @@ mcpSdk = "0.15.0"
 #
 # Nothing in kore needs 25: it is a choice, not a constraint. If an outside consumer asks, lowering
 # it is a build change and a re-run of the suite, not a redesign.
+#
+# **The toolchain stays; the bytecode does not, since B-70.** A KMP library on 21 asked (#115), and
+# what it met was worse than a refusal: the KMP plugin stamps no `org.gradle.jvm.version` on a
+# `jvm()` target's variants, so Gradle resolved kore 0.1.12 for it and the first JVM test died on
+# `UnsupportedClassVersionError`. `jvmTarget` below is what the library modules compile to and what
+# their variants now declare — except `kore-observability` and `kore-booblik`, whose dependencies
+# (the three agents, booblik-client) are 25 bytecode and declare 25 themselves, so 21 there would be
+# a promise the classpath breaks. The root build names the two.
 jvmToolchain = "25"
+jvmTarget = "21"
 
 # THE ORACLE MODULE ONLY, and only for a check that is invoked by name (B-47). kore takes no driver
 # dependency: what it ships is the *shape* of a store check, and which pool a service uses is the

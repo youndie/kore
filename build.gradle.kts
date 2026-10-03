@@ -16,6 +16,13 @@ subprojects {
     version = rootProject.version
 }
 
+// WHAT A LIBRARY MODULE'S JVM HALF RUNS ON (B-70, `jvmTarget` in the catalog says why it is not 25).
+// The two exceptions depend on artefacts that are 25 bytecode and say so in their own metadata.
+val jvmLibraryLevel = libs.versions.jvmTarget.get().toInt()
+val jvmToolchainLevel = libs.versions.jvmToolchain.get().toInt()
+fun jvmLevel(path: String): Int =
+    if (path == ":kore-observability" || path == ":kore-booblik") jvmToolchainLevel else jvmLibraryLevel
+
 // The target set of research D1, in one place rather than repeated in every module.
 //
 // Named explicitly and never chosen from `os.name`: a build that picks its native target from the
@@ -33,7 +40,14 @@ subprojects {
             // the oracle compares and nothing else, because a metadata jar for a target no
             // experiment runs on is build time spent proving nothing. It declares them itself.
             if (path.startsWith(":kore-")) {
-                jvm()
+                // THE BYTECODE LEVEL, and `-Xjdk-release` beside it because the toolchain is 25: without
+                // it a call into a JDK API newer than the target compiles here and fails at the consumer.
+                jvm {
+                    compilerOptions {
+                        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("${jvmLevel(path)}"))
+                        freeCompilerArgs.add("-Xjdk-release=${jvmLevel(path)}")
+                    }
+                }
 
                 // The targets that decide the design. A server binary in this portfolio is one of
                 // these two.
@@ -132,6 +146,52 @@ subprojects {
                     }
                 }
             }
+
+            // THE LEVEL, WRITTEN WHERE GRADLE READS IT (B-70, #115). The `java` and `kotlin("jvm")`
+            // plugins stamp `org.gradle.jvm.version` on their variants; the multiplatform plugin does
+            // not stamp it on a `jvm()` target's. Without it a consumer below the level resolves kore
+            // without complaint and fails on `UnsupportedClassVersionError` at its first test. With
+            // it the same consumer fails at resolution, with a message that names the version.
+            val level = jvmLevel(path)
+            configurations
+                .matching { it.name == "jvmApiElements" || it.name == "jvmRuntimeElements" }
+                .configureEach { attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, level) }
+
+            // THE DECLARATION AND THE BYTECODE, HELD TOGETHER. An attribute set by hand is a promise
+            // nothing checks, and the two halves move separately: the bytecode with the catalog, the
+            // attribute with this file. So `check` reads both from what would be published — every
+            // class in the JVM jar, every JVM library variant in the root module file (what a consumer
+            // resolves against) and in the jvm one — and fails on a disagreement or on finding none.
+            val jvmJar = tasks.named<Jar>("jvmJar").flatMap { it.archiveFile }
+            val moduleFiles = listOf("kotlinMultiplatform", "jvm")
+                .map { layout.buildDirectory.file("publications/$it/module.json") }
+            val checkJvmLevel = tasks.register("checkJvmLevel") {
+                group = "verification"
+                description = "Checks that the JVM bytecode and the published jvm.version agree"
+                dependsOn("generateMetadataFileForKotlinMultiplatformPublication", "generateMetadataFileForJvmPublication")
+                inputs.file(jvmJar)
+                inputs.files(moduleFiles)
+                doLast {
+                    java.util.zip.ZipFile(jvmJar.get().asFile).use { zip ->
+                        val majors = zip.entries().asSequence()
+                            .filter { it.name.endsWith(".class") && !it.name.startsWith("META-INF/") }
+                            .map { e -> zip.getInputStream(e).use { s -> s.readNBytes(8).let { (it[6].toInt() and 0xff shl 8) or (it[7].toInt() and 0xff) } } }
+                            .groupingBy { it - 44 }.eachCount()
+                        check(majors.keys == setOf(level)) { "jvmJar: expected Java $level bytecode, found $majors (Java version to class count)" }
+                    }
+                    for (file in moduleFiles.map { it.get().asFile }) {
+                        @Suppress("UNCHECKED_CAST")
+                        val variants = (groovy.json.JsonSlurper().parse(file) as Map<String, Any?>)["variants"] as List<Map<String, Any?>>
+                        val jvm = variants.map { it["attributes"] as Map<*, *> }.filter {
+                            it["org.jetbrains.kotlin.platform.type"] == "jvm" && it["org.gradle.category"] == "library"
+                        }
+                        check(jvm.size >= 2) { "$file: expected the JVM api and runtime variants, found ${jvm.size}" }
+                        val declared = jvm.map { it["org.gradle.jvm.version"] }
+                        check(declared.all { it == level }) { "$file: JVM variants declare org.gradle.jvm.version $declared, the bytecode is $level" }
+                    }
+                }
+            }
+            tasks.named("check") { dependsOn(checkJvmLevel) }
         }
     }
 }
