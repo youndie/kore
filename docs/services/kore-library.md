@@ -188,6 +188,12 @@ kore is a library. It publishes artefacts; it deploys nothing.
   `pluginManagement` and would make kore unconfigurable without the portfolio's repository. Version
   from `-PVERSION`, defaulting to `0.1.0-SNAPSHOT`. `samples/*` publishes nothing.
   `kore-booblik`'s targets are [B-36](../backlog/B-36-booblik-adapter-targets.md).
+* **JVM level — 21, or 25 where a dependency is.** `kore-core`, `-ktor`, `-koin`, `-mcp` compile for
+  Java 21 against the 25 toolchain (`-Xjdk-release=21`); `kore-observability` and `kore-booblik` for
+  25, because the agents and booblik-client are 25 bytecode. Each module declares its level as
+  `org.gradle.jvm.version` on its JVM variants, which the multiplatform plugin does not do by itself,
+  and `checkJvmLevel` (part of `check`) fails when the declaration and the jar disagree
+  ([B-70](../backlog/B-70-jvm-level-undeclared.md)).
 * **Resolvable by whom — three modules by anyone, one by the portfolio.** `kore-core`, `kore-ktor`
   and the Gradle plugin resolve from Maven Central alone. **`kore-observability` does not**: the three
   agents it wires are published only to `https://reposilite.kotlin.website/snapshots`, which

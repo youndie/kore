@@ -4,7 +4,7 @@
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
 [![kotlin](https://img.shields.io/badge/Kotlin-2.4.20-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![native](https://img.shields.io/badge/Native-blue?logoColor=white)](https://kotlinlang.org)
-[![jvm](https://img.shields.io/badge/JVM-25-orange?logoColor=white)](https://openjdk.org/projects/jdk/25/)
+[![jvm](https://img.shields.io/badge/JVM-21%2B-orange?logoColor=white)](https://openjdk.org/projects/jdk/21/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **One library that owns the process lifecycle of a Kotlin server binary:** stop in a defined order,
@@ -219,6 +219,14 @@ here would be one more thing that goes stale silently, and this README has had t
 there. They do not, and had not when it was written — a sentence about a plan in the tense of a fact,
 in the one place a stranger reads to decide whether they can use this. Central is still where the
 dependency-free modules belong; [B-37](docs/backlog/B-37-agents-not-on-central.md) says which.
+
+**The JVM half runs on 21, except two modules that need 25.** `kore-core`, `kore-ktor`, `kore-koin`
+and `kore-mcp` are compiled for Java 21; `kore-observability` and `kore-booblik` for 25, because the
+agents and the booblik client they depend on are. Each module's Gradle metadata says which
+(`org.gradle.jvm.version`), so a build below it fails at resolution with the version in the message.
+Up to 0.1.14 the metadata said nothing and every module was 25, so a consumer on 21 resolved kore and
+met `UnsupportedClassVersionError` at its first test
+([B-70](docs/backlog/B-70-jvm-level-undeclared.md)). The Gradle plugin needs a daemon on 25.
 
 **`kore-observability` is portfolio-only by construction.** The three agents it wires are not on
 Central either, so that one module cannot resolve outside this portfolio. If you are outside it you
