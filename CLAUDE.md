@@ -75,7 +75,7 @@ states, and the difference matters: one task is disabled and the other was never
 runner can be told to run it. Since [B-49](docs/backlog/B-49-arm64-suites-never-run.md) CI covers both
 anyway:
 
-- `macos-arm64-suite` runs `macosArm64Test` on `macos-14`, where the target **is** the host;
+- `macos-arm64-suite` runs `macosArm64Test` on `macos-15`, where the target **is** the host;
 - `linux-arm64-suite` takes the `test.kexe` the x86-64 job cross-linked and **executes** it on
   `ubuntu-24.04-arm`, because linking and running are separable even where the plugin will not do it.
 
