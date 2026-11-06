@@ -123,14 +123,14 @@ jobs:
   # printed as a warning inside BUILD SUCCESSFUL. Green said *compiles* and a reader heard *works*.
   #
   # A real host rather than an emulator, and affordable because this repository is PUBLIC: GitHub
-  # charges for *larger* runners only, so a standard `macos-14` is free here.
+  # charges for *larger* runners only, so a standard `macos-15` is free here.
   #
   # `./gradlew <task>` and not `make build`, breaking this repository's own rule that CI runs the
   # contributor's command. The rule holds where a contributor has one; nobody can run
   # `macosArm64Test` on Linux, so there is no single command to share.
   macos-arm64-suite:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -163,7 +163,7 @@ jobs:
             printf '%s tests=%s\n' "${f#./}" "$n"
             total=$((total + n))
           done
-          echo "$total tests on macos-14"
+          echo "$total tests on macos-15"
           [ "$total" -gt 0 ] || { echo "::error::macosArm64Test ran zero tests"; exit 1; }
 
   # linuxArm64 — AND HERE THERE IS NO TASK TO RUN AT ALL, which is a sharper fact than the one this
