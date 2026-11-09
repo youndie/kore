@@ -3,6 +3,7 @@ package io.github.youndie.kore.observability
 import io.github.youndie.kore.config.ConfigKey
 import io.github.youndie.kore.config.ConfigPair
 import io.github.youndie.kore.config.Configuration
+import io.github.youndie.tracy.wire.Level
 import kotlin.time.Duration
 
 /**
@@ -143,6 +144,17 @@ public class ObservabilitySettings(
     public val tracySampleRate: Double? = null,
     /** See [ObservabilityKeys.METRIK_WINDOW_MS]. `null` leaves metrik's own default. */
     public val metrikWindow: Duration? = null,
+    /**
+     * The lowest level of the service's own logging that reaches tracy; `null` attaches no capture
+     * and leaves tracy with the plugin's request spans and whatever is written through
+     * [KoreObservability.tracy] directly.
+     *
+     * `WARN` by default, not `INFO`: a captured line carries no trace, so tracy cannot tail-sample it
+     * and sends every one — from `INFO` that is a line per request at the request rate. Not read from
+     * the environment: a deployment that wants more than warnings is choosing a volume, and that
+     * belongs in the code beside the reason (B-71).
+     */
+    public val tracyCaptureFrom: Level? = Level.WARN,
 ) {
     public val anyAgentOn: Boolean get() = tracy != null || metrik != null || katcher != null
 
