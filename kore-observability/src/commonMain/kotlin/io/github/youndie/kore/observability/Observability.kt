@@ -42,8 +42,18 @@ public class KoreObservability internal constructor(
     public val tracy: TracyAgent?,
     private val tracyDelivery: TracyDelivery?,
     private val flushGrace: Duration,
+    private val detachLogCapture: (() -> Unit)? = null,
 ) : ShutdownParticipant {
     override val name: String = "observability"
+
+    /**
+     * Whether the service's own logging reaches tracy — see [ObservabilitySettings.tracyCaptureFrom].
+     *
+     * `false` with tracy on means only the plugin's request spans arrive: capture switched off, logback
+     * not the JVM's SLF4J backend, or kotlin-logging not on its direct factory (Apple targets). Worth a
+     * line at startup, because from outside such a service looks connected (B-71).
+     */
+    public val logsCaptured: Boolean get() = detachLogCapture != null
 
     /**
      * Flushes what can be flushed **from here**: tracy and katcher. metrik is not in this list and no
@@ -73,6 +83,9 @@ public class KoreObservability internal constructor(
      */
     override suspend fun stop(): Unit =
         coroutineScope {
+            // Off first: a line logged after this point would go to an agent whose last flush has
+            // already been asked for.
+            detachLogCapture?.invoke()
             launch { tracyDelivery?.stop(flushGrace) }
             // Unconditional, unlike tracy's: `Katcher` is a global object with no handle to hold, so
             // there is nothing here to be null. Before `start` it answers `true` — nothing to hand
@@ -118,6 +131,7 @@ public fun Application.installKoreObservability(
     }
 
     var agent: TracyAgent? = null
+    var detachLogCapture: (() -> Unit)? = null
     val delivery =
         settings.tracy?.let { tracy ->
             val agentConfig = tracyAgentConfig(settings, tracy, release)
@@ -128,6 +142,10 @@ public fun Application.installKoreObservability(
             val started = TracyDelivery(built, agentConfig)
             started.start(this)
             install(Tracy) { this.agent = built }
+
+            // AND THE SERVICE'S OWN LOGGING. Without it the plugin's request spans are all that
+            // arrives (B-71).
+            detachLogCapture = settings.tracyCaptureFrom?.let { from -> attachLogCapture(FromLevel(built, from)) }
             started
         }
 
@@ -148,7 +166,7 @@ public fun Application.installKoreObservability(
         }
     }
 
-    return KoreObservability(agent, delivery, flushGrace)
+    return KoreObservability(agent, delivery, flushGrace, detachLogCapture)
 }
 
 /**

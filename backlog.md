@@ -104,7 +104,7 @@ exit codes, and two are now rules in `CLAUDE.md`.
 |---|---|---|---|---|
 | [B-56](docs/backlog/B-56-peak-under-load.md) `[ ]` | RSS at ready is not the number a limit is set from | P2 | S | - |
 
-## Closed (69)
+## Closed (70)
 
 **Shape**
 
@@ -195,5 +195,6 @@ exit codes, and two are now rules in `CLAUDE.md`.
 - [B-68](docs/backlog/B-68-mcp-endpoint.md) `[x]` - The hardened MCP endpoint is copied into three services, and the copies have drifted
 - [B-69](docs/backlog/B-69-mcp-tripwire-watches-one-field.md) `[x]` - kore-mcp's tripwire watches one field, and would delete the re-encoding while answers still break
 - [B-70](docs/backlog/B-70-jvm-level-undeclared.md) `[x]` - The JVM variants need Java 25 and their Gradle metadata does not say so
+- [B-71](docs/backlog/B-71-observability-captures-logs.md) `[x]` - kore-observability wires tracy and attaches no log capture, so only spans arrive
 
 <!-- END INDEX -->

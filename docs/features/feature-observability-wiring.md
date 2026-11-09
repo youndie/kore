@@ -53,6 +53,19 @@ them by copying an example gets whichever of those behaviours the example happen
 7. **Installing an agent that fills a buffer without the thing that empties it is not possible
    through kore.** tracy's plugin and its delivery are two objects and installing only the first
    logs into memory and reports nothing. kore installs both or neither.
+7a. **The service's own logging reaches tracy, from `WARN` by default** (B-71). The plugin writes
+   the span of each request and nothing else; every line the service logs gets to tracy only
+   through a capture — tracy's SLF4J appender on the JVM (on logback's root logger), its
+   kotlin-logging appender on native (`direct.appender`). kore attached neither until B-71, so a
+   consumer that did everything kore asked sent spans and not one record: konekt-server did for six
+   weeks while tracy's summary called the gap expected (youndie/tracy M-150). The floor is
+   `ObservabilitySettings.tracyCaptureFrom`, `null` to attach nothing; `WARN` because a captured line
+   carries no trace, so tracy cannot tail-sample it and sends every one. Not an environment
+   variable: a deployment that wants more than warnings is choosing a volume, and that belongs in the
+   code beside the reason. Where the capture cannot attach — logback not the JVM's SLF4J backend,
+   kotlin-logging not on its direct factory (Apple targets, where it writes to os_log) —
+   `KoreObservability.logsCaptured` is `false` rather than the call failing or pretending. Ktor's own
+   logger on native is not kotlin-logging and is not captured anywhere.
 8. **Where katcher queues an undelivered report is the deployment's to choose.** `KATCHER_CACHE_DIR`,
    optional. Unset, katcher writes `.katcher_cache` beside the working directory — in a container,
    the writable layer that dies with the pod, so a report that outlived its process is lost anyway.
@@ -112,7 +125,7 @@ never revisited. That is the failure class this feature exists for, and it is ca
 
 ## 5. Scenarios (BDD)
 
-All six are automated. The two delivery scenarios run against a **real receiver on a real socket**
+All seven are automated. The two delivery scenarios run against a **real receiver on a real socket**
 rather than a double, because the thing being proved is that records leave the process — and the
 mutation that survived the double-free version of this suite was exactly "install the buffer and not
 the thing that empties it".
@@ -124,6 +137,17 @@ the thing that empties it".
 * **Automated:** `ObservabilityKeysTest.an endpoint without its key refuses the start and names both
   variables` — the refusal is the schema's pair rule, so kore declares the pairs rather than
   re-checking them at the call
+
+### Scenario: the service's own warnings reach tracy
+* **Given:** tracy configured and the capture left at its default
+* **When:** the service logs a warning and an info line through its own logging (SLF4J on the JVM,
+  kotlin-logging on native)
+* **Then:** tracy receives the warning and not the info line
+* **And:** after the stop, a line the service logs no longer reaches tracy
+* **And:** with `tracyCaptureFrom = null`, or where the platform's logging cannot be reached, nothing
+  is attached and `logsCaptured` says so
+* **Automated:** `LogCaptureTest` (jvm and linuxX64; on macosArm64 the absent branch) — five cases,
+  two of them through `installKoreObservability`
 
 ### Scenario: a consumer sets how much tracy keeps
 * **Given:** `TRACY_SAMPLE_RATE` set to `1.0` and tracy configured

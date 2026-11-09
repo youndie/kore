@@ -88,6 +88,10 @@ booblikClient = "0.3.4"
 booblikNative = "0.3.4"
 
 tracyAgent = "0.2.15"
+# `kore-observability`'s log capture only (B-71). kotlin-logging is the one tracy's agent 0.2.15 is
+# built against; logback is `compileOnly` there and here — the host's is the one that runs.
+kotlinLogging = "8.0.4"
+logback = "1.6.6"
 metrikAgent = "0.3.21"
 katcherClient = "0.7.47"
 
@@ -135,6 +139,8 @@ booblik-client = { module = "io.github.youndie.booblik:booblik-client", version.
 booblik-native = { module = "io.github.youndie.booblik:booblik-native", version.ref = "booblikNative" }
 metrik-agent = { module = "io.github.youndie.metrik:agent", version.ref = "metrikAgent" }
 katcher-client = { module = "io.github.youndie.katcher:client", version.ref = "katcherClient" }
+kotlin-logging = { module = "io.github.oshai:kotlin-logging", version.ref = "kotlinLogging" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 sqlx4k-postgres = { module = "io.github.smyrgeorge:sqlx4k-postgres", version.ref = "sqlx4k" }
 

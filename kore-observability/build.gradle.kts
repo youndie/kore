@@ -42,5 +42,19 @@ kotlin {
             implementation(libs.metrik.agent)
             implementation(libs.katcher.client)
         }
+
+        // THE CAPTURE (B-71): what the service's own logging is written through, per platform.
+        // `compileOnly` on the JVM for the reason tracy's agent gives — the host brings its own
+        // logback, and a second copy on its classpath is a conflict, not a convenience. Absent at run
+        // time, the capture reports itself absent rather than failing the start.
+        jvmMain.dependencies {
+            compileOnly(libs.logback.classic)
+        }
+        jvmTest.dependencies {
+            implementation(libs.logback.classic)
+        }
+        nativeMain.dependencies {
+            implementation(libs.kotlin.logging)
+        }
     }
 }
